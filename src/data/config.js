@@ -17,9 +17,9 @@ export const HERO_BASE = {
 
 // ---- 敵の基礎値（距離に応じて指数インフレ：設計書§5）----
 export const ENEMY_BASE = {
-  hp: 30,
-  atk: 5,
-  growth: 1.08, // 成長率。距離+10で約 ^1（≒1.08倍）
+  hp: 44, // 取締役調整：HPを厚く（打ち合いを長く・白熱）
+  atk: 3, // 攻撃はある程度下げる（即死を減らす）
+  growth: 1.072, // 成長をやや緩やかに → 育て切った終盤は雑魚をワンパンできる方向
   spdMin: 5,
   spdMax: 15,
 };
@@ -30,7 +30,7 @@ export const COMBAT = {
   atbThreshold: 10, // 行動ゲージ閾値（spdを毎ティック加算→到達で攻撃）
   walkSpeed: 22, // 進軍速度(m/s)
   distancePerEncounter: 14, // 何mごとに敵が出るか（±ゆらぎあり）
-  maxBattleTicks: 220, // 戦闘の最長ティック。超えたら強制決着（フリーズ防止の安全網）
+  maxBattleTicks: 340, // 戦闘の最長ティック。超えたら強制決着（フリーズ防止の安全網。ボスHP増に合わせ拡大）
   swarmEnabled: false, // 群れ（複数の敵を連戦）。今は1体ずつ。後で丁寧に再開する。
 };
 
@@ -371,10 +371,10 @@ export const PROGRESS = {
 // ---- 固定距離ボス（DR④：ローグウィズ型。進捗バーの🚩＝向かう先）----
 export const BOSS = {
   everyMeters: 100, // この距離ごとにボスが待つ（進捗バーの節目と一致）
-  hpMult: 3.0, // 強敵だが倒せる範囲に（旧4.5は硬すぎ・長期化の一因）
-  atkMult: 1.35,
+  hpMult: 5.5, // 取締役調整：ボスは硬い壁に（HP厚く＝白熱する殴り合い）。安全網 maxBattleTicks/forceFinish で長期化フリーズは回避
+  atkMult: 1.05, // 攻撃は下げて即死を減らし、粘り合いにする
   spdMult: 0.9,
-  warnDistance: 14, // 何m手前で接近警告
+  warnDistance: 22, // 何m手前で接近警告（予兆を長めに）
   rewardMult: 4, // 撃破報酬（コイン）の倍率
   materialBonus: 3, // 撃破で確定で得る素材数
   types: {

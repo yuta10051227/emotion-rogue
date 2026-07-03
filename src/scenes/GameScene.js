@@ -349,11 +349,22 @@ export default class GameScene extends Phaser.Scene {
   }
 
   preload() {
-    // 仲間の相棒アート＋ボスアート（Gemini生成）。無ければ絵文字にフォールバック。
+    // 仲間・ボス・主人公進化アート（Gemini生成）。無ければ絵文字にフォールバック。
+    if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
       if (!this.textures.exists("boss_" + k)) this.load.image("boss_" + k, "chars/boss_" + k + ".png");
+      for (let s = 1; s <= 3; s++) {
+        const key = "hero_" + k + "_" + s;
+        if (!this.textures.exists(key)) this.load.image(key, "chars/" + key + ".png");
+      }
     }
+  }
+
+  // 進化段階ごとの主人公表示サイズ（段が上がるほど大きく）
+  heroFitFor(stage) {
+    if (!this.heroIsImage) return 1;
+    return (58 + (stage || 0) * 9) / (this.heroBaseW || 384);
   }
 
   buildArena() {
@@ -377,7 +388,18 @@ export default class GameScene extends Phaser.Scene {
     this.enemyImgActive = false;
     this.enemyImgFit = 0.3;
 
-    this.heroSprite = this.add.text(this.heroX, this.heroY, "🟢", { fontFamily: EMOJI_FONT, fontSize: "64px" }).setOrigin(0.5).setDepth(2);
+    // 主人公：進化アートがあれば画像（段で姿とサイズが変わる）、無ければ絵文字。
+    if (this.textures.exists("hero_slime")) {
+      this.heroSprite = this.add.image(this.heroX, this.heroY, "hero_slime").setDepth(2);
+      this.heroIsImage = true;
+      this.heroBaseW = this.heroSprite.width;
+      this.heroFit = this.heroFitFor(0);
+      this.heroSprite.setScale(this.heroFit);
+    } else {
+      this.heroSprite = this.add.text(this.heroX, this.heroY, "🟢", { fontFamily: EMOJI_FONT, fontSize: "64px" }).setOrigin(0.5).setDepth(2);
+      this.heroIsImage = false;
+      this.heroFit = 1;
+    }
     this.enemySprite = this.add.text(this.enemyX, this.enemyY, "", { fontFamily: EMOJI_FONT, fontSize: "56px" }).setOrigin(0.5).setDepth(2).setVisible(false);
     this.enemyLabel = this.add.text(this.enemyX, this.enemyY - 50, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5).setDepth(2).setVisible(false);
 
@@ -582,6 +604,7 @@ export default class GameScene extends Phaser.Scene {
     } else if (this.mode === "battle") {
       // 交戦中も世界はゆっくり進む＝行軍してる感（距離は増やさない・見た目だけ）
       this.scrollWorld(C.COMBAT.walkSpeed * (delta / 1000) * 0.25 * this.speed);
+      this.heroSprite.y = this.heroY + Math.sin(time / 300) * 3; // 戦闘中もそっと呼吸
       this.bobCompanions(time);
       this.updatePresence(time);
     }
@@ -593,10 +616,32 @@ export default class GameScene extends Phaser.Scene {
     const emotion = C.EMOTION_ORDER[this.bossCount % C.EMOTION_ORDER.length];
     const t = C.BOSS.types[emotion];
     const info = C.EMOTIONS[emotion];
-    this.cameras.main.shake(420, 0.006);
-    this.edgeFlash.setFillStyle(info.color, 0);
-    this.tweens.add({ targets: this.edgeFlash, fillAlpha: 0.28, duration: 220, yoyo: true, repeat: 1 });
     sfx.bossWarn();
+    this.cameras.main.shake(700, 0.008);
+
+    // 画面が感情色に沈む（重い気配）
+    const veil = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, info.color, 0).setDepth(58);
+    this.tweens.add({ targets: veil, fillAlpha: 0.2, duration: 320, yoyo: true, hold: 260, ease: "Sine.easeInOut", onComplete: () => veil.destroy() });
+    this.edgeFlash.setFillStyle(info.color, 0);
+    this.tweens.add({ targets: this.edgeFlash, fillAlpha: 0.36, duration: 240, yoyo: true, repeat: 2 });
+
+    // 中央に「気配 → 名の顕現」
+    const cx = this.W / 2;
+    const cy = this.H / 2 - 30;
+    const omen = this.add.text(cx, cy, "── 強大な気配 ──", { fontFamily: UI_FONT, fontSize: "18px", color: colorToCss(info.color) }).setOrigin(0.5).setDepth(59).setAlpha(0);
+    const nameT = this.add.text(cx, cy + 34, `${t.icon} ${t.name}`, { fontFamily: UI_FONT, fontSize: "28px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(59).setAlpha(0).setScale(1.35);
+    this.tweens.add({ targets: [omen, nameT], alpha: 1, duration: 260 });
+    this.tweens.add({ targets: nameT, scale: 1, duration: 460, ease: "Back.easeOut" });
+    // 名の周りに感情色の粒が集う
+    for (let i = 0; i < 14; i++) {
+      const ang = (Math.PI * 2 * i) / 14;
+      const p = this.add.circle(cx + Math.cos(ang) * 120, cy + 34 + Math.sin(ang) * 70, 3, info.color, 0.9).setDepth(59);
+      this.tweens.add({ targets: p, x: cx, y: cy + 34, alpha: 0, duration: 520, ease: "Sine.easeIn", onComplete: () => p.destroy() });
+    }
+    this.time.delayedCall(1500, () => {
+      this.tweens.add({ targets: [omen, nameT], alpha: 0, duration: 420, onComplete: () => { omen.destroy(); nameT.destroy(); } });
+    });
+
     this.pushLog(`⚠ ${t.icon} ${t.name} が 近づいている…`);
   }
 
@@ -1083,7 +1128,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: this.heroSprite,
-      scale: 1.45,
+      scale: this.heroFit * 1.45,
       duration: 550,
       onComplete: () => {
         const flash = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, color).setDepth(61).setFillStyle(color, 0);
@@ -1094,7 +1139,14 @@ export default class GameScene extends Phaser.Scene {
           yoyo: true,
           onComplete: () => {
             flash.destroy();
-            this.heroSprite.setText(icon).setScale(1);
+            if (this.heroIsImage) {
+              const tkey = "hero_" + form.key + "_" + (form.kind === "stage" ? form.stage : 1);
+              if (this.textures.exists(tkey)) this.heroSprite.setTexture(tkey);
+              this.heroFit = this.heroFitFor(form.stage);
+              this.heroSprite.setScale(this.heroFit);
+            } else {
+              this.heroSprite.setText(icon).setScale(1);
+            }
             this.evoMult *= C.EVOLUTION.statMultiplier; // 進化倍率（強化と別管理で整合）
             this.applyRunUpgrades();
             this.heroStats.hp = this.heroStats.maxHp;
