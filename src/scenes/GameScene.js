@@ -359,9 +359,18 @@ export default class GameScene extends Phaser.Scene {
     // 感情オーラ（①可視化：主人公が"今いちばん宿している感情の色"に染まる）
     this.heroAura = this.add.circle(this.heroX, this.heroY, 46, 0xffffff, 0).setDepth(1);
 
+    // 接地シャドウ（浮遊感を解消）＋スピリットボディ（絵文字の背後の発光体＝存在感）
+    this.heroShadow = this.add.ellipse(this.heroX, this.heroY + 44, 82, 20, 0x000000, 0.3).setDepth(0);
+    this.heroBody = this.add.circle(this.heroX, this.heroY, 30, 0xffffff, 0.1).setDepth(1);
+    this.enemyShadow = this.add.ellipse(this.enemyX, this.enemyY + 40, 70, 18, 0x000000, 0.28).setDepth(0).setVisible(false);
+    this.enemyBody = this.add.circle(this.enemyX, this.enemyY, 26, 0xff4d4d, 0.1).setDepth(1).setVisible(false);
+
     this.heroSprite = this.add.text(this.heroX, this.heroY, "🟢", { fontFamily: EMOJI_FONT, fontSize: "64px" }).setOrigin(0.5).setDepth(2);
-    this.enemySprite = this.add.text(this.enemyX, this.enemyY, "", { fontFamily: EMOJI_FONT, fontSize: "56px" }).setOrigin(0.5).setVisible(false);
-    this.enemyLabel = this.add.text(this.enemyX, this.enemyY - 50, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5).setVisible(false);
+    this.enemySprite = this.add.text(this.enemyX, this.enemyY, "", { fontFamily: EMOJI_FONT, fontSize: "56px" }).setOrigin(0.5).setDepth(2).setVisible(false);
+    this.enemyLabel = this.add.text(this.enemyX, this.enemyY - 50, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5).setDepth(2).setVisible(false);
+
+    this.addAtmosphere(); // 周縁ビネット
+    this.time.addEvent({ delay: 130, loop: true, callback: () => this.emitEmotionParticle() }); // 感情の専用パーティクル
 
     this.heroHpG = this.add.graphics();
     this.enemyHpG = this.add.graphics();
@@ -369,6 +378,72 @@ export default class GameScene extends Phaser.Scene {
     // ボス用の大型HPバー（上部）
     this.bossHpG = this.add.graphics().setDepth(5);
     this.bossNameT = this.add.text(this.W / 2, 124, "", { fontFamily: UI_FONT, fontSize: "15px", color: "#ffd24d" }).setOrigin(0.5).setDepth(5).setVisible(false);
+  }
+
+  // 周縁を落とすビネット（背景の隅を暗くして"作品感"を出す。UI/キャラより奥＝可読性は保つ）
+  addAtmosphere() {
+    const c = 0x05050c;
+    const g = this.add.graphics().setDepth(-1);
+    const w = 96;
+    const h = 96;
+    g.fillGradientStyle(c, c, c, c, 0.55, 0.55, 0, 0);
+    g.fillRect(0, 0, this.W, h); // 上
+    g.fillGradientStyle(c, c, c, c, 0, 0, 0.65, 0.65);
+    g.fillRect(0, this.H - h, this.W, h); // 下
+    g.fillGradientStyle(c, c, c, c, 0.45, 0, 0.45, 0);
+    g.fillRect(0, 0, w, this.H); // 左
+    g.fillGradientStyle(c, c, c, c, 0, 0.45, 0, 0.45);
+    g.fillRect(this.W - w, 0, w, this.H); // 右
+  }
+
+  // 毎フレーム、シャドウ／ボディを絵文字に追従させ、ゆっくり呼吸させる
+  updatePresence(time) {
+    const breath = 1 + Math.sin(time / 340) * 0.06;
+    if (this.heroBody) {
+      this.heroBody.setPosition(this.heroSprite.x, this.heroSprite.y).setScale(breath);
+      this.heroShadow.setPosition(this.heroSprite.x, this.heroY + 44).setScale(1 / breath, 1);
+    }
+    if (this.enemyBody) {
+      const v = this.enemySprite.visible;
+      this.enemyBody.setVisible(v);
+      this.enemyShadow.setVisible(v);
+      if (v) {
+        const col = (this.currentEnemy && C.EMOTIONS[this.currentEnemy.lean] && C.EMOTIONS[this.currentEnemy.lean].color) || 0xff4d4d;
+        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y).setFillStyle(col, 0.12 * this.enemySprite.alpha).setScale(breath * 0.98);
+        this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 40).setAlpha(0.28 * this.enemySprite.alpha);
+      }
+    }
+    for (const comp of this.companions) {
+      const o = this.companionSprites[comp.id];
+      if (!o || !o.body) continue;
+      o.body.setPosition(o.spr.x, o.spr.y).setScale(0.85 * breath);
+      o.shadow.setPosition(o.spr.x, o.baseY != null ? o.baseY + 22 : o.spr.y + 22);
+    }
+  }
+
+  // 主感情の"専用パーティクル"を主人公の周りに（怒＝火の粉/悲＝雫/勇＝風/希＝きらめき）
+  emitEmotionParticle() {
+    if (this.paused || (this.mode !== "walk" && this.mode !== "battle")) return;
+    const lead = leadingEmotion(this.emotions);
+    if (!lead.key || lead.value <= 0) return;
+    const info = C.EMOTIONS[lead.key];
+    const hx = this.heroSprite.x;
+    const hy = this.heroSprite.y;
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const p = this.add.circle(hx, hy, 2 + Math.random() * 2.4, info.color, 0.85).setDepth(3);
+    if (lead.key === "anger") {
+      p.setPosition(hx + rnd(-16, 16), hy + 18);
+      this.tweens.add({ targets: p, y: hy - rnd(24, 46), x: p.x + rnd(-10, 10), alpha: 0, scale: 0.3, duration: rnd(650, 1000), ease: "Sine.easeOut", onComplete: () => p.destroy() });
+    } else if (lead.key === "sadness") {
+      p.setPosition(hx + rnd(-18, 18), hy - 22);
+      this.tweens.add({ targets: p, y: hy + rnd(30, 40), alpha: 0, duration: rnd(1100, 1500), ease: "Sine.easeIn", onComplete: () => p.destroy() });
+    } else if (lead.key === "courage") {
+      p.setPosition(hx - 6, hy + rnd(-16, 10));
+      this.tweens.add({ targets: p, x: hx + rnd(38, 60), alpha: 0, scaleX: 2.4, duration: rnd(360, 540), ease: "Quad.easeOut", onComplete: () => p.destroy() });
+    } else {
+      p.setPosition(hx + rnd(-20, 20), hy + rnd(-6, 16));
+      this.tweens.add({ targets: p, y: p.y - rnd(22, 42), alpha: 0, scale: 1.7, duration: rnd(800, 1200), ease: "Sine.easeOut", onComplete: () => p.destroy() });
+    }
   }
 
   buildLog() {
@@ -470,6 +545,7 @@ export default class GameScene extends Phaser.Scene {
       this.heroSprite.y = this.heroY + Math.sin(time / 120) * 4;
       this.heroAura.y = this.heroSprite.y;
       this.bobCompanions(time);
+      this.updatePresence(time);
       this.drawHpBars();
       this.checkProgress();
       // ボス接近の予兆
@@ -483,6 +559,7 @@ export default class GameScene extends Phaser.Scene {
       // 交戦中も世界はゆっくり進む＝行軍してる感（距離は増やさない・見た目だけ）
       this.scrollWorld(C.COMBAT.walkSpeed * (delta / 1000) * 0.25 * this.speed);
       this.bobCompanions(time);
+      this.updatePresence(time);
     }
   }
 
@@ -1682,9 +1759,13 @@ export default class GameScene extends Phaser.Scene {
     // 主人公のそばに出現。位置と拡大は layoutCompanions が担当。
     const bx = this.heroX;
     const by = this.heroY + 24;
-    const spr = this.add.text(bx, by, comp.icon, { fontFamily: EMOJI_FONT, fontSize: "32px" }).setOrigin(0.5).setScale(0);
-    const nm = this.add.text(bx, by, comp.name, { fontFamily: UI_FONT, fontSize: "11px", color: "#9a9aac" }).setOrigin(0.5).setVisible(false);
-    this.companionSprites[comp.id] = { spr, nm, baseX: bx, baseY: by };
+    const emo = C.EMOTIONS[comp.emotion];
+    const bodyColor = emo ? emo.color : 0xffffff;
+    const shadow = this.add.ellipse(bx, by + 22, 54, 14, 0x000000, 0.26).setDepth(0);
+    const body = this.add.circle(bx, by, 22, bodyColor, 0.13).setDepth(1);
+    const spr = this.add.text(bx, by, comp.icon, { fontFamily: EMOJI_FONT, fontSize: "32px" }).setOrigin(0.5).setDepth(2).setScale(0);
+    const nm = this.add.text(bx, by, comp.name, { fontFamily: UI_FONT, fontSize: "11px", color: "#9a9aac" }).setOrigin(0.5).setDepth(2).setVisible(false);
+    this.companionSprites[comp.id] = { spr, nm, body, shadow, baseX: bx, baseY: by };
   }
 
   pulseCompanion(id) {

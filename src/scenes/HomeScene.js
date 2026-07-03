@@ -74,6 +74,27 @@ export default class HomeScene extends Phaser.Scene {
     super("HomeScene");
   }
 
+  preload() {
+    // 仲間の相棒アート（Gemini生成）。無ければ絵文字にフォールバック。
+    for (const k of C.EMOTION_ORDER) {
+      if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
+    }
+  }
+
+  // 仲間ポートレート（画像があれば画像／無ければ絵文字）。float=ふわっと浮遊アニメ
+  charPortrait(x, y, emotion, size, emojiFallback, float) {
+    let obj;
+    if (this.textures.exists("char_" + emotion)) {
+      obj = this.add.image(x, y, "char_" + emotion).setDisplaySize(size, size);
+    } else {
+      obj = this.add.text(x, y, emojiFallback, { fontFamily: EMOJI_FONT, fontSize: Math.round(size * 0.6) + "px" }).setOrigin(0.5);
+    }
+    if (float) {
+      this.tweens.add({ targets: obj, y: y - 6, duration: 1800, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    }
+    return obj;
+  }
+
   init(data) {
     this.fromRun = data && data.summary ? data.summary : null;
   }
@@ -573,9 +594,9 @@ export default class HomeScene extends Phaser.Scene {
       const info = C.EMOTIONS[b.emotion] || { color: 0xb0b0c0, label: "" };
       const col = colorToCss(info.color);
       const rar = C.COMPANION.rarities.find((r) => r.key === b.rarity) || C.COMPANION.rarities[0];
-      c.add(this.add.text(this.W / 2, 132, b.icon, { fontFamily: EMOJI_FONT, fontSize: "56px" }).setOrigin(0.5));
-      c.add(this.add.text(this.W / 2, 164, `${rar.star}【${rar.label}】`, { fontFamily: UI_FONT, fontSize: "13px", color: colorToCss(rar.color) }).setOrigin(0.5));
-      c.add(this.add.text(this.W / 2, 186, `〈${info.label}・${b.roleLabel}〉${b.evo ? "  ✦進化" : ""}　Lv${b.level || 1}`, { fontFamily: UI_FONT, fontSize: "13px", color: col }).setOrigin(0.5));
+      c.add(this.charPortrait(this.W / 2, 124, b.emotion, 96, b.icon, true));
+      c.add(this.add.text(this.W / 2, 176, `${rar.star}【${rar.label}】`, { fontFamily: UI_FONT, fontSize: "13px", color: colorToCss(rar.color) }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 197, `〈${info.label}・${b.roleLabel}〉${b.evo ? "  ✦進化" : ""}　Lv${b.level || 1}`, { fontFamily: UI_FONT, fontSize: "13px", color: col }).setOrigin(0.5));
       const statStr = b.role === "healer" ? `✚ 癒し ${b.heal}　⚡ 速さ ${b.spd}` : `⚔ 攻撃 ${b.atk}　⚡ 速さ ${b.spd}`;
       c.add(this.add.text(this.W / 2, 212, statStr, { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }).setOrigin(0.5));
       const voice = "●".repeat(b.stage) + "○".repeat(4 - b.stage);
@@ -778,45 +799,106 @@ export default class HomeScene extends Phaser.Scene {
         return;
       }
 
-      let y = 186;
-      bonded.forEach((b) => {
+      // ---- スクロールできるリスト（マスク＋ドラッグ/ホイール）----
+      const viewTop = 176;
+      const viewBottom = this.H - 70;
+      const viewH = viewBottom - viewTop;
+      const firstY = 190;
+      const rowStep = 72;
+      const rowH = 62;
+      const list = this.add.container(0, 0);
+      c.add(list);
+
+      bonded.forEach((b, idx) => {
+        const y = firstY + idx * rowStep;
         const emoColor = C.EMOTIONS[b.emotion] ? C.EMOTIONS[b.emotion].color : 0xb0b0c0;
         const rar = C.COMPANION.rarities.find((r) => r.key === b.rarity) || C.COMPANION.rarities[0];
-        const row = this.add.rectangle(this.W / 2, y, this.W - 50, 62, b.active ? 0x1d1726 : 0x17161d).setStrokeStyle(1, b.active ? emoColor : 0x33334a).setInteractive({ useHandCursor: true });
-        row.on("pointerdown", () => this.openCompanionPanel(b.id));
-        const icon = this.add.text(38, y - 6, b.icon, { fontFamily: EMOJI_FONT, fontSize: "26px" }).setOrigin(0.5);
-        const rchip = this.add.text(38, y + 16, rar.star, { fontFamily: UI_FONT, fontSize: "9px", color: colorToCss(rar.color) }).setOrigin(0.5);
-        const nm = this.add.text(66, y - 15, `${b.name}〈${b.roleLabel}〉 Lv${b.level || 1}`, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(emoColor) }).setOrigin(0, 0.5);
+        const row = this.add.rectangle(this.W / 2, y, this.W - 50, rowH, b.active ? 0x1d1726 : 0x17161d).setStrokeStyle(1, b.active ? emoColor : 0x33334a);
+        const icon = this.charPortrait(40, y, b.emotion, 50, b.icon, false);
+        const nm = this.add.text(72, y - 15, `${b.name}〈${b.roleLabel}〉 Lv${b.level || 1}`, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(emoColor) }).setOrigin(0, 0.5);
         const statStr = b.role === "healer" ? `✚${b.heal}  ⚡${b.spd}` : `⚔${b.atk}  ⚡${b.spd}`;
         const voice = "●".repeat(b.stage) + "○".repeat(4 - b.stage);
-        const st = this.add.text(66, y + 8, `【${rar.label}】${statStr}　声 ${voice}`, { fontFamily: UI_FONT, fontSize: "12px", color: colorToCss(rar.color) }).setOrigin(0, 0.5);
-        c.add([row, icon, rchip, nm, st]);
-
-        // 〔同行/留守番〕トグル
-        const tog = this.add.rectangle(this.W - 92, y - 10, 80, 26, b.active ? 0x1c3a1c : 0x202028).setStrokeStyle(1, b.active ? 0x4caf50 : 0x33334a).setInteractive({ useHandCursor: true });
-        const togT = this.add.text(this.W - 92, y - 10, b.active ? "同行" : "留守番", { fontFamily: UI_FONT, fontSize: "12px", color: b.active ? "#9fff9f" : "#9a9aac" }).setOrigin(0.5);
-        tog.on("pointerdown", () => {
-          const r = toggleCompanionActive(b.id);
-          if (!r.ok && r.reason) this.toast(r.reason);
-          this.refreshPartyBtn();
-          this.openPartyPanel();
-        });
-        // 〔見送る〕（解放）
-        const rel = this.add.text(this.W - 30, y + 15, "見送る", { fontFamily: UI_FONT, fontSize: "12px", color: "#8a6a90" }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
-        rel.on("pointerdown", () => {
-          releaseCompanion(b.id);
-          this.toast(`${b.name}を 見送った（光に還した）`);
-          this.refreshPartyBtn();
-          this.openPartyPanel();
-        });
-        c.add([tog, togT, rel]);
-        y += 72;
+        const st = this.add.text(72, y + 8, `${rar.star}【${rar.label}】${statStr}　声 ${voice}`, { fontFamily: UI_FONT, fontSize: "12px", color: colorToCss(rar.color) }).setOrigin(0, 0.5);
+        // 状態バッジ（表示のみ。切替は行タップ→詳細で）
+        const badge = this.add.text(this.W - 40, y, b.active ? "同行" : "留守番", { fontFamily: UI_FONT, fontSize: "12px", color: b.active ? "#9fff9f" : "#8a8aa0" }).setOrigin(1, 0.5);
+        list.add([row, icon, nm, st, badge]);
       });
 
-      // 魂の器の拡張（無料10 → 課金で最大20）
+      let y = firstY + bonded.length * rowStep - rowStep / 2 + 8;
+      // 魂の器の拡張（無料10 → 課金で最大20）。リスト内に置き、タップはゾーンで拾う。
       const info = rosterSlotInfo();
+      let buyTop = null;
+      let buyBottom = null;
       if (info.canBuyMore) {
-        const bt = this.makeButton(this.W / 2, y + 26, 300, 48, `魂の器を広げる  🪙${info.cost}  (+1枠 / 最大${info.max})`, () => {
+        const by = y + 30;
+        const br = this.add.rectangle(this.W / 2, by, 300, 48, 0x2a2438).setStrokeStyle(1, 0xa06ac0);
+        const bl = this.add.text(this.W / 2, by, `魂の器を広げる  🪙${info.cost}  (+1枠 / 最大${info.max})`, { fontFamily: UI_FONT, fontSize: "14px", color: "#e6c2ff" }).setOrigin(0.5);
+        const note = this.add.text(this.W / 2, by + 34, `無料 ${info.free}枠＋拡張 ${info.paid + info.tree}枠。同行は最大${C.COMPANION.maxParty}、残りは街で働く。`, { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80", align: "center" }).setOrigin(0.5);
+        list.add([br, bl, note]);
+        buyTop = by - 24;
+        buyBottom = by + 24;
+        y = by + 44;
+      } else {
+        const note = this.add.text(this.W / 2, y + 26, `魂の器は最大（${info.max}）に達している。\n同行は最大${C.COMPANION.maxParty}、残りは街で働いてもらおう。`, { fontFamily: UI_FONT, fontSize: "12px", color: "#6a6a80", align: "center", lineSpacing: 5 }).setOrigin(0.5);
+        list.add(note);
+        y += 50;
+      }
+      const contentBottom = y + 10;
+
+      // マスク（ビューポートの外は隠す）
+      const mg = this.make.graphics();
+      mg.fillStyle(0xffffff);
+      mg.fillRect(12, viewTop, this.W - 24, viewH);
+      mg.setVisible(false);
+      c.add(mg);
+      list.setMask(mg.createGeometryMask());
+
+      const maxScroll = Math.max(0, contentBottom - viewBottom);
+      const minY = -maxScroll;
+
+      // スクロールバー
+      let thumb = null;
+      const updateBar = () => {
+        if (!thumb) return;
+        const t = maxScroll > 0 ? -list.y / maxScroll : 0;
+        thumb.y = viewTop + 4 + t * (viewH - 8 - thumb.height);
+      };
+      if (maxScroll > 0) {
+        c.add(this.add.rectangle(this.W - 16, (viewTop + viewBottom) / 2, 4, viewH, 0xffffff, 0.06));
+        const thumbH = Math.max(28, (viewH * viewH) / (contentBottom - viewTop));
+        thumb = this.add.rectangle(this.W - 16, viewTop + 4 + thumbH / 2, 4, thumbH, 0xc0a0e0, 0.5);
+        thumb.height = thumbH;
+        c.add(thumb);
+        c.add(this.add.text(this.W / 2, this.H - 50, "▲▼ ドラッグ／ホイールでスクロール", { fontFamily: UI_FONT, fontSize: "11px", color: "#55556a" }).setOrigin(0.5));
+      }
+
+      // 入力ゾーン：ドラッグでスクロール、軽いタップで行/ボタンを選択
+      const zone = this.add.zone(this.W / 2, (viewTop + viewBottom) / 2, this.W - 24, viewH).setInteractive();
+      c.add(zone);
+      if (maxScroll > 0) this.input.setDraggable(zone);
+      let downY = 0;
+      let downListY = 0;
+      zone.on("pointerdown", (p) => {
+        downY = p.y;
+        downListY = list.y;
+      });
+      zone.on("drag", (p) => {
+        list.y = Phaser.Math.Clamp(downListY + (p.y - downY), minY, 0);
+        updateBar();
+      });
+      zone.on("wheel", (p, dx, dy) => {
+        list.y = Phaser.Math.Clamp(list.y - dy * 0.5, minY, 0);
+        updateBar();
+      });
+      zone.on("pointerup", (p) => {
+        if (Math.abs(p.y - downY) > 8) return; // ドラッグ＝スクロール操作
+        const localY = p.y - list.y;
+        const i = Math.round((localY - firstY) / rowStep);
+        if (i >= 0 && i < bonded.length && Math.abs(localY - (firstY + i * rowStep)) <= rowH / 2) {
+          this.openCompanionPanel(bonded[i].id);
+          return;
+        }
+        if (buyTop != null && localY >= buyTop && localY <= buyBottom) {
           const r = buyRosterSlot();
           if (r.ok) {
             this.toast(`器が広がった（${r.cap}枠に）`);
@@ -825,12 +907,8 @@ export default class HomeScene extends Phaser.Scene {
           } else {
             this.toast(r.reason || "拡張できない");
           }
-        }, { color: 0x2a2438, stroke: 0xa06ac0, textColor: "#e6c2ff", fontSize: "14px" });
-        c.add([bt.rect, bt.txt, bt.badge]);
-        c.add(this.add.text(this.W / 2, y + 58, `無料 ${info.free}枠＋拡張 ${info.paid + info.tree}枠。同行は最大${C.COMPANION.maxParty}、残りは街で働く。`, { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80", align: "center" }).setOrigin(0.5));
-      } else {
-        c.add(this.add.text(this.W / 2, y + 20, `魂の器は最大（${info.max}）に達している。\n同行は最大${C.COMPANION.maxParty}、残りは街で働いてもらおう。`, { fontFamily: UI_FONT, fontSize: "12px", color: "#6a6a80", align: "center", lineSpacing: 5 }).setOrigin(0.5));
-      }
+        }
+      });
     });
   }
 
