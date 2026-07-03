@@ -95,24 +95,52 @@ export async function pushSave(obj) {
   return { ok: true };
 }
 
-// ログイン直後：クラウドとローカルの「新しい方」を採用（データ消失防止）。
+// 進行度スコア（永続・増える一方の値だけで測る）。
+//  空の端末が“最新”を装って本物のクラウドを上書きするのを防ぐ核心。
+export function progressScore(s) {
+  if (!s || typeof s !== "object") return -1;
+  const soul = s.soul || {};
+  const bonds = s.bonds || {};
+  const party = s.party || {};
+  const bonded = Array.isArray(party.bonded) ? party.bonded.length : 0;
+  const arts = Array.isArray(s.artifacts) ? s.artifacts.length : 0;
+  return (
+    (soul.rebirths || 0) * 1000 +
+    (soul.level || 0) * 50 +
+    (soul.bestDistance || 0) +
+    (s.enlightenment || 0) * 30 +
+    (s.gold || 0) * 0.5 +
+    (bonds.met || 0) * 20 +
+    bonded * 40 +
+    arts * 15 +
+    (s.endingSeen ? 500 : 0)
+  );
+}
+
+// ログイン直後：進行が多い方を採用（少ない/空の側で上書きしない）。同点なら新しい方。
 export async function syncOnLogin() {
   const remote = await pullSave();
   const local = getSave();
-  const lStamp = local.stamp || 0;
   if (!remote) {
     await pushSave(local); // クラウド未作成 → ローカルを初回アップロード
-    return { action: "uploaded" };
+    return { action: "uploaded", localScore: progressScore(local) };
   }
-  const rStamp = remote.stamp || 0;
-  if (rStamp > lStamp) {
-    adoptCloudSave(remote); // クラウドが新しい → 取り込む
-    return { action: "downloaded" };
+  const rScore = progressScore(remote);
+  const lScore = progressScore(local);
+  if (rScore > lScore) {
+    adoptCloudSave(remote); // クラウドの方が進んでいる → 取り込む
+    return { action: "downloaded", remoteScore: rScore, localScore: lScore };
   }
-  if (rStamp < lStamp) {
-    await pushSave(local); // ローカルが新しい → 押し上げる
-    return { action: "uploaded" };
+  if (lScore > rScore) {
+    await pushSave(local); // ローカルの方が進んでいる → 押し上げる（空が本物を消さない）
+    return { action: "uploaded", remoteScore: rScore, localScore: lScore };
   }
+  // 同点 → 保存時刻の新しい方
+  if ((remote.stamp || 0) > (local.stamp || 0)) {
+    adoptCloudSave(remote);
+    return { action: "downloaded", tie: true };
+  }
+  await pushSave(local);
   return { action: "insync" };
 }
 
