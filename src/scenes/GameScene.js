@@ -348,6 +348,13 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  preload() {
+    // 仲間の相棒アート（Gemini生成）。無ければ絵文字にフォールバック。
+    for (const k of C.EMOTION_ORDER) {
+      if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
+    }
+  }
+
   buildArena() {
     this.heroX = 120;
     this.heroY = 430;
@@ -1692,21 +1699,24 @@ export default class GameScene extends Phaser.Scene {
       o.baseX = this.heroX + s.dx;
       o.baseY = this.heroY + s.dy;
       if (o.nm) o.nm.setVisible(false); // 常にそばに居るので名前は隠す（アイコンで識別）
+      const fit = o.fitScale != null ? o.fitScale : 0.85;
       this.tweens.killTweensOf(o.spr);
       if (instant) {
-        o.spr.setPosition(o.baseX, o.baseY).setScale(0.85);
+        o.spr.setPosition(o.baseX, o.baseY).setScale(fit);
       } else {
-        this.tweens.add({ targets: o.spr, x: o.baseX, y: o.baseY, scale: 0.85, duration: 320, ease: "Quad.easeOut" });
+        this.tweens.add({ targets: o.spr, x: o.baseX, y: o.baseY, scale: fit, duration: 320, ease: "Quad.easeOut" });
       }
     });
   }
 
-  // 仲間が攻撃時に敵へ踏み込む（baseX に戻す）
+  // 仲間が攻撃時に敵へ踏み込む＋スクワッシュ（生きてる手触り）
   companionLunge(comp) {
     const o = this.companionSprites[comp.id];
     if (!o) return;
     const hx = o.baseX != null ? o.baseX : o.spr.x;
+    const fit = o.fitScale != null ? o.fitScale : 0.85;
     this.tweens.add({ targets: o.spr, x: hx + 48, duration: 110, yoyo: true, ease: "Quad.easeOut", onComplete: () => { o.spr.x = hx; } });
+    this.tweens.add({ targets: o.spr, scaleX: fit * 1.15, scaleY: fit * 0.9, duration: 90, yoyo: true, ease: "Quad.easeOut", onComplete: () => o.spr.setScale(fit) });
   }
 
   // 倒した雑魚が浄化されて仲間になる（レアは距離なり）
@@ -1761,17 +1771,27 @@ export default class GameScene extends Phaser.Scene {
     const by = this.heroY + 24;
     const emo = C.EMOTIONS[comp.emotion];
     const bodyColor = emo ? emo.color : 0xffffff;
-    const shadow = this.add.ellipse(bx, by + 22, 54, 14, 0x000000, 0.26).setDepth(0);
-    const body = this.add.circle(bx, by, 22, bodyColor, 0.13).setDepth(1);
-    const spr = this.add.text(bx, by, comp.icon, { fontFamily: EMOJI_FONT, fontSize: "32px" }).setOrigin(0.5).setDepth(2).setScale(0);
+    const shadow = this.add.ellipse(bx, by + 22, 58, 15, 0x000000, 0.26).setDepth(0);
+    const body = this.add.circle(bx, by, 26, bodyColor, 0.14).setDepth(1);
+    // 相棒アートがあれば画像、無ければ絵文字。fitScale＝settled時の拡大率（画像は384px基準で正規化）
+    let spr, fitScale;
+    if (this.textures.exists("char_" + comp.emotion)) {
+      spr = this.add.image(bx, by, "char_" + comp.emotion).setDepth(2);
+      fitScale = 54 / spr.width;
+    } else {
+      spr = this.add.text(bx, by, comp.icon, { fontFamily: EMOJI_FONT, fontSize: "32px" }).setOrigin(0.5).setDepth(2);
+      fitScale = 0.85;
+    }
+    spr.setScale(0);
     const nm = this.add.text(bx, by, comp.name, { fontFamily: UI_FONT, fontSize: "11px", color: "#9a9aac" }).setOrigin(0.5).setDepth(2).setVisible(false);
-    this.companionSprites[comp.id] = { spr, nm, body, shadow, baseX: bx, baseY: by };
+    this.companionSprites[comp.id] = { spr, nm, body, shadow, baseX: bx, baseY: by, fitScale };
   }
 
   pulseCompanion(id) {
     const o = this.companionSprites[id];
     if (!o) return;
-    this.tweens.add({ targets: o.spr, scale: 1.3, duration: 90, yoyo: true });
+    const fit = o.fitScale != null ? o.fitScale : 0.85;
+    this.tweens.add({ targets: o.spr, scale: fit * 1.4, duration: 90, yoyo: true, onComplete: () => o.spr.setScale(fit) });
   }
 
   // 同行距離が伸びると「声」の段階が上がり、やがて進化する（§17-2 / §17）
@@ -1795,8 +1815,11 @@ export default class GameScene extends Phaser.Scene {
     comp.icon = C.COMPANION.evolvedIcons[comp.emotion] || comp.icon;
     const o = this.companionSprites[comp.id];
     if (o) {
-      o.spr.setText(comp.icon);
-      this.tweens.add({ targets: o.spr, scale: 1.5, duration: 200, yoyo: true });
+      const fit = o.fitScale != null ? o.fitScale : 0.85;
+      if (typeof o.spr.setText === "function") o.spr.setText(comp.icon); // 絵文字仲間は姿を差し替え（画像仲間は据え置き）
+      this.tweens.add({ targets: o.spr, scale: fit * 1.6, duration: 200, yoyo: true, onComplete: () => o.spr.setScale(fit) });
+      const glow = this.add.circle(o.spr.x, o.spr.y, 26, (C.EMOTIONS[comp.emotion] && C.EMOTIONS[comp.emotion].color) || 0xffffff, 0.5).setDepth(3);
+      this.tweens.add({ targets: glow, scale: 2.4, alpha: 0, duration: 500, onComplete: () => glow.destroy() });
     }
     this.pushLog(`✨ ${comp.name} が 育った 〈${comp.roleLabel}〉`);
   }
