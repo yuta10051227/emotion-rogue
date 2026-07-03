@@ -349,9 +349,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   preload() {
-    // 仲間の相棒アート（Gemini生成）。無ければ絵文字にフォールバック。
+    // 仲間の相棒アート＋ボスアート（Gemini生成）。無ければ絵文字にフォールバック。
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
+      if (!this.textures.exists("boss_" + k)) this.load.image("boss_" + k, "chars/boss_" + k + ".png");
     }
   }
 
@@ -371,6 +372,10 @@ export default class GameScene extends Phaser.Scene {
     this.heroBody = this.add.circle(this.heroX, this.heroY, 30, 0xffffff, 0.1).setDepth(1);
     this.enemyShadow = this.add.ellipse(this.enemyX, this.enemyY + 40, 70, 18, 0x000000, 0.28).setDepth(0).setVisible(false);
     this.enemyBody = this.add.circle(this.enemyX, this.enemyY, 26, 0xff4d4d, 0.1).setDepth(1).setVisible(false);
+    // ボスのアート（大きく登場）。enemySprite の位置/フェードをミラーする。
+    this.enemyImg = this.textures.exists("boss_anger") ? this.add.image(this.enemyX, this.enemyY, "boss_anger").setDepth(2).setVisible(false) : null;
+    this.enemyImgActive = false;
+    this.enemyImgFit = 0.3;
 
     this.heroSprite = this.add.text(this.heroX, this.heroY, "🟢", { fontFamily: EMOJI_FONT, fontSize: "64px" }).setOrigin(0.5).setDepth(2);
     this.enemySprite = this.add.text(this.enemyX, this.enemyY, "", { fontFamily: EMOJI_FONT, fontSize: "56px" }).setOrigin(0.5).setDepth(2).setVisible(false);
@@ -412,12 +417,24 @@ export default class GameScene extends Phaser.Scene {
     }
     if (this.enemyBody) {
       const v = this.enemySprite.visible;
+      const bossA = this.enemyImgActive;
       this.enemyBody.setVisible(v);
       this.enemyShadow.setVisible(v);
       if (v) {
         const col = (this.currentEnemy && C.EMOTIONS[this.currentEnemy.lean] && C.EMOTIONS[this.currentEnemy.lean].color) || 0xff4d4d;
-        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y).setFillStyle(col, 0.12 * this.enemySprite.alpha).setScale(breath * 0.98);
-        this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 40).setAlpha(0.28 * this.enemySprite.alpha);
+        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y - (bossA ? 16 : 0)).setFillStyle(col, (bossA ? 0.16 : 0.12) * this.enemySprite.alpha).setScale(breath * 0.98 * (bossA ? 3.2 : 1));
+        this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 44).setAlpha(0.28 * this.enemySprite.alpha).setScale(bossA ? 1.9 : 1, 1);
+      }
+      if (this.enemyImg && bossA) {
+        this.enemyImg.setVisible(v);
+        if (v) {
+          this.enemyImg
+            .setPosition(this.enemySprite.x, this.enemySprite.y - 18 + Math.sin(time / 520) * 4)
+            .setAlpha(this.enemySprite.alpha)
+            .setScale(this.enemyImgFit * (1 + Math.sin(time / 520) * 0.03));
+        }
+      } else if (this.enemyImg) {
+        this.enemyImg.setVisible(false);
       }
     }
     for (const comp of this.companions) {
@@ -650,6 +667,20 @@ export default class GameScene extends Phaser.Scene {
     this.enemySprite.x = this.W + 60;
     this.enemyLabel.setText(enemy.boss ? `― ${enemy.label} ―` : enemy.label).setVisible(true).setAlpha(1).setColor(enemy.boss ? "#ffd24d" : "#9a9aac");
     this.enemyLabel.x = this.W + 60;
+
+    // ボスにアートがあれば、絵文字を隠して大きなアートで見せる（位置/フェードは enemySprite が駆動）
+    const bossArt = enemy.boss && this.enemyImg && this.textures.exists("boss_" + enemy.lean);
+    if (bossArt) {
+      this.enemyImg.setTexture("boss_" + enemy.lean).setVisible(true).setAlpha(1);
+      this.enemyImgFit = 176 / this.enemyImg.width;
+      this.enemyImg.setScale(this.enemyImgFit);
+      this.enemyImgActive = true;
+      this.enemySprite.setText(""); // 絵文字は隠す
+      this.enemyLabel.setVisible(false); // 名前は上部の大型HPバーに出る
+    } else {
+      this.enemyImgActive = false;
+      if (this.enemyImg) this.enemyImg.setVisible(false);
+    }
     this.drawHpBars();
 
     this.tweens.add({
