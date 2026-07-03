@@ -1,0 +1,7 @@
+# Netlify 継続デプロイ設定：git push すると自動でビルド＆公開される
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"

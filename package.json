@@ -1,0 +1,21 @@
+{
+  "name": "emotion-rogue",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "ラクリマ ─ LACRYMA ─ / Phase 0 prototype (Emotion Rogue)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "vite build && wrangler pages deploy dist --project-name lacryma"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.0",
+    "phaser": "^3.80.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0",
+    "wrangler": "^4.105.0"
+  }
+}
