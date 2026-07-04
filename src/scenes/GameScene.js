@@ -365,6 +365,7 @@ export default class GameScene extends Phaser.Scene {
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
       if (!this.textures.exists("char_" + k + "_atk")) this.load.image("char_" + k + "_atk", "chars/comp_" + k + "_atk.png"); // 攻撃フレーム
+      if (!this.textures.exists("enemy_" + k)) this.load.image("enemy_" + k, "chars/enemy_" + k + ".png"); // 雑魚敵
       if (!this.textures.exists("boss_" + k)) this.load.image("boss_" + k, "chars/boss_" + k + ".png");
       if (!this.textures.exists("boss_" + k + "_atk")) this.load.image("boss_" + k + "_atk", "chars/boss_" + k + "_atk.png");
       for (let s = 1; s <= 3; s++) {
@@ -455,19 +456,20 @@ export default class GameScene extends Phaser.Scene {
     }
     if (this.enemyBody) {
       const v = this.enemySprite.visible;
-      const bossA = this.enemyImgActive;
+      const bossA = this.enemyImgActive; // アート表示中か
+      const big = this.enemyImgBoss; // ボス（大）か
       this.enemyBody.setVisible(v);
       this.enemyShadow.setVisible(v);
       if (v) {
         const col = (this.currentEnemy && C.EMOTIONS[this.currentEnemy.lean] && C.EMOTIONS[this.currentEnemy.lean].color) || 0xff4d4d;
-        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y - (bossA ? 55 : 0)).setFillStyle(col, (bossA ? 0.16 : 0.12) * this.enemySprite.alpha).setScale(breath * 0.98 * (bossA ? 5.5 : 1));
-        this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 44).setAlpha(0.28 * this.enemySprite.alpha).setScale(bossA ? 2.8 : 1, 1);
+        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y - (big ? 55 : bossA ? 4 : 0)).setFillStyle(col, (big ? 0.16 : 0.12) * this.enemySprite.alpha).setScale(breath * 0.98 * (big ? 5.5 : bossA ? 1.6 : 1));
+        this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 44).setAlpha(0.28 * this.enemySprite.alpha).setScale(big ? 2.8 : bossA ? 1.25 : 1, 1);
       }
       if (this.enemyImg && bossA) {
         this.enemyImg.setVisible(v);
         if (v) {
           this.enemyImg
-            .setPosition(this.enemySprite.x, this.enemySprite.y - 70 + Math.sin(time / 520) * 4)
+            .setPosition(this.enemySprite.x, this.enemySprite.y - (big ? 70 : 6) + Math.sin(time / 520) * (big ? 4 : 2))
             .setAlpha(this.enemySprite.alpha)
             .setScale(this.enemyImgFit * (1 + Math.sin(time / 520) * 0.03));
         }
@@ -485,7 +487,7 @@ export default class GameScene extends Phaser.Scene {
 
   // 主感情の"専用パーティクル"を主人公の周りに（怒＝火の粉/悲＝雫/勇＝風/希＝きらめき）
   emitEmotionParticle() {
-    if (this.paused || (this.mode !== "walk" && this.mode !== "battle")) return;
+    if (this.paused || this.speed >= 3 || (this.mode !== "walk" && this.mode !== "battle")) return; // 3倍速は粒を止めて軽く
     const lead = leadingEmotion(this.emotions);
     if (!lead.key || lead.value <= 0) return;
     const info = C.EMOTIONS[lead.key];
@@ -729,17 +731,21 @@ export default class GameScene extends Phaser.Scene {
     this.enemyLabel.setText(enemy.boss ? `― ${enemy.label} ―` : enemy.label).setVisible(true).setAlpha(1).setColor(enemy.boss ? "#ffd24d" : "#9a9aac");
     this.enemyLabel.x = this.W + 60;
 
-    // ボスにアートがあれば、絵文字を隠して大きなアートで見せる（位置/フェードは enemySprite が駆動）
-    const bossArt = enemy.boss && this.enemyImg && this.textures.exists("boss_" + enemy.lean);
-    if (bossArt) {
-      this.enemyImg.setTexture("boss_" + enemy.lean).setVisible(true).setAlpha(1);
-      this.enemyImgFit = 352 / this.enemyImg.width; // 取締役指定：ボス2倍
+    // 敵アート（ボス=大きく／雑魚=小さく色変異）。位置/フェードは enemySprite が駆動。
+    const artKey = enemy.boss ? "boss_" + enemy.lean : "enemy_" + enemy.lean;
+    const hasArt = this.enemyImg && this.textures.exists(artKey);
+    if (hasArt) {
+      this.enemyImg.setTexture(artKey).setVisible(true).setAlpha(1).setTint(enemy.tint || 0xffffff).setFlipX(true); // 主人公(左)を向く
+      const px = enemy.boss ? 352 : Math.round(92 * (enemy.mobScale || 1)); // ボス2倍／雑魚は個体差
+      this.enemyImgFit = px / this.enemyImg.width;
       this.enemyImg.setScale(this.enemyImgFit);
       this.enemyImgActive = true;
+      this.enemyImgBoss = !!enemy.boss;
       this.enemySprite.setText(""); // 絵文字は隠す
-      this.enemyLabel.setVisible(false); // 名前は上部の大型HPバーに出る
+      this.enemyLabel.setVisible(!enemy.boss); // 雑魚は名前、ボスは上部の大型HPバー
     } else {
       this.enemyImgActive = false;
+      this.enemyImgBoss = false;
       if (this.enemyImg) this.enemyImg.setVisible(false);
     }
     this.drawHpBars();
@@ -802,7 +808,17 @@ export default class GameScene extends Phaser.Scene {
     const hp = Math.round(C.ENEMY_BASE.hp * factor * type.hpMod);
     const atk = Math.max(1, Math.round(C.ENEMY_BASE.atk * factor * type.atkMod));
     const rawSpd = Phaser.Math.Between(C.ENEMY_BASE.spdMin, C.ENEMY_BASE.spdMax) * type.spdMod;
-    return { hp, maxHp: hp, atk, spd: Math.max(1, Math.round(rawSpd)), icon: type.icon, label: type.label, lean: type.key };
+    // 個体差：色変異（パレットスワップ）＋サイズ変異で"違うキャラ"感を出す
+    const TINTS = {
+      anger: [0xffffff, 0xffffff, 0xff8a5a, 0xd070ff, 0xffbe40],
+      sadness: [0xffffff, 0xffffff, 0x66c8ff, 0x86ffe0, 0xa088ff],
+      courage: [0xffffff, 0xffffff, 0xfff090, 0x9aff80, 0xffc866],
+      hope: [0xffffff, 0xffffff, 0xffe0a0, 0xc0e0ff, 0xffc0e0],
+    };
+    const pal = TINTS[type.key] || [0xffffff];
+    const tint = Phaser.Utils.Array.GetRandom(pal);
+    const mobScale = 0.82 + Math.random() * 0.42; // 大きさもバラつかせる
+    return { hp, maxHp: hp, atk, spd: Math.max(1, Math.round(rawSpd)), icon: type.icon, label: type.label, lean: type.key, tint, mobScale };
   }
 
   // 固定距離ボス：強敵。感情系統は順に巡る（戦い方の多様性を促す）。
@@ -1826,15 +1842,16 @@ export default class GameScene extends Phaser.Scene {
     if (!o) return;
     const hx = o.baseX != null ? o.baseX : o.spr.x;
     const fit = o.fitScale != null ? o.fitScale : 0.85;
-    // 画像仲間は攻撃フレームへ差し替え → 戻す（フレームアニメ）
-    if (o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion + "_atk")) {
+    // 画像仲間は攻撃フレームへ差し替え → 戻す（フレームアニメ）。3倍速は軽量化のため簡略。
+    const light = this.speed >= 3;
+    if (!light && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion + "_atk")) {
       o.spr.setTexture("char_" + comp.emotion + "_atk");
       this.time.delayedCall(220, () => {
         if (o.spr && o.spr.scene && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion)) o.spr.setTexture("char_" + comp.emotion);
       });
     }
     this.tweens.add({ targets: o.spr, x: hx + 48, duration: 110, yoyo: true, ease: "Quad.easeOut", onComplete: () => { o.spr.x = hx; } });
-    this.tweens.add({ targets: o.spr, scaleX: fit * 1.15, scaleY: fit * 0.9, duration: 90, yoyo: true, ease: "Quad.easeOut", onComplete: () => o.spr.setScale(fit) });
+    if (!light) this.tweens.add({ targets: o.spr, scaleX: fit * 1.15, scaleY: fit * 0.9, duration: 90, yoyo: true, ease: "Quad.easeOut", onComplete: () => o.spr.setScale(fit) });
   }
 
   // 主人公の攻撃モーション：攻撃フレームへ差替＋スクワッシュ（ピクセル2コマ）
@@ -1844,7 +1861,7 @@ export default class GameScene extends Phaser.Scene {
     if (!this.textures.exists(atk)) return;
     this.heroSprite.setTexture(atk);
     const fit = this.heroFit || 1;
-    this.tweens.add({ targets: this.heroSprite, scaleX: fit * 1.12, scaleY: fit * 0.92, duration: 90, yoyo: true, onComplete: () => this.heroSprite.setScale(fit) });
+    if (this.speed < 3) this.tweens.add({ targets: this.heroSprite, scaleX: fit * 1.12, scaleY: fit * 0.92, duration: 90, yoyo: true, onComplete: () => this.heroSprite.setScale(fit) });
     this.time.delayedCall(240, () => {
       if (this.heroSprite && this.heroSprite.scene && this.heroIsImage && this.textures.exists(this.heroFormKey)) this.heroSprite.setTexture(this.heroFormKey);
     });
