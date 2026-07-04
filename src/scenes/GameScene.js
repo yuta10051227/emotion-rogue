@@ -381,12 +381,18 @@ export default class GameScene extends Phaser.Scene {
     keys.forEach((key, i) => {
       const cx = colW * i + colW / 2;
       const info = C.EMOTIONS[key];
+      // 戦闘中に「その戦いで兆している感情」を光らせるグロー（アイコン背後・加算合成）
+      const formGlow = this.add.circle(cx - 10, y, 19, info.color, 0).setBlendMode(Phaser.BlendModes.ADD);
       const icon = this.add.text(cx - 10, y, info.icon, { fontFamily: EMOJI_FONT, fontSize: "26px" }).setOrigin(0.5);
       const count = this.add.text(cx + 18, y, "0", { fontFamily: UI_FONT, fontSize: "18px", color: "#cfcfe0" }).setOrigin(0, 0.5);
       this.add.rectangle(cx, y + 24, 56, 6, 0x2a2a3a).setOrigin(0.5);
       const bar = this.add.rectangle(cx - 28, y + 24, 1, 6, info.color).setOrigin(0, 0.5);
-      this.gauges[key] = { icon, count, bar };
+      // 「今の戦い」での形成度バー（記憶バーの少し上に薄く重ねる）
+      const formBar = this.add.rectangle(cx - 28, y + 19, 1, 3, info.color, 0.95).setOrigin(0, 0.5).setVisible(false);
+      this.gauges[key] = { icon, count, bar, formGlow, formBar };
     });
+    // 兆している主感情のラベル（戦闘中のみ・目標バナー位置を借りる）
+    this.formLabel = this.add.text(this.W / 2, 58, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#d8cfc0" }).setOrigin(0.5).setDepth(6).setVisible(false);
   }
 
   preload() {
@@ -522,6 +528,48 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  // 戦闘中、「その戦いで兆している感情」を4アイコンにライブ表示する。
+  //  勝ち方(速攻/耐え/先制/逆転)がリアルタイムで感情に結晶化する様を"見て"分かる＝見守り型の王冠差別化。
+  updateFormingEmotions(time) {
+    const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
+    const b = this.battle;
+    const show = this.mode === "battle" && b && !b.finished && !!this.currentEnemy;
+    if (this.objectiveBanner) this.objectiveBanner.setVisible(!show); // 戦闘中は目標バナーを隠しライブ表示へ譲る
+    const R = C.EMOTION_RULES;
+    let lead = null;
+    let leadV = 0.14;
+    const eHp = show ? Math.max(0, this.currentEnemy.hp) / this.currentEnemy.maxHp : 1;
+    for (const key of C.EMOTION_ORDER) {
+      const g = this.gauges[key];
+      if (!g || !g.formGlow) continue;
+      let v = 0;
+      if (show) {
+        if (key === "anger") v = clamp01((1 - eHp) * clamp01(R.angerTurns / Math.max(1, b.turnsToWin))); // 速攻で押し切る勢い
+        else if (key === "sadness") v = clamp01(b.damageTaken / Math.max(1, this.heroStats.maxHp * R.sadnessDamageRatio)); // 耐えた量
+        else if (key === "courage") v = b.enemyAttacked === 0 ? clamp01(1 - eHp) : 0; // 先制で削り切る（1発でも被弾で消灯）
+        else if (key === "hope") v = clamp01(R.hopeHpRatio / Math.max(0.01, b.minHpRatio)); // 瀕死から
+      }
+      const pulse = 1 + Math.sin(time / 240) * 0.14 * v;
+      g.formGlow.setAlpha(0.55 * v).setScale((0.85 + v * 0.9) * pulse);
+      if (g.formBar) {
+        g.formBar.setVisible(show && v > 0.02);
+        g.formBar.width = Math.max(1, 56 * v);
+      }
+      if (v > leadV) {
+        leadV = v;
+        lead = key;
+      }
+    }
+    if (this.formLabel) {
+      if (show && lead) {
+        const info = C.EMOTIONS[lead];
+        this.formLabel.setText(`${info.icon} ${info.label} が 兆している`).setColor(colorToCss(info.color)).setVisible(true).setAlpha(0.55 + 0.45 * Math.min(1, leadV));
+      } else {
+        this.formLabel.setVisible(false);
+      }
+    }
+  }
+
   // 主感情の"専用パーティクル"を主人公の周りに（怒＝火の粉/悲＝雫/勇＝風/希＝きらめき）
   emitEmotionParticle() {
     if (this.paused || this.speed >= 3 || (this.mode !== "walk" && this.mode !== "battle")) return; // 3倍速は粒を止めて軽く
@@ -641,6 +689,7 @@ export default class GameScene extends Phaser.Scene {
   // ============================ update loop ============================
   update(time, delta) {
     if (this.paused) return; // 強化パネル等を開いている間は世界を止める
+    this.updateFormingEmotions(time); // 戦闘中の「兆している感情」ライブ表示（勝ち方が感情に結晶化する様を見せる）
     if (this.mode === "walk") {
       const dt = delta / 1000;
       const adv = C.COMBAT.walkSpeed * dt * this.speed; // 倍速は歩行にも効く

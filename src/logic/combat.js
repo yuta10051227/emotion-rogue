@@ -46,23 +46,28 @@ export function createBattle(hero, enemy, allies = [], opts = {}) {
 export function stepBattle(b) {
   if (b.finished) return [];
   const T = COMBAT.atbThreshold;
+  const CAP = COMBAT.maxActionsPerTick || 12;
   const events = [];
 
+  // 毎ティック、素早さを行動ゲージへ加算（spdが速いほど早く貯まる）
   b.heroGauge += b.hero.spd;
   b.enemyGauge += b.enemy.spd;
   for (const a of b.allies) a.gauge += a.spd;
 
-  // 行動可能な者を、素早さの高い順に処理（仲間も混ぜる）
-  const ready = [];
-  if (b.heroGauge >= T) ready.push({ who: "hero", spd: b.hero.spd });
-  if (b.enemyGauge >= T) ready.push({ who: "enemy", spd: b.enemy.spd });
-  for (const a of b.allies) if (a.gauge >= T) ready.push({ who: "ally", spd: a.spd, ally: a });
-  ready.sort((x, y) => y.spd - x.spd);
+  // 閾値に達した者を「行動ゲージの高い順」に1体ずつ処理。
+  // 貯めが2回分あれば同じティックでも再行動できる＝spdが攻撃回数に効く（勇気=SPDが機能）。CAPで暴走防止。
+  let acts = 0;
+  while (acts < CAP && !b.finished) {
+    let pick = null;
+    const consider = (who, gauge, spd, ally) => {
+      if (gauge >= T && (!pick || gauge > pick.gauge || (gauge === pick.gauge && spd > pick.spd))) pick = { who, gauge, spd, ally };
+    };
+    consider("hero", b.heroGauge, b.hero.spd, null);
+    consider("enemy", b.enemyGauge, b.enemy.spd, null);
+    for (const a of b.allies) consider("ally", a.gauge, a.spd, a);
+    if (!pick) break;
 
-  for (const r of ready) {
-    if (b.finished) break;
-
-    if (r.who === "hero") {
+    if (pick.who === "hero") {
       b.heroGauge -= T;
       b.heroAttacks += 1;
       const isSkill = b.heroAttacks % b.skillEvery === 0; // 一定回数ごとに技（ツリーで短縮可）
@@ -74,7 +79,7 @@ export function stepBattle(b) {
         b.enemy.hp = 0;
         finish(b, true);
       }
-    } else if (r.who === "enemy") {
+    } else if (pick.who === "enemy") {
       b.enemyGauge -= T;
       const dmg = rollDamage(b.enemy.atk);
       b.hero.hp -= dmg;
@@ -89,7 +94,7 @@ export function stepBattle(b) {
       }
     } else {
       // 仲間の助太刀（役割別）。仲間は被弾しないので守りの処理は無し。
-      const a = r.ally;
+      const a = pick.ally;
       a.gauge -= T;
       if (a.role === "healer") {
         const before = b.hero.hp;
@@ -111,6 +116,7 @@ export function stepBattle(b) {
         }
       }
     }
+    acts += 1;
   }
   return events;
 }

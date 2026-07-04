@@ -31,6 +31,7 @@ export const COMBAT = {
   walkSpeed: 22, // 進軍速度(m/s)
   distancePerEncounter: 14, // 何mごとに敵が出るか（±ゆらぎあり）
   maxBattleTicks: 340, // 戦闘の最長ティック。超えたら強制決着（フリーズ防止の安全網。ボスHP増に合わせ拡大）
+  maxActionsPerTick: 12, // 1ティックで処理する最大行動数（速い者が貯めたゲージ分だけ多く動ける上限＝暴走防止）
   swarmEnabled: true, // 群れ（複数の敵を連戦）。控えは右にシルエット表示。取締役：進軍する群れを採用。
 };
 

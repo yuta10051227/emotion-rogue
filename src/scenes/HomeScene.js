@@ -282,15 +282,12 @@ export default class HomeScene extends Phaser.Scene {
 
     this.drawBaseStrip(); // やすらぎの街：留守番の仲間が働いている様子
 
-    // リセット（テスト用）
+    // リセット（テスト用）※誤タップでの全消去を防ぐため確認を挟む
     this.add
       .text(16, this.H - 14, "記録を消す", { fontFamily: UI_FONT, fontSize: "12px", color: "#55556a" })
       .setOrigin(0, 1)
       .setInteractive({ useHandCursor: true })
-      .on("pointerdown", () => {
-        resetSave();
-        this.scene.restart();
-      });
+      .on("pointerdown", () => this.confirmReset());
 
     // 💾 セーブ（バックアップ／復元）
     this.add
@@ -481,6 +478,33 @@ export default class HomeScene extends Phaser.Scene {
     return c;
   }
 
+  closeActivePanel() {
+    if (this.panel) {
+      this.panel.destroy(true);
+      this.panel = null;
+    }
+  }
+
+  // 記録の全消去は取り返しがつかないので、必ず確認を挟む
+  confirmReset() {
+    this.openPanel("本当に記録を消しますか？", (c) => {
+      c.add(
+        this.add
+          .text(this.W / 2, 220, "魂・仲間・図鑑・悟り・装備など\nすべての進行が完全に消え、元に戻せません。", {
+            fontFamily: UI_FONT,
+            fontSize: "15px",
+            color: "#e0b0b0",
+            align: "center",
+            lineSpacing: 8,
+          })
+          .setOrigin(0.5),
+      );
+      const yes = this.makeButton(this.W / 2, 340, 280, 54, "すべて消す", () => { resetSave(); this.scene.restart(); }, { color: 0x3a1414, stroke: 0x8a3a3a, textColor: "#ff9a9a" });
+      const no = this.makeButton(this.W / 2, 410, 280, 54, "やめる", () => this.closeActivePanel(), { color: 0x1c2c1c, stroke: 0x4caf50, textColor: "#bfffbf" });
+      c.add([yes.rect, yes.txt, yes.badge, no.rect, no.txt, no.badge]);
+    });
+  }
+
   // ---- 装備変更（実機能）----
   openEquipPanel() {
     this.openPanel("装備変更", (c) => {
@@ -501,28 +525,30 @@ export default class HomeScene extends Phaser.Scene {
         if (ea !== eb) return eb - ea;
         return b.id - a.id;
       });
-      if (owned.length > 10) {
-        c.add(this.add.text(this.W / 2, 168, `所持 ${owned.length} 件（装備中・新しい順に表示）`, { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80" }).setOrigin(0.5));
-      }
-      let y = 196;
-      sorted.slice(0, 10).forEach((it) => {
+      c.add(this.add.text(this.W / 2, 168, `所持 ${owned.length} 件（装備中・新しい順／スクロール可）`, { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80" }).setOrigin(0.5));
+      // 全件をスクロールリストに（11個目以降が装備できないバグ修正）
+      const list = this.add.container(0, 0);
+      const rows = [];
+      let y = 202;
+      sorted.forEach((it) => {
         const equipped = isEquipped(it.id);
         const rar = C.EQUIPMENT.rarities.find((r) => r.key === it.rarity) || C.EQUIPMENT.rarities[0];
         const row = this.add
           .rectangle(this.W / 2, y, this.W - 50, 42, equipped ? 0x1c2c1c : 0x191926)
-          .setStrokeStyle(1, equipped ? 0x4caf50 : 0x33334a)
-          .setInteractive({ useHandCursor: true });
+          .setStrokeStyle(1, equipped ? 0x4caf50 : 0x33334a);
         const nm = this.add.text(40, y - 10, `${it.name}〈${rar.label}〉`, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(rar.color) }).setOrigin(0, 0.5);
         const stt = this.add.text(40, y + 9, `❤${it.hp}  ⚔${it.atk}  ⚡${it.spd}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0, 0.5);
         const tag = this.add.text(this.W - 42, y, equipped ? "装備中" : "装備する", { fontFamily: UI_FONT, fontSize: "13px", color: equipped ? "#7fff9f" : "#cfcfe0" }).setOrigin(1, 0.5);
-        row.on("pointerdown", () => {
-          toggleEquip(it.id);
-          this.refreshHomeStats();
-          this.openEquipPanel();
-        });
-        c.add([row, nm, stt, tag]);
+        list.add([row, nm, stt, tag]);
+        rows.push({ id: it.id, y });
         y += 48;
       });
+      c.add(list);
+      this.attachScroll(c, list, 186, this.H - 60, y + 6, (id) => {
+        toggleEquip(id);
+        this.refreshHomeStats();
+        this.openEquipPanel();
+      }, rows);
     });
   }
 
@@ -1128,7 +1154,7 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   // パネル内リストをマスク＋ドラッグ/ホイールでスクロール可能にする（枠はみ出し防止）
-  attachScroll(c, list, viewTop, viewBottom, contentBottom) {
+  attachScroll(c, list, viewTop, viewBottom, contentBottom, onTap, rows) {
     const viewH = viewBottom - viewTop;
     const mg = this.make.graphics();
     mg.fillStyle(0xffffff);
@@ -1157,11 +1183,14 @@ export default class HomeScene extends Phaser.Scene {
     if (maxScroll > 0) this.input.setDraggable(zone);
     let downY = 0;
     let downListY = 0;
+    let moved = 0;
     zone.on("pointerdown", (p) => {
       downY = p.y;
       downListY = list.y;
+      moved = 0;
     });
     zone.on("drag", (p) => {
+      moved = Math.max(moved, Math.abs(p.y - downY));
       list.y = Phaser.Math.Clamp(downListY + (p.y - downY), minY, 0);
       updateBar();
     });
@@ -1169,6 +1198,23 @@ export default class HomeScene extends Phaser.Scene {
       list.y = Phaser.Math.Clamp(list.y - dy * 0.5, minY, 0);
       updateBar();
     });
+    // タップで項目を選ぶ（操作可能なスクロールリスト用）。ドラッグはタップ扱いしない。
+    if (onTap && rows && rows.length) {
+      zone.on("pointerup", (p) => {
+        if (moved > 8) return;
+        const localY = p.y - list.y;
+        let best = null;
+        let bestD = 26;
+        for (const r of rows) {
+          const d = Math.abs(r.y - localY);
+          if (d < bestD) {
+            bestD = d;
+            best = r;
+          }
+        }
+        if (best) onTap(best.id);
+      });
+    }
   }
 
   // ---- おかえり（帰還サマリー）----
