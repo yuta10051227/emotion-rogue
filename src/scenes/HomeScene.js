@@ -81,6 +81,10 @@ export default class HomeScene extends Phaser.Scene {
     }
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png");
+    if (!this.textures.exists("town_nest")) this.load.image("town_nest", "chars/town_nest.png"); // 卵の巣
+    for (const k of C.EMOTION_ORDER) {
+      if (!this.textures.exists("town_" + k)) this.load.image("town_" + k, "chars/town_" + k + ".png"); // 街の場所
+    }
     // 図鑑用：主人公の進化形態
     for (const k of C.EMOTION_ORDER) {
       for (let s = 1; s <= 3; s++) {
@@ -372,34 +376,46 @@ export default class HomeScene extends Phaser.Scene {
       c.add(this.add.text(this.W / 2, 116, `街レベル ${lv}　（生産 +${bonus}%）`, { fontFamily: UI_FONT, fontSize: "17px", color: "#bfe0ff" }).setOrigin(0.5));
       c.add(this.add.text(this.W / 2, 140, `留守番 ${stay.length} 体　／　次のLvまで 転生 ${C.COMPANION.idle.townRebirthsPerLevel - (s.soul.rebirths % C.COMPANION.idle.townRebirthsPerLevel)} 回`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0.5));
 
-      // 4感情の「場所」を 2x2 で。属性の合う留守番仲間がそこで働く。
+      // 街の空気（pixel遠景を薄く敷く）
+      if (this.textures.exists("bg_far")) c.add(this.add.image(this.W / 2, 250, "bg_far").setDisplaySize(this.W - 24, 130).setAlpha(0.25));
+
+      // 4感情の「場所」を 2x2 で（pixelの建物）。属性の合う留守番仲間がそこで働く。
       const positions = [
-        [this.W / 2 - 96, 230],
-        [this.W / 2 + 96, 230],
-        [this.W / 2 - 96, 400],
-        [this.W / 2 + 96, 400],
+        [this.W / 2 - 96, 240],
+        [this.W / 2 + 96, 240],
+        [this.W / 2 - 96, 408],
+        [this.W / 2 + 96, 408],
       ];
       C.EMOTION_ORDER.forEach((k, i) => {
         const [cx, cy] = positions[i];
         const info = C.EMOTIONS[k];
         const here = stay.filter((b) => b.emotion === k);
-        c.add(this.add.rectangle(cx, cy, 176, 150, 0x14141f).setStrokeStyle(1, info.color));
-        c.add(this.add.text(cx, cy - 60, `${info.icon} ${C.COMPANION.spots[k]}`, { fontFamily: UI_FONT, fontSize: "14px", color: colorToCss(info.color) }).setOrigin(0.5));
+        if (this.textures.exists("town_" + k)) c.add(this.add.image(cx, cy - 42, "town_" + k).setDisplaySize(82, 82));
+        else c.add(this.add.text(cx, cy - 42, info.icon, { fontFamily: EMOJI_FONT, fontSize: "40px" }).setOrigin(0.5));
+        c.add(this.add.text(cx, cy + 8, C.COMPANION.spots[k], { fontFamily: UI_FONT, fontSize: "13px", color: colorToCss(info.color) }).setOrigin(0.5));
         if (!here.length) {
-          c.add(this.add.text(cx, cy, "（誰もいない）", { fontFamily: UI_FONT, fontSize: "11px", color: "#55556a" }).setOrigin(0.5));
+          c.add(this.add.text(cx, cy + 34, "（誰もいない）", { fontFamily: UI_FONT, fontSize: "11px", color: "#55556a" }).setOrigin(0.5));
         } else {
-          here.slice(0, 4).forEach((b, j) => {
-            const x = cx - 42 + (j % 2) * 84;
-            const y = cy - 18 + Math.floor(j / 2) * 40;
-            const spr = this.add.text(x, y, b.icon, { fontFamily: EMOJI_FONT, fontSize: "24px" }).setOrigin(0.5);
-            this.tweens.add({ targets: spr, y: y - 4, duration: 480 + j * 70, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+          here.slice(0, 3).forEach((b, j) => {
+            const x = cx - 30 + j * 30;
+            const yy = cy + 36;
+            const spr = this.charPortrait(x, yy, b.emotion, 28, b.icon, false);
+            this.tweens.add({ targets: spr, y: yy - 3, duration: 480 + j * 70, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
             c.add(spr);
           });
-          c.add(this.add.text(cx, cy + 56, `${here.length}体が ${info.icon}素材を採取`, { fontFamily: UI_FONT, fontSize: "11px", color: "#9a9aac" }).setOrigin(0.5));
+          c.add(this.add.text(cx, cy + 58, `${here.length}体が採取中`, { fontFamily: UI_FONT, fontSize: "10px", color: "#9a9aac" }).setOrigin(0.5));
         }
       });
 
-      c.add(this.add.text(this.W / 2, 500, "「仲間」で留守番にした子が、合う場所で働く。\n離れている間に素材を集めてくれる（上限あり）。街は転生で育つ。", { fontFamily: UI_FONT, fontSize: "12px", color: "#6a6a80", align: "center", lineSpacing: 5 }).setOrigin(0.5));
+      // 卵の巣（共鳴孵化の可視化＝卵の在り処）
+      const eggs = s.party.eggs.length;
+      const ny = 512;
+      if (this.textures.exists("town_nest")) c.add(this.add.image(this.W / 2 - 70, ny, "town_nest").setDisplaySize(66, 66));
+      else c.add(this.add.text(this.W / 2 - 70, ny, "🥚", { fontFamily: EMOJI_FONT, fontSize: "34px" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2 - 28, ny - 10, eggs > 0 ? `感情の卵 ×${eggs}` : "卵はまだない", { fontFamily: UI_FONT, fontSize: "14px", color: eggs > 0 ? "#ffe0a0" : "#7a7a90" }).setOrigin(0, 0.5));
+      c.add(this.add.text(this.W / 2 - 28, ny + 12, eggs > 0 ? "次の旅で孵る" : "2体以上を同行させると生まれる", { fontFamily: UI_FONT, fontSize: "10px", color: "#8a8aa0" }).setOrigin(0, 0.5));
+
+      c.add(this.add.text(this.W / 2, 566, "留守番の仲間が、合う場所で素材を集める。街は転生で育つ。", { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80", align: "center", wordWrap: { width: this.W - 60 } }).setOrigin(0.5));
     });
   }
 

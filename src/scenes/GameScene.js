@@ -770,11 +770,12 @@ export default class GameScene extends Phaser.Scene {
 
     // 敵アート（ボス=大きく／雑魚=小さく色変異）。位置/フェードは enemySprite が駆動。
     const artKey = enemy.boss ? "boss_" + enemy.lean : "enemy_" + enemy.lean;
+    if (!this.enemyImg && this.textures.exists(artKey)) this.enemyImg = this.add.image(this.enemyX, this.enemyY, artKey).setDepth(2).setVisible(false); // 保険で遅延生成
     const hasArt = this.enemyImg && this.textures.exists(artKey);
     if (hasArt) {
-      this.enemyImg.setTexture(artKey).setVisible(true).setAlpha(1).setTint(enemy.tint || 0xffffff).setFlipX(true); // 主人公(左)を向く
+      this.enemyImg.setTexture(artKey).setVisible(true).setAlpha(1).setDepth(2).setFlipX(false).setTint(enemy.tint || 0xffffff); // 反転しない（元絵が主人公向き）
       const px = enemy.boss ? enemy.bossPx || 300 : Math.round(92 * (enemy.mobScale || 1)); // ボスは段階的サイズ／雑魚は個体差
-      this.enemyImgFit = px / this.enemyImg.width;
+      this.enemyImgFit = px / (this.enemyImg.width || 256);
       this.enemyImg.setScale(this.enemyImgFit);
       this.enemyImgActive = true;
       this.enemyImgBoss = !!enemy.boss;
