@@ -43,6 +43,8 @@ export default class GameScene extends Phaser.Scene {
     this.enemyQueue = [];
     this.queueSprites = [];
     this.emotions = createEmotionState();
+    this.runLean = { anger: 0, sadness: 0, courage: 0, hope: 0 }; // 感情の岐路カードで傾けた感情（獲得倍率に加算）
+    this.runStatLean = { atk: 0, def: 0, spd: 0, luk: 0 }; // 岐路カードの run 限定ステ強化
     this.evolved = false;
     this.evolvedKey = null;
     this.evoStage = 0; // 0スライム→1獣→2戦士→3化身（多段進化）
@@ -128,11 +130,12 @@ export default class GameScene extends Phaser.Scene {
   applyRunUpgrades() {
     const U = {};
     for (const it of C.UPGRADES.items) U[it.key] = it;
+    const lean = this.runStatLean || { atk: 0, def: 0, spd: 0, luk: 0 };
     const maxHp = Math.round(this.heroBase.maxHp * (1 + U.hp.per * this.runUp.hp) * this.evoMult * (1 + (this.itemHpPct || 0)));
-    const atk = Math.round(this.heroBase.atk * (1 + U.atk.per * this.runUp.atk) * this.evoMult * (1 + (this.itemAtkPct || 0)));
-    const spd = this.heroBase.spd + U.spd.per * this.runUp.spd;
-    const def = this.heroBase.def || 0; // DEF/LUKは装備由来の素体値をそのまま（進化倍率は乗せない）
-    const luk = this.heroBase.luk || 0;
+    const atk = Math.round(this.heroBase.atk * (1 + U.atk.per * this.runUp.atk) * this.evoMult * (1 + (this.itemAtkPct || 0)) * (1 + (lean.atk || 0)));
+    const spd = this.heroBase.spd + U.spd.per * this.runUp.spd + (lean.spd || 0);
+    const def = (this.heroBase.def || 0) + (lean.def || 0); // 素体(装備)＋岐路カードのrun強化
+    const luk = (this.heroBase.luk || 0) + (lean.luk || 0);
     if (!this.heroStats) {
       this.heroStats = { hp: maxHp, maxHp, atk, spd, def, luk };
     } else {
@@ -147,7 +150,8 @@ export default class GameScene extends Phaser.Scene {
     // 欠片獲得倍率＝ツリー由来 ＋ コイン強化「欠片」
     const fragBonus = U.frag.per * this.runUp.frag;
     this.fragMult = {};
-    for (const k of C.EMOTION_ORDER) this.fragMult[k] = this.baseFragMult[k] + fragBonus;
+    const rl = this.runLean || {};
+    for (const k of C.EMOTION_ORDER) this.fragMult[k] = this.baseFragMult[k] + fragBonus + (rl[k] || 0);
   }
 
   upgradeCost(key) {
@@ -263,6 +267,65 @@ export default class GameScene extends Phaser.Scene {
       this._coach = null;
     }
     markBattleCoached();
+    this.paused = false;
+    if (this.battleTimer && this.mode === "battle" && this.battle && !this.battle.finished) this.battleTimer.paused = false;
+  }
+
+  // ---- 感情の岐路（節目=ボス直前の3択。委ねた感情の獲得+60%＝どの進化へ向かうかを操縦＋対応ステ強化。おまかせは自動選択）----
+  openChoicePanel() {
+    if (this._choice || this.mode !== "walk") return;
+    this.paused = true;
+    if (this.battleTimer) this.battleTimer.paused = true;
+    const DEFS = {
+      anger: { title: "怒りに委ねる", desc: "🔥 攻撃が 鋭くなる", statLabel: "攻撃 +10%" },
+      sadness: { title: "悲しみを抱く", desc: "💧 守りが 増す", statLabel: "DEF +8" },
+      courage: { title: "勇気を掲げる", desc: "⚡ 速く 動ける", statLabel: "素早さ +3" },
+      hope: { title: "希望を灯す", desc: "✨ 会心が 増す", statLabel: "運 +8" },
+    };
+    const pool = C.EMOTION_ORDER.slice();
+    Phaser.Utils.Array.Shuffle(pool);
+    const keys = pool.slice(0, 3);
+    const c = this.add.container(0, 0).setDepth(215);
+    const dim = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x05050c, 0.82).setInteractive();
+    c.add(dim);
+    c.add(this.add.text(this.W / 2, 150, "── 感情の岐路 ──", { fontFamily: UI_FONT, fontSize: "20px", color: "#ffd24d" }).setOrigin(0.5));
+    c.add(this.add.text(this.W / 2, 182, "どの感情に 委ねる？", { fontFamily: UI_FONT, fontSize: "14px", color: "#cfcfe0" }).setOrigin(0.5));
+    const cardW = 130;
+    const gap = 10;
+    const total = keys.length * cardW + (keys.length - 1) * gap;
+    let x = this.W / 2 - total / 2 + cardW / 2;
+    const cardY = this.H / 2 + 20;
+    keys.forEach((key) => {
+      const info = C.EMOTIONS[key];
+      const cd = DEFS[key];
+      const card = this.add.rectangle(x, cardY, cardW, 230, 0x14141f, 0.98).setStrokeStyle(2, info.color).setInteractive({ useHandCursor: true });
+      const icon = this.add.text(x, cardY - 80, info.icon, { fontFamily: EMOJI_FONT, fontSize: "42px" }).setOrigin(0.5);
+      const title = this.add.text(x, cardY - 28, cd.title, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(info.color), align: "center", wordWrap: { width: cardW - 12 } }).setOrigin(0.5);
+      const desc = this.add.text(x, cardY + 42, `${cd.desc}\n\n${info.label}の獲得 +60%\n${cd.statLabel}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#b8b8c8", align: "center", lineSpacing: 4, wordWrap: { width: cardW - 14 } }).setOrigin(0.5);
+      card.on("pointerover", () => card.setFillStyle(0x1e1e2c, 0.98));
+      card.on("pointerout", () => card.setFillStyle(0x14141f, 0.98));
+      card.on("pointerdown", () => this.applyChoice(key));
+      c.add([card, icon, title, desc]);
+      x += cardW + gap;
+    });
+    c.add(this.add.text(this.W / 2, this.H - 92, this.autoInvest ? "おまかせ：自動で選びます…" : "カードを タップ", { fontFamily: UI_FONT, fontSize: "13px", color: "#8a8aa0" }).setOrigin(0.5));
+    this._choice = c;
+    if (this.autoInvest) this.time.delayedCall(1200, () => { if (this._choice) this.applyChoice(keys[Math.floor(Math.random() * keys.length)]); });
+  }
+
+  applyChoice(key) {
+    if (!this._choice) return;
+    this._choice.destroy(true);
+    this._choice = null;
+    const AMT = { anger: { stat: "atk", amount: 0.1 }, sadness: { stat: "def", amount: 8 }, courage: { stat: "spd", amount: 3 }, hope: { stat: "luk", amount: 8 } };
+    this.runLean[key] = (this.runLean[key] || 0) + 0.6; // その感情の獲得+60%（進化がその道へ寄る）
+    const a = AMT[key];
+    this.runStatLean[a.stat] = (this.runStatLean[a.stat] || 0) + a.amount;
+    this.applyRunUpgrades();
+    const info = C.EMOTIONS[key];
+    this.pushLog(`${info.icon} ${info.label}に 心が傾いた（岐路）`);
+    this.flashEdge(key);
+    this.refreshEvoHint();
     this.paused = false;
     if (this.battleTimer && this.mode === "battle" && this.battle && !this.battle.finished) this.battleTimer.paused = false;
   }
@@ -796,6 +859,7 @@ export default class GameScene extends Phaser.Scene {
       this.updatePresence(time);
       this.drawHpBars();
       this.checkProgress();
+      if (this.paused) return; // 感情の岐路カードが開いたら、このフレームでのボス/遭遇開始を止める
       // ボス接近の予兆
       if (!this.bossWarned && this.distance >= this.nextBoss - C.BOSS.warnDistance) {
         this.triggerBossWarning();
@@ -855,6 +919,7 @@ export default class GameScene extends Phaser.Scene {
       this.pushLog(`── ${m * C.PROGRESS.milestoneEvery}m ──`);
       this.flashWhite(0.1);
       this.depthTint();
+      this.openChoicePanel(); // 感情の岐路：どの感情に委ねるか＝進化を操縦（ボス直前の選択）
     }
     if (!this.bestMarked && this.savedBest > 0 && this.distance > this.savedBest) {
       this.bestMarked = true;
