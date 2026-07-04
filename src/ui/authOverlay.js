@@ -95,8 +95,8 @@ export function openAuthOverlay(onDone) {
     const r = await signIn(email.value.trim(), pass.value);
     if (!r.ok) return fail(r.reason || "ログインに失敗しました");
     busy(true, "同期中…");
-    startCloudAutosync();
     const s = await syncOnLogin();
+    startCloudAutosync(); // 和解後に autosync（未和解の空端末がクラウドを上書きしない）
     done({ signedIn: true, action: s.action });
   };
 
@@ -113,8 +113,8 @@ export function openAuthOverlay(onDone) {
       return;
     }
     busy(true, "同期中…");
-    startCloudAutosync();
     const s = await syncOnLogin();
+    startCloudAutosync(); // 和解後に autosync（未和解の空端末がクラウドを上書きしない）
     done({ signedIn: true, action: s.action });
   };
 

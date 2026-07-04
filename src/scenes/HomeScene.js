@@ -1070,7 +1070,7 @@ export default class HomeScene extends Phaser.Scene {
       y += Math.ceil(cat.forms.length / cols) * cellH + 10;
     });
     // 図鑑用に主人公進化アートを読み込む（未ロードなら）
-    this.attachScroll(c, list, 168, this.H - 48, y + 10);
+    this.attachScroll(c, list, 168, this.H - 56, y + 10);
   }
 
   openNoticePanel(tab) {

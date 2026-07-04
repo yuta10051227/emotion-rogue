@@ -102,16 +102,28 @@ export function progressScore(s) {
   const soul = s.soul || {};
   const bonds = s.bonds || {};
   const party = s.party || {};
-  const bonded = Array.isArray(party.bonded) ? party.bonded.length : 0;
+  const lifetime = s.lifetime || {};
   const arts = Array.isArray(s.artifacts) ? s.artifacts.length : 0;
+  // ツリー総レベル＝「悟り」の永続投資（転生でも減らない）。使った悟りを進行度として数える。
+  let treeLv = 0;
+  if (s.tree && typeof s.tree === "object") {
+    for (const k in s.tree) {
+      const br = s.tree[k];
+      if (br && typeof br === "object") for (const id in br) treeLv += br[id] || 0;
+    }
+  }
+  // 残高ではなく「累計獲得」を使う＝強化で残高が減っても進行度は下がらない（空/古い端末が本物を上書きするのを防ぐ核心）。
+  const lifeEnl = Math.max(lifetime.enlightenment || 0, s.enlightenment || 0);
+  const lifeGold = Math.max(lifetime.gold || 0, s.gold || 0);
   return (
     (soul.rebirths || 0) * 1000 +
     (soul.level || 0) * 50 +
     (soul.bestDistance || 0) +
-    (s.enlightenment || 0) * 30 +
-    (s.gold || 0) * 0.5 +
+    lifeEnl * 30 +
+    lifeGold * 0.5 +
+    treeLv * 60 +
+    (party.paidSlots || 0) * 80 +
     (bonds.met || 0) * 20 +
-    bonded * 40 +
     arts * 15 +
     (s.endingSeen ? 500 : 0)
   );
@@ -119,38 +131,45 @@ export function progressScore(s) {
 
 // ログイン直後：進行が多い方を採用（少ない/空の側で上書きしない）。同点なら新しい方。
 export async function syncOnLogin() {
-  const remote = await pullSave();
-  const local = getSave();
-  if (!remote) {
-    await pushSave(local); // クラウド未作成 → ローカルを初回アップロード
-    return { action: "uploaded", localScore: progressScore(local) };
+  try {
+    const remote = await pullSave();
+    const local = getSave();
+    if (!remote) {
+      await pushSave(local); // クラウド未作成 → ローカルを初回アップロード
+      return { action: "uploaded", localScore: progressScore(local) };
+    }
+    const rScore = progressScore(remote);
+    const lScore = progressScore(local);
+    if (rScore > lScore) {
+      adoptCloudSave(remote); // クラウドの方が進んでいる → 取り込む
+      return { action: "downloaded", remoteScore: rScore, localScore: lScore };
+    }
+    if (lScore > rScore) {
+      await pushSave(local); // ローカルの方が進んでいる → 押し上げる（空が本物を消さない）
+      return { action: "uploaded", remoteScore: rScore, localScore: lScore };
+    }
+    // 同点 → 保存時刻の新しい方
+    if ((remote.stamp || 0) > (local.stamp || 0)) {
+      adoptCloudSave(remote);
+      return { action: "downloaded", tie: true };
+    }
+    await pushSave(local);
+    return { action: "insync" };
+  } finally {
+    _reconciled = true; // 以後の autosync は「和解済みのセーブ」だけを押し上げる
   }
-  const rScore = progressScore(remote);
-  const lScore = progressScore(local);
-  if (rScore > lScore) {
-    adoptCloudSave(remote); // クラウドの方が進んでいる → 取り込む
-    return { action: "downloaded", remoteScore: rScore, localScore: lScore };
-  }
-  if (lScore > rScore) {
-    await pushSave(local); // ローカルの方が進んでいる → 押し上げる（空が本物を消さない）
-    return { action: "uploaded", remoteScore: rScore, localScore: lScore };
-  }
-  // 同点 → 保存時刻の新しい方
-  if ((remote.stamp || 0) > (local.stamp || 0)) {
-    adoptCloudSave(remote);
-    return { action: "downloaded", tie: true };
-  }
-  await pushSave(local);
-  return { action: "insync" };
 }
 
 // 保存のたびにクラウドへ（デバウンス 1.5s・失敗は握りつぶしオフライン継続）
 let _pushTimer = null;
+let _reconciled = false; // syncOnLogin が終わるまで false ＝未和解のローカルでクラウドを上書きしない
 export function startCloudAutosync() {
   if (!cloudConfigured()) return;
   setPersistHook(() => {
     if (_pushTimer) clearTimeout(_pushTimer);
     _pushTimer = setTimeout(() => {
+      _pushTimer = null;
+      if (!_reconciled) return; // ログイン同期が未完なら押し上げない（空端末クラウド上書き防止）
       pushSave(getSave());
     }, 1500);
   });

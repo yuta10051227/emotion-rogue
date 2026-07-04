@@ -11,8 +11,8 @@ async function bootstrapCloud() {
   if (!cloudConfigured()) return;
   const user = await getUser();
   if (!user) return;
-  startCloudAutosync();
   const r = await syncOnLogin();
+  startCloudAutosync(); // 和解が終わってから autosync を張る（未和解の空端末がクラウドを上書きしない）
   // クラウドの方が新しければ、取り込んだセーブで全画面を作り直す
   if (r.action === "downloaded") window.location.reload();
 }

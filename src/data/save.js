@@ -65,6 +65,8 @@ function defaultSave() {
     // 導く心のツリー（設計書§8 ④）：転生でリセットされない上層
     enlightenment: 0, // 所持「悟り」
     gold: 0, // お金（永続）：仲間の個体強化に使う
+    // 累計獲得（使っても減らない）＝クラウド同期の進行度スコアを単調増加に保つ核心
+    lifetime: { enlightenment: 0, gold: 0 },
     tree: { vessel: {}, anger: {}, sadness: {}, courage: {}, hope: {}, empathy: {} }, // {ノードid: レベル}
     // 絆（設計書§17）：仲間は転生で散るが、出会った記録だけは永続に残す
     bonds: { met: 0, byEmotion: { anger: 0, sadness: 0, courage: 0, hope: 0 } },
@@ -122,6 +124,10 @@ function ensure(s) {
   if (typeof s.party.paidSlots !== "number") s.party.paidSlots = 0; // 課金で拡張した器の枠
   s.party.eggs = Array.isArray(s.party.eggs) ? s.party.eggs : [];
   if (typeof s.gold !== "number") s.gold = 0;
+  // 累計獲得（クラウド同期の単調増加スコア用）。旧セーブは現残高を下限に見積もる。
+  s.lifetime = s.lifetime && typeof s.lifetime === "object" ? s.lifetime : {};
+  if (typeof s.lifetime.enlightenment !== "number") s.lifetime.enlightenment = s.enlightenment || 0;
+  if (typeof s.lifetime.gold !== "number") s.lifetime.gold = s.gold || 0;
   // 既存の仲間に 個体強化/愛着/レア度フィールドを補完
   let _activeN = 0;
   for (const b of s.party.bonded) {
@@ -228,6 +234,13 @@ export function setPersistHook(fn) {
 //  クラウド再送を避けるため localStorage へ直接書く（persistHook は呼ばない）。
 export function adoptCloudSave(obj) {
   if (!obj || typeof obj !== "object") return false;
+  // 上書き前に、今のローカルを復旧スロットへ退避（万一の誤同期でも取り戻せる）
+  try {
+    const cur = localStorage.getItem(KEY);
+    if (cur) localStorage.setItem(KEY + "_preadopt", cur);
+  } catch (e) {
+    /* ignore */
+  }
   _save = ensure({ ...defaultSave(), ...obj });
   try {
     localStorage.setItem(KEY, JSON.stringify(_save));
@@ -293,7 +306,7 @@ export function makeEquipment(emotionKey, rarityKey, distance) {
     name: `${emo.label}の残響`,
     hp: stat("hp", b.hp),
     atk: stat("atk", b.atk),
-    spd: focus === "spd" ? Math.round(b.spd * rarity.mult * 2) : Math.round(b.spd * rarity.mult * 0.4),
+    spd: Math.round(b.spd * rarity.mult * distMult * (focus === "spd" ? 2 : 0.4)), // hp/atk同様 距離スケールを反映
   };
 }
 
@@ -550,7 +563,7 @@ export function computeHeroStats() {
 export function transmigrate(run) {
   const s = getSave();
   for (const k of EMOTION_ORDER) s.soul.memory[k] += run.emotions[k] || 0;
-  const levelGain = Math.max(1, Math.floor(run.distance / SOUL.levelPerDeathDistance));
+  const levelGain = run.distance >= SOUL.minRewardDistance ? Math.max(1, Math.floor(run.distance / SOUL.levelPerDeathDistance)) : 0;
   s.soul.level += levelGain;
   s.soul.rebirths += 1;
   const dist = Math.floor(run.distance);
@@ -563,10 +576,12 @@ export function transmigrate(run) {
     (run.evolved ? TREE.satori.evolveBonus : 0) +
     (newBest ? TREE.satori.bestBonus : 0);
   s.enlightenment += satoriGain;
+  s.lifetime.enlightenment += satoriGain; // 累計（使っても減らない進行度）
 
   // お金（永続）：旅の到達と撃破から。仲間の個体強化に使う。
   const goldGain = Math.floor(dist / 4) + (run.kills || 0) * 2;
   s.gold += goldGain;
+  s.lifetime.gold += goldGain; // 累計（使っても減らない進行度）
 
   // 旅の日記（DR③）：主感情で1行残す
   const domRun = dominantOf(run.emotions) || "none";
@@ -579,7 +594,7 @@ export function transmigrate(run) {
   let artN = 0;
   if (dist >= 40) artN += 1;
   if (newBest) artN += 1;
-  if (Math.random() < 0.25) artN += 1;
+  if (dist >= SOUL.minRewardDistance && Math.random() < 0.25) artN += 1;
   const earnedArtifacts = [];
   for (let i = 0; i < artN; i++) {
     const emotion = EMOTION_ORDER[Math.floor(Math.random() * EMOTION_ORDER.length)];

@@ -74,7 +74,7 @@ export default class GameScene extends Phaser.Scene {
     this.resonanceKey = stats.resonanceKey; // 記憶の共鳴（多く抱いた感情）
     this.baseFragMult = fragMultipliers(); // ツリーの欠片獲得ボーナス
     this.evoThreshold = effectiveEvoThreshold(); // ツリーで下がりうる進化閾値（1段目）
-    this.evoThresholds = [this.evoThreshold, this.evoThreshold + 14, this.evoThreshold + 34]; // 獣/戦士/化身（進化を遅めに）
+    this.evoThresholds = [this.evoThreshold, this.evoThreshold + C.EVOLUTION_STAGES.step2, this.evoThreshold + C.EVOLUTION_STAGES.step3]; // 獣/戦士/化身（config.jsで調整可能）
     this.skill = skillParams(); // 技：発動間隔・威力（ツリーで育つ）
 
     // 消耗アイテム：出撃で1本ずつ消費する旅バフ＋倒れた時の蘇生（不死鳥の羽）
@@ -362,7 +362,7 @@ export default class GameScene extends Phaser.Scene {
     this.progFlag = this.add.text(this._progX + bw + 2, 44, "🚩", { fontFamily: EMOJI_FONT, fontSize: "14px" }).setOrigin(0, 0.5);
     this.progLabel = this.add.text(this.W / 2, 44, "", { fontFamily: UI_FONT, fontSize: "10px", color: "#9aa0c0" }).setOrigin(0.5);
     // 目標バナー（今いる"道"の名＋次のボスまで＝没入・世界観）
-    this.objectiveBanner = this.add.text(this.W / 2, 80, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#d8cfc0" }).setOrigin(0.5);
+    this.objectiveBanner = this.add.text(this.W / 2, 58, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#d8cfc0" }).setOrigin(0.5); // 感情ゲージ行(y78)と重ならない位置へ
   }
 
   updateProgressBar() {
@@ -548,17 +548,21 @@ export default class GameScene extends Phaser.Scene {
   }
 
   buildLog() {
-    this.add.text(this.W / 2, 606, "─ 旅のしるし ─", { fontFamily: UI_FONT, fontSize: "13px", color: "#55556a" }).setOrigin(0.5);
+    this.add.text(this.W / 2, 596, "─ 旅のしるし ─", { fontFamily: UI_FONT, fontSize: "13px", color: "#55556a" }).setOrigin(0.5);
     this.logText = this.add
-      .text(this.W / 2, 628, "", {
+      .text(this.W / 2, 716, "", {
         fontFamily: UI_FONT,
-        fontSize: "15px",
+        fontSize: "14px",
         color: "#b8b8c8",
         align: "center",
-        lineSpacing: 7,
+        lineSpacing: 5,
         wordWrap: { width: this.W - 40 },
       })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5, 1); // 下端そろえ＝最新行は必ず操作バーの上に出る
+    // 溢れた古い行は上側でクリップ（操作バーの裏に隠れない）
+    const mk = this.make.graphics({ x: 0, y: 0, add: false });
+    mk.fillRect(0, 612, this.W, 108); // y612〜720（操作バー上端）
+    this.logText.setMask(mk.createGeometryMask());
   }
 
   // ---- 下部操作バー（親指圏：倍速／強化／撤退。DRの2ゾーン指針）----
@@ -631,6 +635,7 @@ export default class GameScene extends Phaser.Scene {
       this.battleTick();
       if (this.mode === "battle" && this.battle && !this.battle.finished && !this.paused) this.startBattleTimer();
     });
+    if (this.paused && this.battleTimer) this.battleTimer.paused = true; // パネル等を開いた最中に生成されたタイマーは停止（閉じたら再開＝歩き込み中フリーズ防止）
   }
 
   // ============================ update loop ============================
@@ -770,6 +775,8 @@ export default class GameScene extends Phaser.Scene {
 
   // 1体と交戦開始（先頭/次の敵が右から歩いて来て、到着で戦闘開始）。HPは持ち越し。
   engageEnemy(enemy) {
+    this.tweens.killTweensOf(this.enemySprite); // 前の敵の撃破/浄化フェードtweenを止める（次の敵＝ボスが透明化するバグ根絶）
+    this.tweens.killTweensOf(this.enemyLabel);
     this.currentEnemy = enemy;
     this._enemyAtkToken = (this._enemyAtkToken || 0) + 1; // 前の敵の攻撃フレーム復帰タイマーを無効化（絵の取り違え防止）
     this.battleTicks = 0;
@@ -818,6 +825,7 @@ export default class GameScene extends Phaser.Scene {
 
   // 群れの決着後：控えが居れば次へ（HP持ち越し）、居なければ戦闘終了。
   afterBattleResolved() {
+    if (this._leaving) return; // 撤退中は次の敵に進めない
     if (this.enemyQueue && this.enemyQueue.length > 0) {
       const next = this.enemyQueue.shift();
       this.removeQueueSilhouette();
@@ -974,6 +982,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   resolveBattle() {
+    if (this._leaving) return; // 撤退中に遅延コールバックが漏れても二重処理しない
     try {
       this._resolveBattle();
     } catch (e) {
@@ -1070,6 +1079,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   endBattle() {
+    if (this._leaving) return; // 撤退中は戦闘終了処理（mode=walk化）を走らせない
     this.clearQueueSilhouettes();
     this.enemyQueue = [];
     this.enemySprite.setVisible(false);
@@ -1220,6 +1230,7 @@ export default class GameScene extends Phaser.Scene {
 
   // ============================ evolution（多段進化：スライム→獣→戦士→化身）============================
   doEvolution(form) {
+    if (this._leaving) return; // 撤退中に進化コールバックが漏れても発火させない
     this.mode = "evolve";
     sfx.evolve();
     this.evolved = true;
@@ -1778,30 +1789,37 @@ export default class GameScene extends Phaser.Scene {
 
   // 踏み込み（攻撃側が相手へ素早く突っ込んでクラッシュ→戻る）。"戦ってる感"の核。
   lunge(sprite, homeX, dir, dist = 78) {
-    this.tweens.add({
-      targets: sprite,
-      x: homeX + dir * dist,
-      duration: 100,
-      yoyo: true,
-      ease: "Quad.easeOut",
-      onComplete: () => {
-        sprite.x = homeX;
-      },
-    });
+    this._impulse(sprite, homeX, dir * dist, Math.max(45, 100 / Math.max(1, this.speed)));
   }
 
   // ノックバック（溜め→吹き飛び）。homeX に必ず戻す。
   knockback(sprite, homeX, dir, power = 0.4) {
-    this.tweens.add({
+    this._impulse(sprite, homeX, dir * (6 + 12 * power), Math.max(35, 70 / Math.max(1, this.speed)));
+  }
+
+  // 突進/ノックバックの共通処理：スプライトごとに最新の衝撃だけを効かせる。
+  //  同一tickで相反する2つのx tween（被弾ノックバック＋反撃突進）が衝突するカクつき、
+  //  倍速時に攻撃モーションが途中で素に戻る問題を解消。durationは倍速に連動。
+  _impulse(sprite, homeX, offset, duration) {
+    if (sprite._impulseTween) {
+      sprite._impulseTween.stop(); // onCompleteを発火させず停止（古い x=homeX スナップを防ぐ）
+      sprite._impulseTween = null;
+      sprite.x = homeX;
+    }
+    const tw = this.tweens.add({
       targets: sprite,
-      x: homeX + dir * (6 + 12 * power),
-      duration: 70,
+      x: homeX + offset,
+      duration,
       yoyo: true,
       ease: "Quad.easeOut",
       onComplete: () => {
-        sprite.x = homeX;
+        if (sprite._impulseTween === tw) {
+          sprite.x = homeX;
+          sprite._impulseTween = null;
+        }
       },
     });
+    sprite._impulseTween = tw;
   }
 
   absorbLight(key) {

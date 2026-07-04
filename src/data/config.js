@@ -69,8 +69,8 @@ export const EVOLUTION = {
 //  単一感情が累計しきい値を超えるたびに次の段階へ。混合/三重/闇堕ちは初進化の特別ルート。
 export const EVOLUTION_STAGES = {
   // 累計しきい値（leading emotion）：獣／戦士／化身。1段目はツリーの effectiveEvoThreshold を使う。
-  step2: 12, // 戦士へ（1段目の閾値＋αの絶対値ではなく、GameSceneで 1段目＋this値 を使う）
-  step3: 25, // 化身へ
+  step2: 14, // 戦士へ：1段目の閾値＋この値（GameSceneが参照）
+  step3: 34, // 化身へ：1段目の閾値＋この値（GameSceneが参照）
   statMultiplier: 1.5, // 各段階で ATK/HP ×
   forms: {
     anger: [
@@ -164,6 +164,7 @@ export const ENEMY_TYPES = [
 export const SOUL = {
   levelStatPerLevel: 0.05, // 魂レベル1ごとに 主人公の最大HP/ATK +5%
   levelPerDeathDistance: 50, // この距離ごとに魂レベル+1（死亡/撤退時、最低+1）
+  minRewardDistance: 20, // これ未満の距離で帰ると魂レベル/結晶の永続報酬は無し（出発→即撤退の無限稼ぎ封じ）
   resonanceBonus: 0.5, // いちばん多く抱いた記憶の感情：その欠片の獲得量 +50%（共鳴）
 };
 
