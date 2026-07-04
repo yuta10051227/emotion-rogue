@@ -274,6 +274,7 @@ export default class GameScene extends Phaser.Scene {
   // ---- 感情の岐路（節目=ボス直前の3択。委ねた感情の獲得+60%＝どの進化へ向かうかを操縦＋対応ステ強化。おまかせは自動選択）----
   openChoicePanel() {
     if (this._choice || this.mode !== "walk") return;
+    this.dismissCare(); // ケア中の吹き出しを消してから（強化パネルと同じ作法）
     this.paused = true;
     if (this.battleTimer) this.battleTimer.paused = true;
     const DEFS = {
@@ -836,7 +837,7 @@ export default class GameScene extends Phaser.Scene {
       if (on) this.evoHint.setPosition(this.heroX, this.heroSprite.y - 76 + Math.sin(time / 300) * 2); // 主人公の頭上でふわり
     }
     if (this.mode === "walk") {
-      const dt = delta / 1000;
+      const dt = Math.min(delta, 50) / 1000; // 大きなフレーム間隔(タブ復帰/低FPS)で距離がワープし節目カードやボス警告を飛ばさないよう上限
       const adv = C.COMBAT.walkSpeed * dt * this.speed; // 倍速は歩行にも効く
       this.distance += adv;
       this.scrollWorld(adv * 6); // 背景を流して"行軍してる感"を出す
@@ -1014,7 +1015,10 @@ export default class GameScene extends Phaser.Scene {
       ease: "Sine.easeOut",
       onComplete: () => {
         if (this.mode !== "battle" || this.currentEnemy !== enemy) return;
-        if (enemy.boss) this.tweens.add({ targets: this.enemySprite, scale: scale * 1.08, duration: 700, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+        if (enemy.boss) {
+          this.tweens.add({ targets: this.enemySprite, scale: scale * 1.08, duration: 700, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+          this.bossRevealPunch();
+        }
         this.startBattleTimer();
       },
     });
@@ -1173,6 +1177,7 @@ export default class GameScene extends Phaser.Scene {
     }
     this.drawHpBars();
     if (this.battle.finished) {
+      if (this.battle.win && this.currentEnemy && this.currentEnemy.boss) this.finisherSlowmo(0.35, 300); // ボス撃破の"決定的瞬間"をスローに（見守り型の見せ場）
       this.battleTimer.remove();
       this.time.delayedCall(280, this.resolveBattle, [], this);
     }
@@ -1530,7 +1535,7 @@ export default class GameScene extends Phaser.Scene {
 
   // ============================ 転生：ホームへ戻る ============================
   retreatToHome() {
-    if (this.upPanel || this._leaving) return;
+    if (this.upPanel || this._choice || this._leaving) return; // 岐路カードを開いている間はホットキー撤退も禁止（宙ぶらり防止）
     // 進化・エピローグ・死亡演出中以外は、戦闘中でも撤退できる（引き際の裁量）
     if (this.mode !== "walk" && this.mode !== "battle") return;
     if (this.battleTimer) this.battleTimer.remove();
@@ -2032,6 +2037,27 @@ export default class GameScene extends Phaser.Scene {
     const info = C.EMOTIONS[key];
     this.edgeFlash.setFillStyle(info.color, 0);
     this.tweens.add({ targets: this.edgeFlash, fillAlpha: 0.12, duration: 150, yoyo: true });
+  }
+
+  // 決定的瞬間のスローモー（ボス撃破など）。見守り型ゲームは"間"が見せ場。3倍速は速度優先で無効。
+  //  time/tweens の timeScale を落とすと自前の遅延では戻せないため、実時間の setTimeout で復帰。
+  finisherSlowmo(scale = 0.4, ms = 260) {
+    if (this.speed >= 3) return;
+    this.time.timeScale = scale;
+    this.tweens.timeScale = scale;
+    window.setTimeout(() => {
+      if (this.time) this.time.timeScale = 1;
+      if (this.tweens) this.tweens.timeScale = 1;
+    }, ms);
+  }
+
+  // ボス登場のカメラ・パンチ（軽くズームして戻る＝"大きな気配"の迫力）。3倍速は無効。
+  bossRevealPunch() {
+    if (this.speed >= 3 || !this.cameras || !this.cameras.main) return;
+    this.cameras.main.zoomTo(1.06, 240, "Sine.easeOut");
+    this.time.delayedCall(320, () => {
+      if (this.cameras && this.cameras.main) this.cameras.main.zoomTo(1, 520, "Sine.easeInOut");
+    });
   }
 
   updateGauges() {
