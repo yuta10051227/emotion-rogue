@@ -50,6 +50,7 @@ export function importSave(code) {
 function defaultSave() {
   return {
     seenIntro: false,
+    battleCoached: false, // 初回バトルのコーチマークを見たか
     grantedStarters: false,
     nextEquipId: 1,
     soul: {
@@ -648,6 +649,11 @@ export function upgradeCompanion(bondedId) {
 
 export function markIntroSeen() {
   getSave().seenIntro = true;
+  persist();
+}
+
+export function markBattleCoached() {
+  getSave().battleCoached = true;
   persist();
 }
 

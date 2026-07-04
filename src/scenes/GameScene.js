@@ -10,7 +10,7 @@ import { createBattle, stepBattle, forceFinish } from "../logic/combat.js";
 import { createEmotionState, gainEmotions, checkEvolution, leadingEmotion, secondEmotion } from "../logic/evolution.js";
 import { makeCompanion, voiceStage, pickVoiceLine } from "../logic/companion.js";
 import { sfx, onFirstGesture, setMuted } from "../logic/audio.js";
-import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm } from "../data/save.js";
+import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm, markBattleCoached } from "../data/save.js";
 
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const UI_FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
@@ -202,6 +202,67 @@ export default class GameScene extends Phaser.Scene {
     if (!this.upPanel) return;
     this.upPanel.destroy(true);
     this.upPanel = null;
+    this.paused = false;
+    if (this.battleTimer && this.mode === "battle" && this.battle && !this.battle.finished) this.battleTimer.paused = false;
+  }
+
+  // ---- 初回コーチマーク（第一戦で核＝戦い方が感情を決める・を教える。スキップ可・一度きり）----
+  maybeCoach() {
+    const s = getSave();
+    if (s.battleCoached || this._coach) return;
+    this._coachStep = 0;
+    this.paused = true;
+    if (this.battleTimer) this.battleTimer.paused = true;
+    this._coachSteps = [
+      { text: "ようこそ。\nキミは戦いを「見守る」。\nどう戦うかで、宿す感情が変わる。" },
+      { text: "上の 🔥 💧 ⚡ ✨ は、\nこの戦いで兆している感情。\n速攻=🔥 / 耐え=💧 / 先制=⚡ / 逆転=✨", arrow: { x: this.W / 2, y: 92 } },
+      { text: "感情が満ちると、キミは進化する。\n頭上の「あと N で進化」が目印。", arrow: { x: this.heroX, y: this.heroY - 62 } },
+      { text: "下のボタンで ⚙強化・倍速・↗撤退。\n引き際も、キミの裁量。", arrow: { x: this.W / 2, y: this.H - 90 } },
+      { text: "では ──\n見守ろう。" },
+    ];
+    this.buildCoach();
+  }
+
+  buildCoach() {
+    if (this._coach) this._coach.destroy(true);
+    const step = this._coachSteps[this._coachStep];
+    const c = this.add.container(0, 0).setDepth(230);
+    const dim = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x05050c, 0.72).setInteractive();
+    dim.on("pointerdown", () => this.advanceCoach()); // どこをタップしても進む
+    c.add(dim);
+    if (step.arrow) {
+      const ring = this.add.circle(step.arrow.x, step.arrow.y, 30, 0xffe14d, 0).setStrokeStyle(2, 0xffe14d, 0.9);
+      this.tweens.add({ targets: ring, scale: 1.3, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
+      c.add(ring);
+    }
+    const boxY = this.H / 2 + 130;
+    const box = this.add.rectangle(this.W / 2, boxY, this.W - 56, 158, 0x12121c, 0.98).setStrokeStyle(1, 0x4a4a66);
+    const txt = this.add.text(this.W / 2, boxY - 26, step.text, { fontFamily: UI_FONT, fontSize: "17px", color: "#e8e8ef", align: "center", lineSpacing: 9, wordWrap: { width: this.W - 96 } }).setOrigin(0.5);
+    const idx = this.add.text(this.W / 2, boxY + 40, `${this._coachStep + 1} / ${this._coachSteps.length}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#8a8aa0" }).setOrigin(0.5);
+    const last = this._coachStep >= this._coachSteps.length - 1;
+    const next = this.add.text(this.W / 2 + 118, boxY + 40, last ? "はじめる ▶" : "次へ ▶", { fontFamily: UI_FONT, fontSize: "16px", color: "#bfffbf" }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    const skip = this.add.text(this.W / 2 - 118, boxY + 40, "スキップ", { fontFamily: UI_FONT, fontSize: "13px", color: "#8a8aa0" }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+    next.on("pointerdown", () => this.advanceCoach());
+    skip.on("pointerdown", () => this.finishCoach());
+    c.add([box, txt, idx, next, skip]);
+    this._coach = c;
+  }
+
+  advanceCoach() {
+    this._coachStep += 1;
+    if (this._coachStep >= this._coachSteps.length) {
+      this.finishCoach();
+      return;
+    }
+    this.buildCoach();
+  }
+
+  finishCoach() {
+    if (this._coach) {
+      this._coach.destroy(true);
+      this._coach = null;
+    }
+    markBattleCoached();
     this.paused = false;
     if (this.battleTimer && this.mode === "battle" && this.battle && !this.battle.finished) this.battleTimer.paused = false;
   }
@@ -837,6 +898,7 @@ export default class GameScene extends Phaser.Scene {
     for (let i = 1; i < groupSize; i++) this.enemyQueue.push(this.makeEnemy(this.distance));
     this.spawnQueueSilhouettes();
     this.engageEnemy(front);
+    this.maybeCoach(); // 初回だけ：戦い方→感情→進化の核を教える
   }
 
   // 1体と交戦開始（先頭/次の敵が右から歩いて来て、到着で戦闘開始）。HPは持ち越し。
@@ -1512,7 +1574,7 @@ export default class GameScene extends Phaser.Scene {
       idx += 1;
       if (idx >= beats.length) {
         this.input.off("pointerdown", next);
-        this.tweens.add({ targets: c, alpha: 0, duration: 800, onComplete: () => this.scene.start("HomeScene") });
+        this.tweens.add({ targets: c, alpha: 0, duration: 800, onComplete: () => this.scene.start("HomeScene", { summary }) });
         return;
       }
       dyn.removeAll(true);
@@ -1552,7 +1614,7 @@ export default class GameScene extends Phaser.Scene {
       idx += 1;
       if (idx >= beats.length) {
         this.input.off("pointerdown", next);
-        this.tweens.add({ targets: c, alpha: 0, duration: 500, onComplete: () => this.scene.start("HomeScene") });
+        this.tweens.add({ targets: c, alpha: 0, duration: 500, onComplete: () => this.scene.start("HomeScene", { summary }) });
         return;
       }
       dyn.removeAll(true);

@@ -1251,6 +1251,17 @@ export default class HomeScene extends Phaser.Scene {
     }
   }
 
+  // 帰宅後の「次の一手」を1つだけ提示（迷子防止）。即戦力→恒久成長→旅の順で薦める。
+  recommendNextAction() {
+    const s = getSave();
+    if (s.equipment.equipped.length < effectiveEquipSlots() && s.equipment.owned.length > s.equipment.equipped.length)
+      return "「🛡 装備変更」で 拾った残響を 装備できます";
+    if ((s.enlightenment || 0) >= 3) return "「導く心のツリー」で 悟りを 力に変えられます";
+    if ((s.gold || 0) >= 100) return "「仲間」の強化や「特別な仲間」に お金を使えます";
+    if (s.party.bonded.some((b) => !b.active)) return "「仲間」から 同行メンバーを 見直せます";
+    return "支度を整えて、また 旅立ちましょう";
+  }
+
   // ---- おかえり（帰還サマリー）----
   showReturnSummary(sum) {
     const c = this.add.container(0, 0).setDepth(240);
@@ -1290,6 +1301,10 @@ export default class HomeScene extends Phaser.Scene {
       y += 22;
       c.add(this.add.text(cx, y, "光になって還っていった", { fontFamily: UI_FONT, fontSize: "13px", color: "#8a7a90" }).setOrigin(0.5));
     }
+
+    // 次の一手（帰宅後に迷子にさせない＝方向を1つ提示）
+    const rec = this.recommendNextAction();
+    if (rec) c.add(this.add.text(cx, this.H / 2 + 146, "▸ " + rec, { fontFamily: UI_FONT, fontSize: "15px", color: "#ffe0a0", align: "center", wordWrap: { width: this.W - 100 } }).setOrigin(0.5));
 
     const btnY = this.H / 2 + 190;
     const r = this.add.rectangle(cx, btnY, 200, 50, 0x2a3a2a).setStrokeStyle(1, 0x4caf50).setInteractive({ useHandCursor: true });
