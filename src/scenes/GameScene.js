@@ -1072,21 +1072,23 @@ export default class GameScene extends Phaser.Scene {
 
   makeEnemy(distance) {
     const factor = Math.pow(C.ENEMY_BASE.growth, distance / 10);
-    const type = Phaser.Utils.Array.GetRandom(C.ENEMY_TYPES);
-    const hp = Math.round(C.ENEMY_BASE.hp * factor * type.hpMod);
-    const atk = Math.max(1, Math.round(C.ENEMY_BASE.atk * factor * type.atkMod));
+    // バイオーム別ロスターから選ぶ（周回マンネリ対策）。データ欠落時は従来 ENEMY_TYPES にフォールバック。
+    const bi = (((this.curBiome || 0) % 4) + 4) % 4;
+    const roster = (C.BIOME_ENEMIES && C.BIOME_ENEMIES[bi]) || null;
+    const type = roster && roster.types && roster.types.length ? Phaser.Utils.Array.GetRandom(roster.types) : Phaser.Utils.Array.GetRandom(C.ENEMY_TYPES);
+    const lean = type.lean || type.key;
+    // 深部変種：一定距離以深で強化＋接頭辞（territory の奥ほど手強く）
+    const deep = roster && roster.deep && distance >= C.BIOME_DEEP_DIST ? roster.deep : null;
+    const hpMod = type.hpMod * (deep ? 1 + (deep.hp || 0) : 1);
+    const atkMod = type.atkMod * (deep ? 1 + (deep.atk || 0) : 1);
+    const hp = Math.round(C.ENEMY_BASE.hp * factor * hpMod);
+    const atk = Math.max(1, Math.round(C.ENEMY_BASE.atk * factor * atkMod));
     const rawSpd = Phaser.Math.Between(C.ENEMY_BASE.spdMin, C.ENEMY_BASE.spdMax) * type.spdMod;
-    // 個体差：色変異（パレットスワップ）＋サイズ変異で"違うキャラ"感を出す
-    const TINTS = {
-      anger: [0xffffff, 0xffffff, 0xff8a5a, 0xd070ff, 0xffbe40],
-      sadness: [0xffffff, 0xffffff, 0x66c8ff, 0x86ffe0, 0xa088ff],
-      courage: [0xffffff, 0xffffff, 0xfff090, 0x9aff80, 0xffc866],
-      hope: [0xffffff, 0xffffff, 0xffe0a0, 0xc0e0ff, 0xffc0e0],
-    };
-    const pal = TINTS[type.key] || [0xffffff];
-    const tint = Phaser.Utils.Array.GetRandom(pal);
-    const mobScale = 0.82 + Math.random() * 0.42; // 大きさもバラつかせる
-    return { hp, maxHp: hp, atk, spd: Math.max(1, Math.round(rawSpd)), icon: type.icon, label: type.label, lean: type.key, tint, mobScale };
+    // 色：アーキタイプ指定色を基調に、4割は素の色（見やすさ）。サイズも個体差。
+    const tint = type.tint != null && Math.random() >= 0.4 ? type.tint : 0xffffff;
+    const mobScale = 0.82 + Math.random() * 0.42;
+    const label = (deep ? deep.prefix : "") + (type.name || type.label);
+    return { hp, maxHp: hp, atk, spd: Math.max(1, Math.round(rawSpd)), icon: type.icon, label, lean, tint, mobScale };
   }
 
   // 固定距離ボス：強敵。感情系統は順に巡る（戦い方の多様性を促す）。

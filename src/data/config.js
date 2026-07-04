@@ -170,6 +170,36 @@ export const ENEMY_TYPES = [
   { key: "hope", icon: "🌫️", label: "うずくまり影", hpMod: 1.6, atkMod: 3.2, spdMod: 1.2 },
 ];
 
+// ---- バイオーム別の敵ロスター（周回マンネリ対策：territoryごとに違う相手）----
+//  4感情の挙動(anger=脆く速攻/sadness=硬く耐え/courage=鈍く先制/hope=速く逆転)は厳守。名前/絵文字/色/深部変種で territory 感。
+export const BIOME_DEEP_DIST = 600; // これ以深で各バイオームの「深部変種」（強化＋接頭辞）が出る
+export const BIOME_ENEMIES = [
+  { name: "山鳴りの道", deep: { prefix: "「山鳴りを孕む」", hp: 0.22, atk: 0.16 }, types: [
+    { lean: "anger", name: "岩噛みの影", icon: "🪨", tint: 0x9c4a63, hpMod: 0.68, atkMod: 1.03, spdMod: 0.78, flavor: "登れなかった斜面をいまも爪で掻きむしる、脆く尖った怒りの影。" },
+    { lean: "sadness", name: "沈む巌の影", icon: "🗿", tint: 0x2b3a66, hpMod: 2.5, atkMod: 2.9, spdMod: 0.58, flavor: "背負った石を下ろせぬまま、藍色の夜に沈み込んでいく悲しみ。" },
+    { lean: "courage", name: "すくむ足の影", icon: "👣", tint: 0x566a8c, hpMod: 1.35, atkMod: 0.47, spdMod: 0.28, flavor: "踏み出せなかった最初の一歩が、岩陰でうずくまり山風に震えている。" },
+    { lean: "hope", name: "またたく星影", icon: "💫", tint: 0xb7c2ee, hpMod: 1.55, atkMod: 3.3, spdMod: 1.25, flavor: "暗い尾根でただ一つ瞬く、消えそうで消えない身軽な希望の残り火。" },
+  ] },
+  { name: "囁きの森", deep: { prefix: "森に呑まれし", hp: 0.25, atk: 0.18 }, types: [
+    { lean: "anger", name: "棘噛みの影", icon: "🥀", tint: 0x7a5a34, hpMod: 0.7, atkMod: 1.05, spdMod: 0.8, flavor: "森に捨てられた憤り。荊となり、通る者に噛みついて放さない。" },
+    { lean: "sadness", name: "苔生す慟哭", icon: "🍄", tint: 0x2f5e54, hpMod: 2.35, atkMod: 2.9, spdMod: 0.6, flavor: "泣くのをやめた者が沈めた悲しみ。苔と泥濘に埋もれ枝を振り下ろす。" },
+    { lean: "courage", name: "根縛りの影", icon: "🌳", tint: 0x93a552, hpMod: 1.3, atkMod: 0.5, spdMod: 0.32, flavor: "踏み出せなかった勇気が根を張った。動けぬまま道の真ん中に立ち続ける。" },
+    { lean: "hope", name: "惑わす燐火", icon: "🦋", tint: 0xbfe39a, hpMod: 1.62, atkMod: 3.15, spdMod: 1.2, flavor: "拾われるのを待つ希望の燐火。木々の間を駆け、瀕死の旅人を試すように光る。" },
+  ] },
+  { name: "忘れられた廃墟", deep: { prefix: "「風化せし」", hp: 0.25, atk: 0.18 }, types: [
+    { lean: "anger", name: "錆刃の怨影", icon: "🗡️", tint: 0xc0562e, hpMod: 0.68, atkMod: 1.05, spdMod: 0.82, flavor: "打ち捨てられた武具に宿った怒り。錆に喰われながらなお刃を振るう。" },
+    { lean: "sadness", name: "錆涙の澱影", icon: "🪦", tint: 0x6e8a80, hpMod: 2.55, atkMod: 3.1, spdMod: 0.58, flavor: "壁を伝う錆は、この地が流し続けた涙の跡。重く、決して崩れ落ちない。" },
+    { lean: "courage", name: "忘れ守りの影", icon: "🏛️", tint: 0xce9a3c, hpMod: 1.35, atkMod: 0.46, spdMod: 0.28, flavor: "誰も還らぬ門を、名も忘れた衛士がまだ守る。鈍いが決して退かない。" },
+    { lean: "hope", name: "宵灯の残響", icon: "🏮", tint: 0xf0b46a, hpMod: 1.55, atkMod: 3.3, spdMod: 1.28, flavor: "夕日に灯る幻の窓明かり。かつての賑わいを希って素早く瞬いては消える。" },
+  ] },
+  { name: "幽玄の境", deep: { prefix: "幽冥に憑かれし", hp: 0.3, atk: 0.25 }, types: [
+    { lean: "anger", name: "鬼哭の紫焔", icon: "👺", tint: 0x9b3d7a, hpMod: 0.68, atkMod: 1.05, spdMod: 0.82, flavor: "捨てられた怒りが夢幻の境で紫の焔となり、見境なく噛みつく脆い亡魂。" },
+    { lean: "sadness", name: "慟哭の淵影", icon: "👻", tint: 0x2f2450, hpMod: 2.5, atkMod: 3, spdMod: 0.6, flavor: "誰にも掬われなかった悲しみが澱み沈み、境の底で来訪者を重く押し潰す。" },
+    { lean: "courage", name: "微睡む骸兵", icon: "🛡️", tint: 0x5b4c86, hpMod: 1.3, atkMod: 0.5, spdMod: 0.3, flavor: "挫かれ手放された勇気の亡骸。斬りかかられて初めて鈍く目を醒ます。" },
+    { lean: "hope", name: "揺らめく夢魔", icon: "🔮", tint: 0xb083ff, hpMod: 1.6, atkMod: 3.2, spdMod: 1.25, flavor: "手放された希望が鬼火となり、瀕死の淵まで一息に駆け寄っては弾ける。" },
+  ] },
+];
+
 // ---- 転生（設計書§6：記憶＝感情の傾向）----
 export const SOUL = {
   levelStatPerLevel: 0.05, // 魂レベル1ごとに 主人公の最大HP/ATK +5%
