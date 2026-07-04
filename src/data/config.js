@@ -13,6 +13,15 @@ export const HERO_BASE = {
   hp: 100,
   atk: 15,
   spd: 10,
+  def: 5, // 被ダメ軽減の素体値（悲しみ=盾のベース）。ATK×(100/(100+DEF)) で軽減。
+  luk: 5, // 会心率の素体値（希望=会心のベース）。
+};
+
+// 会心（クリ）：運(LUK)が高いほど会心が出て大ダメージ（希望=逆転のバースト）
+export const CRIT = {
+  chancePerLuk: 0.006, // LUK1につき会心率 +0.6%
+  maxChance: 0.5, // 会心率の上限
+  mult: 1.8, // 会心時のダメージ倍率
 };
 
 // ---- 敵の基礎値（距離に応じて指数インフレ：設計書§5）----
@@ -173,9 +182,9 @@ export const SOUL = {
 export const EQUIPMENT = {
   slots: 2, // 装備できる枠数
   dropChance: 0.22, // 戦闘勝利時のドロップ率
-  baseStat: { hp: 12, atk: 3, spd: 1 },
-  // 感情ごとの得意ステータス（その感情の装備は得意ステが伸びる）
-  focus: { anger: "atk", sadness: "hp", courage: "spd", hope: "atk" },
+  baseStat: { hp: 12, atk: 3, spd: 1, def: 6, luk: 5 },
+  // 感情ごとの得意ステータス（その感情の装備は得意ステが伸びる）。4感情=4ステの識別：怒=攻/悲=盾/勇=速/希=運
+  focus: { anger: "atk", sadness: "def", courage: "spd", hope: "luk" },
   // レアリティ（並/希/極/神話）：青天井の収集欲（設計書§9）
   rarities: [
     { key: "common", label: "並", color: 0xb0b0c0, weight: 70, mult: 1.0 },

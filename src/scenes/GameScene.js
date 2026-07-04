@@ -70,7 +70,7 @@ export default class GameScene extends Phaser.Scene {
 
     // 魂レベル＋装備＋導く心ツリーを反映した「今回の旅の素体」
     const stats = computeHeroStats();
-    this.heroBase = { maxHp: stats.maxHp, atk: stats.atk, spd: stats.spd };
+    this.heroBase = { maxHp: stats.maxHp, atk: stats.atk, spd: stats.spd, def: stats.def, luk: stats.luk };
     this.resonanceKey = stats.resonanceKey; // 記憶の共鳴（多く抱いた感情）
     this.baseFragMult = fragMultipliers(); // ツリーの欠片獲得ボーナス
     this.evoThreshold = effectiveEvoThreshold(); // ツリーで下がりうる進化閾値（1段目）
@@ -131,13 +131,17 @@ export default class GameScene extends Phaser.Scene {
     const maxHp = Math.round(this.heroBase.maxHp * (1 + U.hp.per * this.runUp.hp) * this.evoMult * (1 + (this.itemHpPct || 0)));
     const atk = Math.round(this.heroBase.atk * (1 + U.atk.per * this.runUp.atk) * this.evoMult * (1 + (this.itemAtkPct || 0)));
     const spd = this.heroBase.spd + U.spd.per * this.runUp.spd;
+    const def = this.heroBase.def || 0; // DEF/LUKは装備由来の素体値をそのまま（進化倍率は乗せない）
+    const luk = this.heroBase.luk || 0;
     if (!this.heroStats) {
-      this.heroStats = { hp: maxHp, maxHp, atk, spd };
+      this.heroStats = { hp: maxHp, maxHp, atk, spd, def, luk };
     } else {
       const grew = Math.max(0, maxHp - this.heroStats.maxHp);
       this.heroStats.maxHp = maxHp;
       this.heroStats.atk = atk;
       this.heroStats.spd = spd;
+      this.heroStats.def = def;
+      this.heroStats.luk = luk;
       this.heroStats.hp = Math.min(maxHp, this.heroStats.hp + grew); // 守り強化は今のHPも底上げ
     }
     // 欠片獲得倍率＝ツリー由来 ＋ コイン強化「欠片」
@@ -534,7 +538,7 @@ export default class GameScene extends Phaser.Scene {
     const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
     const b = this.battle;
     const show = this.mode === "battle" && b && !b.finished && !!this.currentEnemy;
-    if (this.objectiveBanner) this.objectiveBanner.setVisible(!show); // 戦闘中は目標バナーを隠しライブ表示へ譲る
+    if (this.objectiveBanner) this.objectiveBanner.setVisible(this.mode === "walk"); // 進軍中のみ表示（戦闘/死亡/進化中は隠す＝死亡時の残バナー点滅も防止）
     const R = C.EMOTION_RULES;
     let lead = null;
     let leadV = 0.14;
@@ -547,7 +551,7 @@ export default class GameScene extends Phaser.Scene {
         if (key === "anger") v = clamp01((1 - eHp) * clamp01(R.angerTurns / Math.max(1, b.turnsToWin))); // 速攻で押し切る勢い
         else if (key === "sadness") v = clamp01(b.damageTaken / Math.max(1, this.heroStats.maxHp * R.sadnessDamageRatio)); // 耐えた量
         else if (key === "courage") v = b.enemyAttacked === 0 ? clamp01(1 - eHp) : 0; // 先制で削り切る（1発でも被弾で消灯）
-        else if (key === "hope") v = clamp01(R.hopeHpRatio / Math.max(0.01, b.minHpRatio)); // 瀕死から
+        else if (key === "hope") v = clamp01((1 - b.minHpRatio) / Math.max(0.01, 1 - R.hopeHpRatio)); // 瀕死から（満HPでは0、勝利閾値で満）
       }
       const pulse = 1 + Math.sin(time / 240) * 0.14 * v;
       g.formGlow.setAlpha(0.55 * v).setScale((0.85 + v * 0.9) * pulse);
@@ -562,10 +566,15 @@ export default class GameScene extends Phaser.Scene {
     }
     if (this.formLabel) {
       if (show && lead) {
-        const info = C.EMOTIONS[lead];
-        this.formLabel.setText(`${info.icon} ${info.label} が 兆している`).setColor(colorToCss(info.color)).setVisible(true).setAlpha(0.55 + 0.45 * Math.min(1, leadV));
+        if (lead !== this._formLead) {
+          const info = C.EMOTIONS[lead];
+          this.formLabel.setText(`${info.icon} ${info.label} が 兆している`).setColor(colorToCss(info.color)); // 主感情が変わった時だけ再描画（毎フレームのcanvas再生成を回避）
+          this._formLead = lead;
+        }
+        this.formLabel.setVisible(true).setAlpha(0.55 + 0.45 * Math.min(1, leadV));
       } else {
         this.formLabel.setVisible(false);
+        this._formLead = null;
       }
     }
   }
@@ -995,7 +1004,7 @@ export default class GameScene extends Phaser.Scene {
           const ally = this.companions.find((c) => c.id === ev.allyId);
           if (ally) this.playCompanionSkill(ally, false);
           this.pulseCompanion(ev.allyId);
-          this.popDamage(this.enemyX, this.enemyY - 38, ev.dmg, "#bfe0ff", ratio);
+          this.popDamage(this.enemyX, this.enemyY - 38, ev.dmg, ev.crit ? "#ffe14d" : "#bfe0ff", ev.crit ? Math.min(1, ratio * 1.5) : ratio);
           this.knockback(this.enemySprite, this.enemyX, 1, Phaser.Math.Clamp(ratio, 0.2, 1));
           sfx.hit();
         } else if (ev.skill) {
@@ -1008,7 +1017,7 @@ export default class GameScene extends Phaser.Scene {
           // 主人公の通常攻撃（踏み込んでクラッシュ＋技ゲージが溜まる）
           this.lunge(this.heroSprite, this.heroX, 1, 78);
           this.heroAttackAnim();
-          this.popDamage(this.enemyX, this.enemyY - 38, ev.dmg, "#ff9a9a", ratio);
+          this.popDamage(this.enemyX, this.enemyY - 38, ev.dmg, ev.crit ? "#ffe14d" : "#ff9a9a", ev.crit ? Math.min(1, ratio * 1.5) : ratio);
           this.knockback(this.enemySprite, this.enemyX, 1, Phaser.Math.Clamp(ratio, 0.2, 1));
           sfx.hit();
           this.heroSkillCharge = Math.min(this.skill.every, this.heroSkillCharge + 1);

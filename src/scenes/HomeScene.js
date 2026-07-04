@@ -510,7 +510,7 @@ export default class HomeScene extends Phaser.Scene {
     this.openPanel("装備変更", (c) => {
       const s = getSave();
       const st = computeHeroStats();
-      c.add(this.add.text(this.W / 2, 122, `❤ ${st.maxHp}　⚔ ${st.atk}　⚡ ${st.spd}`, { fontFamily: UI_FONT, fontSize: "17px", color: "#e8e8ef" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 122, `❤ ${st.maxHp}　⚔ ${st.atk}　⚡ ${st.spd}　🛡 ${st.def}　🍀 ${st.luk}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#e8e8ef" }).setOrigin(0.5));
       c.add(this.add.text(this.W / 2, 146, `装備スロット ${s.equipment.equipped.length} / ${effectiveEquipSlots()}`, { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5));
 
       const owned = s.equipment.owned;
@@ -529,7 +529,7 @@ export default class HomeScene extends Phaser.Scene {
       // 全件をスクロールリストに（11個目以降が装備できないバグ修正）
       const list = this.add.container(0, 0);
       const rows = [];
-      let y = 202;
+      let y = 210;
       sorted.forEach((it) => {
         const equipped = isEquipped(it.id);
         const rar = C.EQUIPMENT.rarities.find((r) => r.key === it.rarity) || C.EQUIPMENT.rarities[0];
@@ -537,7 +537,7 @@ export default class HomeScene extends Phaser.Scene {
           .rectangle(this.W / 2, y, this.W - 50, 42, equipped ? 0x1c2c1c : 0x191926)
           .setStrokeStyle(1, equipped ? 0x4caf50 : 0x33334a);
         const nm = this.add.text(40, y - 10, `${it.name}〈${rar.label}〉`, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(rar.color) }).setOrigin(0, 0.5);
-        const stt = this.add.text(40, y + 9, `❤${it.hp}  ⚔${it.atk}  ⚡${it.spd}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0, 0.5);
+        const stt = this.add.text(40, y + 9, `❤${it.hp}  ⚔${it.atk}  ⚡${it.spd}${it.def ? `  🛡${it.def}` : ""}${it.luk ? `  🍀${it.luk}` : ""}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0, 0.5);
         const tag = this.add.text(this.W - 42, y, equipped ? "装備中" : "装備する", { fontFamily: UI_FONT, fontSize: "13px", color: equipped ? "#7fff9f" : "#cfcfe0" }).setOrigin(1, 0.5);
         list.add([row, nm, stt, tag]);
         rows.push({ id: it.id, y });
@@ -1201,7 +1201,7 @@ export default class HomeScene extends Phaser.Scene {
     // タップで項目を選ぶ（操作可能なスクロールリスト用）。ドラッグはタップ扱いしない。
     if (onTap && rows && rows.length) {
       zone.on("pointerup", (p) => {
-        if (moved > 8) return;
+        if (moved > 8 || Math.abs(p.y - downY) > 8) return; // ドラッグ/スワイプはタップ扱いしない（非スクロール時も）
         const localY = p.y - list.y;
         let best = null;
         let bestD = 26;

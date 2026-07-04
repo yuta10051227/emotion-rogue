@@ -5,7 +5,7 @@
 //  これにより「素早さ差」が攻撃回数に効く（＝勇気＝先制撃破が表現できる）。
 // =====================================================================
 
-import { COMBAT, EMOTION_RULES, COMPANION, SKILL, BOSS } from "../data/config.js";
+import { COMBAT, EMOTION_RULES, COMPANION, SKILL, BOSS, CRIT } from "../data/config.js";
 
 function rollDamage(atk) {
   const r = 0.9 + Math.random() * 0.2; // 乱数 0.9〜1.1（設計書§5）
@@ -16,6 +16,18 @@ function rollDamage(atk) {
 function capBoss(dmg, enemy) {
   if (enemy && enemy.boss && BOSS.maxHitFrac) return Math.min(dmg, Math.max(1, Math.ceil(enemy.maxHp * BOSS.maxHitFrac)));
   return dmg;
+}
+
+// 被ダメ軽減：DEFが高いほど食らうダメージが減る（設計§5：ATK×100/(100+DEF)）。悲しみ=盾。
+function mitigate(dmg, def) {
+  if (!def || def <= 0) return dmg;
+  return Math.max(1, Math.round(dmg * (100 / (100 + def))));
+}
+
+// 会心判定：LUKが高いほど会心（大ダメージ）。希望=逆転のバースト。
+function rollCrit(luk) {
+  const chance = Math.min(CRIT.maxChance, (luk || 0) * CRIT.chancePerLuk);
+  return Math.random() < chance;
 }
 
 // 戦闘オブジェクトを生成。hero/enemy は { hp, maxHp, atk, spd }
@@ -71,17 +83,20 @@ export function stepBattle(b) {
       b.heroGauge -= T;
       b.heroAttacks += 1;
       const isSkill = b.heroAttacks % b.skillEvery === 0; // 一定回数ごとに技（ツリーで短縮可）
-      const dmg = capBoss(rollDamage(b.hero.atk * (isSkill ? b.skillMult : 1)), b.enemy);
+      const crit = rollCrit(b.hero.luk);
+      let raw = rollDamage(b.hero.atk * (isSkill ? b.skillMult : 1));
+      if (crit) raw = Math.round(raw * CRIT.mult);
+      const dmg = capBoss(raw, b.enemy);
       b.enemy.hp -= dmg;
       b.turnsToWin += 1;
-      events.push({ by: "hero", target: "enemy", dmg, skill: isSkill });
+      events.push({ by: "hero", target: "enemy", dmg, skill: isSkill, crit });
       if (b.enemy.hp <= 0) {
         b.enemy.hp = 0;
         finish(b, true);
       }
     } else if (pick.who === "enemy") {
       b.enemyGauge -= T;
-      const dmg = rollDamage(b.enemy.atk);
+      const dmg = mitigate(rollDamage(b.enemy.atk), b.hero.def); // DEFで軽減（悲しみ=盾）
       b.hero.hp -= dmg;
       b.damageTaken += dmg;
       b.enemyAttacked += 1;
@@ -107,9 +122,12 @@ export function stepBattle(b) {
         if (a.role === "clutch" && b.hero.hp / b.hero.maxHp < COMPANION.clutchHpRatio) {
           atk = a.atk * 2;
         }
-        const dmg = capBoss(rollDamage(atk), b.enemy);
+        const crit = rollCrit(b.hero.luk); // 主人公の運が仲間の一撃も導く（パーティの運）
+        let raw = rollDamage(atk);
+        if (crit) raw = Math.round(raw * CRIT.mult);
+        const dmg = capBoss(raw, b.enemy);
         b.enemy.hp -= dmg;
-        events.push({ by: "ally", allyId: a.id, target: "enemy", dmg });
+        events.push({ by: "ally", allyId: a.id, target: "enemy", dmg, crit });
         if (b.enemy.hp <= 0) {
           b.enemy.hp = 0;
           finish(b, true);
@@ -136,7 +154,7 @@ export function forceFinish(b) {
 // 「どう勝ったか」→ 宿る感情（複数可）
 function judgeEmotions(b) {
   const e = [];
-  if (b.turnsToWin <= EMOTION_RULES.angerTurns) e.push("anger");
+  if (b.turnsToWin <= EMOTION_RULES.angerTurns && b.enemyAttacked > 0) e.push("anger"); // 速攻で押し切った（先制無傷は勇気に譲る＝重複解消）
   if (b.damageTaken >= b.hero.maxHp * EMOTION_RULES.sadnessDamageRatio) e.push("sadness");
   if (b.enemyAttacked === 0) e.push("courage");
   if (b.minHpRatio <= EMOTION_RULES.hopeHpRatio) e.push("hope");

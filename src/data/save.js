@@ -124,10 +124,11 @@ function ensure(s) {
   if (typeof s.party.paidSlots !== "number") s.party.paidSlots = 0; // 課金で拡張した器の枠
   s.party.eggs = Array.isArray(s.party.eggs) ? s.party.eggs : [];
   if (typeof s.gold !== "number") s.gold = 0;
-  // 累計獲得（クラウド同期の単調増加スコア用）。旧セーブは現残高を下限に見積もる。
+  // 累計獲得（クラウド同期の単調増加スコア用）。現残高を下限に「必ず」引き上げる。
+  //  defaultSaveが lifetime={0,0} を先に入れるため型ガードでは埋まらない → Math.maxで冪等に下限シード。
   s.lifetime = s.lifetime && typeof s.lifetime === "object" ? s.lifetime : {};
-  if (typeof s.lifetime.enlightenment !== "number") s.lifetime.enlightenment = s.enlightenment || 0;
-  if (typeof s.lifetime.gold !== "number") s.lifetime.gold = s.gold || 0;
+  s.lifetime.enlightenment = Math.max(s.lifetime.enlightenment || 0, s.enlightenment || 0);
+  s.lifetime.gold = Math.max(s.lifetime.gold || 0, s.gold || 0);
   // 既存の仲間に 個体強化/愛着/レア度フィールドを補完
   let _activeN = 0;
   for (const b of s.party.bonded) {
@@ -307,6 +308,8 @@ export function makeEquipment(emotionKey, rarityKey, distance) {
     hp: stat("hp", b.hp),
     atk: stat("atk", b.atk),
     spd: Math.round(b.spd * rarity.mult * distMult * (focus === "spd" ? 2 : 0.4)), // hp/atk同様 距離スケールを反映
+    def: stat("def", b.def), // 悲しみ装備が得意（盾）
+    luk: stat("luk", b.luk), // 希望装備が得意（会心）
   };
 }
 
@@ -541,12 +544,16 @@ export function computeHeroStats() {
   let hp = HERO_BASE.hp * lvlMult * (1 + eff.heroHpPct);
   let atk = HERO_BASE.atk * lvlMult * (1 + eff.heroAtkPct);
   let spd = HERO_BASE.spd + eff.heroSpdFlat;
+  let def = HERO_BASE.def || 0;
+  let luk = HERO_BASE.luk || 0;
   for (const id of s.equipment.equipped) {
     const it = s.equipment.owned.find((o) => o.id === id);
     if (it) {
       hp += it.hp;
       atk += it.atk;
       spd += it.spd;
+      def += it.def || 0;
+      luk += it.luk || 0;
     }
   }
   // 感情の結晶（恒久%）を最後に重ねる
@@ -556,7 +563,7 @@ export function computeHeroStats() {
   hp = Math.round(hp);
   atk = Math.round(atk);
   spd = Math.round(spd);
-  return { hp, maxHp: hp, atk, spd, resonanceKey: dominantMemory() };
+  return { hp, maxHp: hp, atk, spd, def: Math.round(def), luk: Math.round(luk), resonanceKey: dominantMemory() };
 }
 
 // 転生処理：今生の生き方を魂に刻む（設計書§6）＋ 導く心が「悟り」を得る（§8）
