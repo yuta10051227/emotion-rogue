@@ -298,14 +298,39 @@ export default class GameScene extends Phaser.Scene {
     this.midLayer = this.add.tileSprite(this.W / 2, this.heroY + 32, this.W, 150, "mid_trees").setOrigin(0.5, 1).setDepth(-7).setAlpha(0.92);
     this.groundLayer = this.add.tileSprite(this.W / 2, this.heroY + 62, this.W, 250, "ground_strip").setOrigin(0.5, 0).setDepth(-5);
 
-    // ピクセル遠景があれば採用（山並みの空）。中景の手続き木立は隠す。
+    // ピクセル遠景があれば採用。空グラデを画面上部まで敷き、バイオームで切替。
     if (this.textures.exists("bg_far")) {
+      this.skyG = this.add.graphics().setDepth(-11); // 空（上まで背景を反映）
       this.farLayer.setTexture("bg_far");
       this.farLayer.height = 144; // タイル高と一致＝縦リピートしない
-      this.farLayer.y = horizon + 30; // 山並みの裾を地面に寄せる
+      this.farLayer.y = horizon + 30;
       this.farLayer.setAlpha(1);
       this.midLayer.setVisible(false);
+      // バイオーム（距離で移り変わる世界観）。遠景tex＋空の色。
+      this.biomes = [
+        { tex: "bg_far", top: 0x0a1024, bot: 0x14141f }, // 山並み・夜
+        { tex: "bg_far1", top: 0x0a1a12, bot: 0x0f1a16 }, // 森
+        { tex: "bg_far2", top: 0x241708, bot: 0x1a1410 }, // 廃墟・砂
+        { tex: "bg_far3", top: 0x1a1030, bot: 0x140f24 }, // 幽玄
+      ].filter((b) => this.textures.exists(b.tex));
+      this.curBiome = -1;
+      this.setBiome(0);
     }
+  }
+
+  // バイオーム切替：空グラデを塗り替え、遠景tex を差し替える
+  setBiome(i) {
+    if (!this.biomes || !this.biomes.length) return;
+    const idx = i % this.biomes.length;
+    if (idx === this.curBiome) return;
+    this.curBiome = idx;
+    const b = this.biomes[idx];
+    if (this.skyG) {
+      this.skyG.clear();
+      this.skyG.fillGradientStyle(b.top, b.top, b.bot, b.bot, 1, 1, 1, 1);
+      this.skyG.fillRect(0, 0, this.W, this.H);
+    }
+    if (this.farLayer && this.textures.exists(b.tex)) this.farLayer.setTexture(b.tex);
   }
 
   // 進軍に合わせて各層を流す（奥ほどゆっくり＝奥行き）
@@ -360,6 +385,7 @@ export default class GameScene extends Phaser.Scene {
   preload() {
     // 仲間・ボス・主人公進化アート（Gemini生成）。無ければ絵文字にフォールバック。
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png"); // ピクセル遠景
+    for (let i = 1; i <= 3; i++) if (!this.textures.exists("bg_far" + i)) this.load.image("bg_far" + i, "chars/bg_far" + i + ".png"); // バイオーム
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     if (!this.textures.exists("hero_slime_atk")) this.load.image("hero_slime_atk", "chars/hero_slime_atk.png");
     if (!this.textures.exists("hero_slime_walk")) this.load.image("hero_slime_walk", "chars/hero_slime_walk.png");
@@ -609,6 +635,8 @@ export default class GameScene extends Phaser.Scene {
       this.scrollWorld(adv * 6); // 背景を流して"行軍してる感"を出す
       this.distanceText.setText("距離 " + Math.floor(this.distance) + "m");
       this.updateProgressBar();
+      if (this.biomes && this.biomes.length) this.setBiome(Math.floor(this.distance / 260) % this.biomes.length); // 距離でバイオーム
+
       this.heroSprite.y = this.heroY + (Math.floor(time / 260) % 2 === 0 ? 0 : -4); // 2コマの跳ね
       // 進軍中は歩行フレームと交互に（歩いてる感）
       if (this.heroIsImage && this.heroFormKey && this.textures.exists(this.heroFormKey + "_walk")) {
