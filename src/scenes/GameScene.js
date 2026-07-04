@@ -535,6 +535,10 @@ export default class GameScene extends Phaser.Scene {
     if (!this.textures.exists("hero_slime_atk")) this.load.image("hero_slime_atk", "chars/hero_slime_atk.png");
     if (!this.textures.exists("hero_slime_walk")) this.load.image("hero_slime_walk", "chars/hero_slime_walk.png");
     for (const sc of C.SHOP_COMPANIONS) if (!this.textures.exists("shop_" + sc.id)) this.load.image("shop_" + sc.id, "chars/shop_" + sc.id + ".png"); // 課金の特別な子
+    for (const b of C.BIOME_ENEMIES || []) for (const t of b.types || []) { // バイオーム別の敵アート（無い組み合わせは404→感情別にフォールバック）
+      const bk = "enemy_" + b.key + "_" + t.lean;
+      if (b.key && !this.textures.exists(bk)) this.load.image(bk, "chars/" + bk + ".png");
+    }
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
       if (!this.textures.exists("char_" + k + "_atk")) this.load.image("char_" + k + "_atk", "chars/comp_" + k + "_atk.png"); // 攻撃フレーム
@@ -987,7 +991,8 @@ export default class GameScene extends Phaser.Scene {
     this.enemyLabel.x = this.W + 60;
 
     // 敵アート（ボス=大きく／雑魚=小さく色変異）。位置/フェードは enemySprite が駆動。
-    const artKey = enemy.boss ? "boss_" + enemy.lean : "enemy_" + enemy.lean;
+    const biomeArt = !enemy.boss && enemy.biomeKey ? "enemy_" + enemy.biomeKey + "_" + enemy.lean : null;
+    const artKey = enemy.boss ? "boss_" + enemy.lean : biomeArt && this.textures.exists(biomeArt) ? biomeArt : "enemy_" + enemy.lean; // バイオーム別アート優先→無ければ感情別
     if (!this.enemyImg && this.textures.exists(artKey)) this.enemyImg = this.add.image(this.enemyX, this.enemyY, artKey).setDepth(2).setVisible(false); // 保険で遅延生成
     const hasArt = this.enemyImg && this.textures.exists(artKey);
     if (hasArt) {
@@ -1088,7 +1093,7 @@ export default class GameScene extends Phaser.Scene {
     const tint = type.tint != null && Math.random() >= 0.4 ? type.tint : 0xffffff;
     const mobScale = 0.82 + Math.random() * 0.42;
     const label = (deep ? deep.prefix : "") + (type.name || type.label);
-    return { hp, maxHp: hp, atk, spd: Math.max(1, Math.round(rawSpd)), icon: type.icon, label, lean, tint, mobScale };
+    return { hp, maxHp: hp, atk, spd: Math.max(1, Math.round(rawSpd)), icon: type.icon, label, lean, tint, mobScale, biomeKey: roster ? roster.key : null };
   }
 
   // 固定距離ボス：強敵。感情系統は順に巡る（戦い方の多様性を促す）。
