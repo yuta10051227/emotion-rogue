@@ -308,10 +308,10 @@ export default class GameScene extends Phaser.Scene {
       this.midLayer.setVisible(false);
       // バイオーム（距離で移り変わる世界観）。遠景tex＋空の色。
       this.biomes = [
-        { tex: "bg_far", top: 0x0a1024, bot: 0x14141f }, // 山並み・夜
-        { tex: "bg_far1", top: 0x0a1a12, bot: 0x0f1a16 }, // 森
-        { tex: "bg_far2", top: 0x241708, bot: 0x1a1410 }, // 廃墟・砂
-        { tex: "bg_far3", top: 0x1a1030, bot: 0x140f24 }, // 幽玄
+        { tex: "bg_far", top: 0x0a1024, bot: 0x14141f, name: "山鳴りの道" },
+        { tex: "bg_far1", top: 0x0a1a12, bot: 0x0f1a16, name: "囁きの森" },
+        { tex: "bg_far2", top: 0x241708, bot: 0x1a1410, name: "忘れられた廃墟" },
+        { tex: "bg_far3", top: 0x1a1030, bot: 0x140f24, name: "幽玄の境" },
       ].filter((b) => this.textures.exists(b.tex));
       this.curBiome = -1;
       this.setBiome(0);
@@ -356,6 +356,8 @@ export default class GameScene extends Phaser.Scene {
     this.progFill = this.add.rectangle(this._progX, 44, 2, 7, 0x6a8fd0).setOrigin(0, 0.5);
     this.progFlag = this.add.text(this._progX + bw + 2, 44, "🚩", { fontFamily: EMOJI_FONT, fontSize: "14px" }).setOrigin(0, 0.5);
     this.progLabel = this.add.text(this.W / 2, 44, "", { fontFamily: UI_FONT, fontSize: "10px", color: "#9aa0c0" }).setOrigin(0.5);
+    // 目標バナー（今いる"道"の名＋次のボスまで＝没入・世界観）
+    this.objectiveBanner = this.add.text(this.W / 2, 80, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#d8cfc0" }).setOrigin(0.5);
   }
 
   updateProgressBar() {
@@ -491,7 +493,7 @@ export default class GameScene extends Phaser.Scene {
       this.enemyShadow.setVisible(v);
       if (v) {
         const col = (this.currentEnemy && C.EMOTIONS[this.currentEnemy.lean] && C.EMOTIONS[this.currentEnemy.lean].color) || 0xff4d4d;
-        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y - (bossA ? lift * 0.8 : 0)).setFillStyle(col, (bossA ? 0.15 : 0.12) * this.enemySprite.alpha).setScale(breath * 0.98 * (bossA ? aura : 1));
+        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y - (bossA ? lift * 0.8 : 0)).setFillStyle(col, (this.enemyImgBoss ? 0.26 : bossA ? 0.14 : 0.12) * this.enemySprite.alpha).setScale(breath * 0.98 * (bossA ? aura : 1));
         this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 44).setAlpha(0.28 * this.enemySprite.alpha).setScale(bossA ? Math.max(1.15, aura * 0.5) : 1, 1);
       }
       if (this.enemyImg && bossA) {
@@ -636,6 +638,10 @@ export default class GameScene extends Phaser.Scene {
       this.distanceText.setText("距離 " + Math.floor(this.distance) + "m");
       this.updateProgressBar();
       if (this.biomes && this.biomes.length) this.setBiome(Math.floor(this.distance / 260) % this.biomes.length); // 距離でバイオーム
+      if (this.objectiveBanner) {
+        const bn = this.biomes && this.biomes[this.curBiome] ? this.biomes[this.curBiome].name : "";
+        this.objectiveBanner.setText(`― ${bn} ―　⚔ 次のボスまで ${Math.max(0, Math.ceil(this.nextBoss - this.distance))}m`);
+      }
 
       this.heroSprite.y = this.heroY + (Math.floor(time / 260) % 2 === 0 ? 0 : -4); // 2コマの跳ね
       // 進軍中は歩行フレームと交互に（歩いてる感）
