@@ -8,7 +8,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./cloudConfig.js";
-import { getSave, adoptCloudSave, setPersistHook } from "./save.js";
+import { getSave, adoptCloudSave, setPersistHook, resetSave } from "./save.js";
 
 let _client = null;
 
@@ -173,4 +173,33 @@ export function startCloudAutosync() {
       pushSave(getSave());
     }, 1500);
   });
+}
+
+// 自動同期を止める（ログアウト時）。保留中の押し上げも破棄し、和解フラグも下ろす。
+export function stopCloudAutosync() {
+  if (_pushTimer) {
+    clearTimeout(_pushTimer);
+    _pushTimer = null;
+  }
+  _reconciled = false;
+  setPersistHook(null);
+}
+
+// 本来のログアウト：①最終セーブをクラウドへ確実に退避 → ②サインアウト → ③この端末を初期化。
+//  クラウドへ上げられた時だけ端末を消す＝データ消失させない。上げられなければ中断（ログアウトしない）。
+export async function logoutAndWipe() {
+  const user = await getUser();
+  if (!user) return { ok: false, reason: "not-signed-in" };
+  let pushed = false;
+  try {
+    const r = await pushSave(getSave()); // 未同期分を最後にもう一度確実にアップ
+    pushed = !!(r && r.ok);
+  } catch (e) {
+    pushed = false;
+  }
+  if (!pushed) return { ok: false, reason: "offline" }; // 退避できない → 消失防止のため中断
+  stopCloudAutosync();
+  await signOut();
+  resetSave(); // クラウドに安全に退避できたので、この端末は「ログアウト＝まっさら」に
+  return { ok: true };
 }

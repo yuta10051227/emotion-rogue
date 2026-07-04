@@ -4,7 +4,7 @@
 //  メール＋パスワードで ログイン／新規登録 → クラウド同期。
 // =====================================================================
 
-import { signIn, signUp, signOut, syncOnLogin, startCloudAutosync, cloudConfigured, getUser } from "../data/cloud.js";
+import { signIn, signUp, signOut, syncOnLogin, startCloudAutosync, cloudConfigured, getUser, logoutAndWipe } from "../data/cloud.js";
 
 const FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
 
@@ -165,9 +165,21 @@ export async function openAccountOverlay(onDone) {
 
   outBtn.onclick = async () => {
     outBtn.disabled = true;
-    outBtn.textContent = "ログアウト中…";
-    await signOut();
-    done({ signedOut: true });
+    outBtn.textContent = "クラウドへ保存中…";
+    const r = await logoutAndWipe();
+    if (r.ok) {
+      // クラウドへ退避済み。この端末はまっさらにして再起動（別アカウントで入り直せる）。
+      done({ signedOut: true, wiped: true });
+      window.location.reload();
+    } else {
+      outBtn.disabled = false;
+      outBtn.textContent = "ログアウト";
+      const msg =
+        r.reason === "offline"
+          ? "オフラインのため未同期でした。データ消失を避けるため、ログアウトを中断しました。オンラインで再度お試しください。"
+          : "ログアウトできませんでした。";
+      card.appendChild(el("div", "font-size:12px;color:#ffb3b3;margin-top:10px;line-height:1.5;", { textContent: msg }));
+    }
   };
   closeBtn.onclick = () => done({});
   document.body.appendChild(wrap);
