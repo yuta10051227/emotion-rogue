@@ -577,11 +577,15 @@ export default class GameScene extends Phaser.Scene {
         this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 44).setAlpha(0.28 * this.enemySprite.alpha).setScale(bossA ? Math.max(1.15, aura * 0.5) : 1, 1);
       }
       if (this.enemyImg && bossA) {
-        this.enemyImg.setVisible(v);
-        if (v) {
+        // ボスは戦闘中ずっと表示・不透明で固定。決着の退場フェード中のみ enemySprite の値を反映＝途中消失の根絶。
+        const resolving = !this.battle || this.battle.finished;
+        const forceBoss = this.enemyImgBoss && !resolving && this.mode === "battle";
+        const vis = forceBoss ? true : v;
+        this.enemyImg.setVisible(vis);
+        if (vis) {
           this.enemyImg
             .setPosition(this.enemySprite.x, this.enemySprite.y - lift + Math.sin(time / 520) * (this.enemyImgBoss ? 4 : 2))
-            .setAlpha(this.enemySprite.alpha)
+            .setAlpha(forceBoss ? 1 : this.enemySprite.alpha)
             .setScale(this.enemyImgFit * (1 + Math.sin(time / 520) * 0.03));
         }
       } else if (this.enemyImg) {
