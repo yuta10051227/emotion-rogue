@@ -56,6 +56,7 @@ export default class GameScene extends Phaser.Scene {
     // 仲間（救った感情）。同行＝魂の絆で持ち越した子＋旅で新たに出会う子。
     this.companionSprites = {};
     this.nextCompanionId = 1;
+    this.recruitedThisRun = []; // 旅で浄化して迎えた仲間（バトルには並べず、帰還時にロスターへ）
     this.partyY = 556;
     this.careBtn = null; // 感情ケアの一時ボタン
     // 出撃に同行する仲間をロード（ランタイムIDを採番。bondedId で永続記録と紐づく）
@@ -300,18 +301,22 @@ export default class GameScene extends Phaser.Scene {
 
     // ピクセル遠景があれば採用。空グラデを画面上部まで敷き、バイオームで切替。
     if (this.textures.exists("bg_far")) {
-      this.skyG = this.add.graphics().setDepth(-11); // 空（上まで背景を反映）
+      this.skyG = this.add.graphics().setDepth(-11); // 空グラデ（下地）
+      // ピクセル背景を上端〜地面近くまで大きく敷く（1タイルで縦を埋める＝縦リピート無し）
+      this.farLayer.setOrigin(0.5, 0);
+      this.farLayer.y = 0;
+      this.farLayer.height = this.heroY + 46;
       this.farLayer.setTexture("bg_far");
-      this.farLayer.height = 144; // タイル高と一致＝縦リピートしない
-      this.farLayer.y = horizon + 30;
+      const sc = this.farLayer.height / 144;
+      this.farLayer.setTileScale(sc, sc);
       this.farLayer.setAlpha(1);
       this.midLayer.setVisible(false);
       // バイオーム（距離で移り変わる世界観）。遠景tex＋空の色。
       this.biomes = [
-        { tex: "bg_far", top: 0x0a1024, bot: 0x14141f, name: "山鳴りの道" },
-        { tex: "bg_far1", top: 0x0a1a12, bot: 0x0f1a16, name: "囁きの森" },
-        { tex: "bg_far2", top: 0x241708, bot: 0x1a1410, name: "忘れられた廃墟" },
-        { tex: "bg_far3", top: 0x1a1030, bot: 0x140f24, name: "幽玄の境" },
+        { tex: "bg_far", top: 0x24356e, bot: 0x2a2444, name: "山鳴りの道" }, // 夜の藍
+        { tex: "bg_far1", top: 0x1c4a34, bot: 0x203a2c, name: "囁きの森" }, // 森の緑
+        { tex: "bg_far2", top: 0x5a3820, bot: 0x3a281e, name: "忘れられた廃墟" }, // 夕の橙
+        { tex: "bg_far3", top: 0x40286e, bot: 0x2c1e50, name: "幽玄の境" }, // 幽玄の紫
       ].filter((b) => this.textures.exists(b.tex));
       this.curBiome = -1;
       this.setBiome(0);
@@ -425,7 +430,7 @@ export default class GameScene extends Phaser.Scene {
 
     // 接地シャドウ（浮遊感を解消）＋スピリットボディ（絵文字の背後の発光体＝存在感）
     this.heroShadow = this.add.ellipse(this.heroX, this.heroY + 44, 82, 20, 0x000000, 0.3).setDepth(0);
-    this.heroBody = this.add.circle(this.heroX, this.heroY, 30, 0xffffff, 0.1).setDepth(1);
+    this.heroBody = this.add.circle(this.heroX, this.heroY, 30, 0xffffff, 0).setDepth(1); // ピクセルではオーラ無し
     this.enemyShadow = this.add.ellipse(this.enemyX, this.enemyY + 40, 70, 18, 0x000000, 0.28).setDepth(0).setVisible(false);
     this.enemyBody = this.add.circle(this.enemyX, this.enemyY, 26, 0xff4d4d, 0.1).setDepth(1).setVisible(false);
     // ボスのアート（大きく登場）。enemySprite の位置/フェードをミラーする。
@@ -493,7 +498,7 @@ export default class GameScene extends Phaser.Scene {
       this.enemyShadow.setVisible(v);
       if (v) {
         const col = (this.currentEnemy && C.EMOTIONS[this.currentEnemy.lean] && C.EMOTIONS[this.currentEnemy.lean].color) || 0xff4d4d;
-        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y - (bossA ? lift * 0.8 : 0)).setFillStyle(col, (this.enemyImgBoss ? 0.26 : bossA ? 0.14 : 0.12) * this.enemySprite.alpha).setScale(breath * 0.98 * (bossA ? aura : 1));
+        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y - (bossA ? lift * 0.8 : 0)).setFillStyle(col, (this.enemyImgBoss ? 0.16 : 0) * this.enemySprite.alpha).setScale(breath * 0.98 * (bossA ? aura : 1)); // 雑魚はオーラ無し・ボスのみ控えめ
         this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 44).setAlpha(0.28 * this.enemySprite.alpha).setScale(bossA ? Math.max(1.15, aura * 0.5) : 1, 1);
       }
       if (this.enemyImg && bossA) {
@@ -1325,7 +1330,7 @@ export default class GameScene extends Phaser.Scene {
     summary.emotions = run.emotions;
     summary.died = died;
     // 仲間の去就を確定（魂の絆で繋がる／光に還る）。設計書§17
-    const fate = commitRunCompanions(this.companions, this.distance);
+    const fate = commitRunCompanions([...this.companions, ...(this.recruitedThisRun || [])], this.distance);
     summary.companionsBonded = fate.newlyBonded.map((c) => ({ name: c.name, icon: c.icon }));
     summary.companionsDispersed = fate.dispersed;
     summary.hatched = fate.hatched ? { name: fate.hatched.name, icon: fate.hatched.icon, roleLabel: fate.hatched.roleLabel } : null;
@@ -1951,32 +1956,20 @@ export default class GameScene extends Phaser.Scene {
   // 仲間を1体、主人公のもとへ迎える。opts.minRarity=下限レア（ボス）、opts.big=強調演出。
   spawnRecruit(emotion, opts = {}) {
     const comp = makeCompanion(emotion, this.distance, this.nextCompanionId++, opts);
-    this.companions.push(comp);
+    if (!this.recruitedThisRun) this.recruitedThisRun = [];
+    this.recruitedThisRun.push(comp); // ロスターに迎える（バトル隊列には並べない＝ごちゃつき解消）
     recordBond(emotion);
     const info = C.EMOTIONS[emotion];
     const rar = C.COMPANION.rarities.find((r) => r.key === comp.rarity) || C.COMPANION.rarities[0];
 
-    // やわらかい光が主人公のもとへ降りて、仲間になる（レア色で強さを示す）
+    // 光になって主人公へ降りる（"迎えた"演出。隊列には加えない）
     const r0 = opts.big ? 30 : 22;
     const glow = this.add.circle(this.enemyX, this.enemyY, r0, rar.color, 0.95).setDepth(46);
     const ring = this.add.circle(this.enemyX, this.enemyY, r0, info.color, 0).setStrokeStyle(2, rar.color, 0.8).setDepth(46);
     this.tweens.add({ targets: ring, scale: opts.big ? 2.4 : 1.8, alpha: 0, duration: 620, onComplete: () => ring.destroy() });
-    this.tweens.add({
-      targets: glow,
-      x: this.heroX,
-      y: this.heroY + 20,
-      scale: 0.4,
-      alpha: 0.4,
-      duration: 650,
-      ease: "Sine.easeInOut",
-      onComplete: () => {
-        glow.destroy();
-        this.addCompanionSprite(comp);
-        this.layoutCompanions(); // 主人公のまわりの隊列に合流
-      },
-    });
+    this.tweens.add({ targets: glow, x: this.heroX, y: this.heroY - 4, scale: 0.3, alpha: 0, duration: 650, ease: "Sine.easeInOut", onComplete: () => glow.destroy() });
 
-    const verb = opts.big ? "が 心を開いて 仲間になった" : "が ついてきた";
+    const verb = opts.big ? "が 心を開いて 仲間になった" : "が 光となって ついてきた";
     this.pushLog(`✨ ${rar.star} ${comp.name}〈${comp.roleLabel}〉${verb}【${rar.label}】`);
     this.pushLog(`「${pickVoiceLine(1)}」— ${comp.name}`);
     return comp;
@@ -1989,7 +1982,7 @@ export default class GameScene extends Phaser.Scene {
     const emo = C.EMOTIONS[comp.emotion];
     const bodyColor = emo ? emo.color : 0xffffff;
     const shadow = this.add.ellipse(bx, by + 22, 58, 15, 0x000000, 0.26).setDepth(0);
-    const body = this.add.circle(bx, by, 26, bodyColor, 0.14).setDepth(1);
+    const body = this.add.circle(bx, by, 26, bodyColor, 0).setDepth(1); // ピクセルではオーラ無し（影のみ）
     // 相棒アートがあれば画像、無ければ絵文字。fitScale＝settled時の拡大率（画像は384px基準で正規化）
     let spr, fitScale;
     if (this.textures.exists("char_" + comp.emotion)) {
