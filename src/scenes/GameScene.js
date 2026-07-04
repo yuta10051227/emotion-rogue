@@ -10,7 +10,7 @@ import { createBattle, stepBattle, forceFinish } from "../logic/combat.js";
 import { createEmotionState, gainEmotions, checkEvolution, leadingEmotion, secondEmotion } from "../logic/evolution.js";
 import { makeCompanion, voiceStage, pickVoiceLine } from "../logic/companion.js";
 import { sfx, onFirstGesture, setMuted } from "../logic/audio.js";
-import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm, markBattleCoached } from "../data/save.js";
+import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm, markBattleCoached, recordEnding, endingCollected } from "../data/save.js";
 
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const UI_FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
@@ -1558,8 +1558,122 @@ export default class GameScene extends Phaser.Scene {
     summary.hatched = fate.hatched ? { name: fate.hatched.name, icon: fate.hatched.icon, roleLabel: fate.hatched.roleLabel } : null;
     summary.newEgg = fate.newEgg ? { emotion: fate.newEgg.emotion } : null;
     // 4つの感情をすべて理解した者には、一度だけ「統合」が訪れる（§17-4）
-    if (empathyUnlocked() && !getSave().endingSeen) this.playEnding(summary);
-    else this.playEpilogue(summary);
+    if (empathyUnlocked()) {
+      const ek = this.determineEndingKey(); // 生涯の主感情/均衡/絶望で分岐
+      if (!endingCollected(ek)) {
+        if (ek === "balance") this.playEnding(summary); // 均衡=統合の真エンド
+        else this.playEmotionEnding(summary, ek); // 主感情/闇堕ちの分岐エンド
+        return;
+      }
+    }
+    this.playEpilogue(summary);
+  }
+
+  // 主感情/均衡/絶望で分岐するエンディングの種類を決める。
+  //  この旅の感情(this.emotions)で判定＝岐路カードや戦い方で結末を操縦できる（プレイヤーの主体性）。
+  determineEndingKey() {
+    if (this.despair >= (C.DARK_EVOLUTION ? C.DARK_EVOLUTION.despairThreshold : 3)) return "dark"; // 瀕死を耐え抜いた旅＝闇堕ち
+    const em = this.emotions || {};
+    const vals = C.EMOTION_ORDER.map((k) => em[k] || 0);
+    const total = vals.reduce((a, b) => a + b, 0) || 1;
+    const max = Math.max(...vals);
+    if (max / total <= 0.34) return "balance"; // どの感情も突出しない＝統合(true)
+    return C.EMOTION_ORDER[vals.indexOf(max)];
+  }
+
+  endingDef(key) {
+    const D = {
+      anger: { icon: "🔥", color: C.EMOTIONS.anger.color, dexForm: "焔の精霊", close: "怒りは、愛のかたち。",
+        beats: [
+          [{ text: "捨てられた感情の中で、" }, { text: "いちばん熱かったのは ── 怒り。", color: "#ffbfae" }],
+          [{ text: "それは 弱さではなかった。" }, { text: "大切なものを 守る、焔だった。", color: "#ffbfae" }],
+          [{ text: "キミを捨てた心も、" }, { text: "本当は ずっと 怒っていた。自分に。", color: "#cfc6ba" }],
+        ] },
+      sadness: { icon: "💧", color: C.EMOTIONS.sadness.color, dexForm: "雫の精霊", close: "悲しみは、優しさの器。",
+        beats: [
+          [{ text: "捨てられた感情の中で、" }, { text: "いちばん深かったのは ── 悲しみ。", color: "#bfe0ff" }],
+          [{ text: "涙は 弱さではなかった。" }, { text: "誰かの痛みを 知る、深さだった。", color: "#bfe0ff" }],
+          [{ text: "キミを捨てた心も、" }, { text: "泣けずに ただ、渇いていた。", color: "#cfc6ba" }],
+        ] },
+      courage: { icon: "⚡", color: C.EMOTIONS.courage.color, dexForm: "雷の精霊", close: "勇気は、優しさの脚。",
+        beats: [
+          [{ text: "捨てられた感情の中で、" }, { text: "いちばん速かったのは ── 勇気。", color: "#ffe9a0" }],
+          [{ text: "前へ出る力は 弱さではなかった。" }, { text: "怖さを 知って なお、進む光。", color: "#ffe9a0" }],
+          [{ text: "キミを捨てた心も、" }, { text: "本当は もう一度、動きたかった。", color: "#cfc6ba" }],
+        ] },
+      hope: { icon: "✨", color: 0xfff0c0, dexForm: "灯の精霊", close: "希望は、消えない灯。",
+        beats: [
+          [{ text: "捨てられた感情の中で、" }, { text: "いちばん静かだったのは ── 希望。", color: "#fff4e6" }],
+          [{ text: "それは 弱さではなかった。" }, { text: "どんな闇でも 消えなかった、灯。", color: "#fff4e6" }],
+          [{ text: "キミを捨てた心の奥にも、" }, { text: "小さく ずっと、灯っていた。", color: "#cfc6ba" }],
+        ] },
+      dark: { icon: "🌑", color: 0x5a3a6a, dexForm: "澱の精霊", close: "闇を抱いて なお、心は 心。",
+        beats: [
+          [{ text: "幾度も 瀕死を 越えた。" }, { text: "感情は 澱み、影を 帯びた。", color: "#c9a0e0" }],
+          [{ text: "だが 闇もまた ── キミだった。" }, { text: "堕ちることすら、生きた証。", color: "#c9a0e0" }],
+          [{ text: "キミを捨てた心は、" }, { text: "壊れたまま、それでも キミを 見ていた。", color: "#cfc6ba" }],
+        ] },
+    };
+    return D[key] || D.hope;
+  }
+
+  // 主感情/闇堕ちのエンディング（統合=真エンドは playEnding）。図鑑に精霊として刻み、収集＝再訪動機に。
+  playEmotionEnding(summary, key) {
+    this.mode = "epilogue";
+    this.dismissCare();
+    if (this.battleTimer) this.battleTimer.remove();
+    const def = this.endingDef(key);
+    recordEnding(key);
+    if (!getSave().endingSeen) markEndingSeen();
+    recordForm(def.dexForm);
+    sfx.ending();
+
+    const cx = this.W / 2;
+    const c = this.add.container(0, 0).setDepth(320);
+    const veil = this.add.rectangle(cx, this.H / 2, this.W, this.H, 0x06060c, 0).setInteractive();
+    const tintR = this.add.rectangle(cx, this.H / 2, this.W, this.H, def.color, 0);
+    c.add([veil, tintR]);
+    this.tweens.add({ targets: veil, fillAlpha: 0.95, duration: 900 });
+    this.tweens.add({ targets: tintR, fillAlpha: 0.12, duration: 1500 });
+
+    const hero = this.add.text(cx, this.H / 2 - 200, def.icon, { fontFamily: EMOJI_FONT, fontSize: "56px" }).setOrigin(0.5).setAlpha(0);
+    c.add(hero);
+    this.tweens.add({ targets: hero, alpha: 1, duration: 1200, delay: 500 });
+    this.tweens.add({ targets: hero, scale: 1.08, duration: 1400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+
+    const hint = this.add.text(cx, this.H - 52, "タップしてつづける", { fontFamily: UI_FONT, fontSize: "13px", color: "#6a6a80" }).setOrigin(0.5).setAlpha(0);
+    c.add(hint);
+    this.tweens.add({ targets: hint, alpha: 1, duration: 900, delay: 900 });
+
+    const dyn = this.add.container(0, 0);
+    c.add(dyn);
+    const my = this.H / 2 + 20;
+    const T = (y, str, opts = {}) => {
+      const t = this.add.text(cx, y, str, { fontFamily: UI_FONT, fontSize: opts.size || "19px", color: opts.color || "#efeae2", align: "center", lineSpacing: 9, wordWrap: { width: this.W - 64 } }).setOrigin(0.5).setAlpha(0);
+      dyn.add(t);
+      this.tweens.add({ targets: t, alpha: 1, duration: 700 });
+      return t;
+    };
+    const beats = def.beats.map((lines) => () => lines.forEach((ln, i) => T(my - 22 + i * 42, ln.text, ln)));
+    beats.push(() => {
+      T(my - 12, `── "${def.dexForm}" ──`, { size: "24px", color: "#fff4e6" });
+      T(my + 34, def.close, { size: "15px", color: "#cfc6ba" });
+    });
+    let idx = -1;
+    const next = () => {
+      idx += 1;
+      if (idx >= beats.length) {
+        this.input.off("pointerdown", next);
+        this.tweens.add({ targets: c, alpha: 0, duration: 700, onComplete: () => this.scene.start("HomeScene", { summary }) });
+        return;
+      }
+      dyn.removeAll(true);
+      beats[idx]();
+    };
+    this.time.delayedCall(1100, () => {
+      next();
+      this.input.on("pointerdown", next);
+    });
   }
 
   // ============================ 感情統合エンディング（§17-4：二層構造の真実）============================
@@ -1568,6 +1682,7 @@ export default class GameScene extends Phaser.Scene {
     this.dismissCare();
     if (this.battleTimer) this.battleTimer.remove();
     markEndingSeen();
+    recordEnding("balance"); // 統合=均衡の真エンドを収集
     recordForm("感情の精霊"); // 図鑑：頂点
 
     const cx = this.W / 2;

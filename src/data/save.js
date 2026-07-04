@@ -81,6 +81,7 @@ function defaultSave() {
     diary: [],
     lastSeen: 0, // 最後にホームを見た時刻（放置生産の経過計算用・Palworld由来）
     endingSeen: false, // 感情統合エンディングを見たか（§17-4：一度だけ）
+    endings: {}, // 見たエンディングの種類（balance/anger/sadness/courage/hope/dark）＝図鑑・再訪動機
     spiritName: "", // 統合で生まれた「感情の精霊」にプレイヤーがつけた名
     dex: { forms: {} }, // 感情図鑑：到達した進化形態の名前を記録
     // 感情の結晶＝アーティファクト（DR④／設計§9軸1）：持つだけで恒久%強化が積み上がる
@@ -150,6 +151,7 @@ function ensure(s) {
   s.artifacts = Array.isArray(s.artifacts) ? s.artifacts : [];
   s.dex = s.dex && typeof s.dex === "object" ? s.dex : { forms: {} };
   s.dex.forms = s.dex.forms && typeof s.dex.forms === "object" ? s.dex.forms : {};
+  s.endings = s.endings && typeof s.endings === "object" ? s.endings : {};
   if (typeof s.nextEquipId !== "number") s.nextEquipId = 1;
   return s;
 }
@@ -660,6 +662,22 @@ export function markBattleCoached() {
 export function markEndingSeen() {
   getSave().endingSeen = true;
   persist();
+}
+
+// 見たエンディングの種類を記録（図鑑・収集）
+export function recordEnding(key) {
+  const s = getSave();
+  s.endings = s.endings || {};
+  if (!s.endings[key]) {
+    s.endings[key] = true;
+    persist();
+  }
+}
+export function endingCollected(key) {
+  return !!(getSave().endings || {})[key];
+}
+export function endingsCount() {
+  return Object.keys(getSave().endings || {}).length;
 }
 
 export function setSpiritName(name) {
