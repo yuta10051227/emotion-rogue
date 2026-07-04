@@ -75,10 +75,12 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   preload() {
-    // 仲間の相棒アート（Gemini生成）。無ければ絵文字にフォールバック。
+    // 仲間の相棒アート＋主人公スライム＋pixel遠景（Gemini生成）。無ければ絵文字にフォールバック。
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
     }
+    if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
+    if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png");
   }
 
   // 仲間ポートレート（画像があれば画像／無ければ絵文字）。float=ふわっと浮遊アニメ
@@ -103,7 +105,14 @@ export default class HomeScene extends Phaser.Scene {
     this.W = C.GAME_WIDTH;
     this.H = C.GAME_HEIGHT;
     this.panel = null;
-    this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x0b0b13);
+    // 背景：夜空グラデ＋pixel遠景の山並み（世界観・黒背景の解消）
+    const bgG = this.add.graphics();
+    bgG.fillGradientStyle(0x0a0c1c, 0x0a0c1c, 0x141420, 0x0d0d16, 1, 1, 1, 1);
+    bgG.fillRect(0, 0, this.W, this.H);
+    if (this.textures.exists("bg_far")) {
+      this.add.image(this.W / 2, 250, "bg_far").setDisplaySize(this.W, 150).setAlpha(0.5);
+      this.add.rectangle(this.W / 2, 325, this.W, this.H - 325, 0x0c0c16, 0.55); // 街の地面を少し暗く
+    }
 
     // 音：設定反映＋初回操作で解錠
     setMuted(getPref("muted"));
@@ -186,7 +195,12 @@ export default class HomeScene extends Phaser.Scene {
     }
 
     // 主人公プレビュー（転生後はまたスライムから）
-    this.add.text(this.W / 2, 158, "🟢", { fontFamily: EMOJI_FONT, fontSize: "62px" }).setOrigin(0.5);
+    if (this.textures.exists("hero_slime")) {
+      const hero = this.add.image(this.W / 2, 158, "hero_slime").setDisplaySize(84, 84);
+      this.tweens.add({ targets: hero, y: 152, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    } else {
+      this.add.text(this.W / 2, 158, "🟢", { fontFamily: EMOJI_FONT, fontSize: "62px" }).setOrigin(0.5);
+    }
     this.heroStatsText = this.add
       .text(this.W / 2, 208, "", { fontFamily: UI_FONT, fontSize: "16px", color: "#cfcfe0" })
       .setOrigin(0.5);
@@ -335,9 +349,9 @@ export default class HomeScene extends Phaser.Scene {
     list.forEach((b, i) => {
       const x = startX + step * i;
       const matIcon = C.EMOTIONS[b.emotion] ? C.EMOTIONS[b.emotion].icon : "·";
-      const spr = this.add.text(x, y, b.icon, { fontFamily: EMOJI_FONT, fontSize: "26px" }).setOrigin(0.5);
+      const spr = this.charPortrait(x, y, b.emotion, 40, b.icon, false); // pixel仲間
       this.tweens.add({ targets: spr, y: y - 4, duration: 500 + i * 60, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-      this.add.text(x, y + 20, matIcon, { fontFamily: EMOJI_FONT, fontSize: "12px" }).setOrigin(0.5);
+      this.add.text(x, y + 22, matIcon, { fontFamily: EMOJI_FONT, fontSize: "12px" }).setOrigin(0.5);
     });
   }
 
@@ -1037,30 +1051,77 @@ export default class HomeScene extends Phaser.Scene {
         return;
       }
 
+      // スクロールできるリスト（枠はみ出し防止）
+      const list = this.add.container(0, 0);
+      c.add(list);
+      let y = 168;
+
       if (tab === "diary") {
         const diary = getSave().diary;
         if (!diary.length) {
-          c.add(this.add.text(this.W / 2, 240, "まだ、日記はない。\n旅を終えるたびに、一行ずつ綴られる。", { fontFamily: UI_FONT, fontSize: "15px", color: "#9a9aac", align: "center", lineSpacing: 8 }).setOrigin(0.5));
-          return;
+          list.add(this.add.text(this.W / 2, 240, "まだ、日記はない。\n旅を終えるたびに、一行ずつ綴られる。", { fontFamily: UI_FONT, fontSize: "15px", color: "#9a9aac", align: "center", lineSpacing: 8 }).setOrigin(0.5));
+        } else {
+          diary.slice(0, 30).forEach((e) => {
+            const icon = e.emotion ? C.EMOTIONS[e.emotion].icon : "·";
+            list.add(this.add.text(30, y, `${icon}`, { fontFamily: EMOJI_FONT, fontSize: "16px" }).setOrigin(0, 0));
+            const body = this.add.text(56, y, e.text, { fontFamily: UI_FONT, fontSize: "14px", color: "#cfcfe0", wordWrap: { width: this.W - 92 }, lineSpacing: 4 });
+            list.add(body);
+            y += Math.max(26, body.height) + 14;
+          });
         }
-        let y = 172;
-        diary.slice(0, 8).forEach((e) => {
-          const icon = e.emotion ? C.EMOTIONS[e.emotion].icon : "·";
-          c.add(this.add.text(30, y, `${icon}`, { fontFamily: EMOJI_FONT, fontSize: "16px" }).setOrigin(0, 0));
-          const body = this.add.text(56, y, e.text, { fontFamily: UI_FONT, fontSize: "14px", color: "#cfcfe0", wordWrap: { width: this.W - 92 }, lineSpacing: 4 });
-          c.add(body);
-          y += Math.max(26, body.height) + 14;
+      } else {
+        NOTICES[tab].forEach((n) => {
+          list.add(this.add.text(34, y, "▸ " + n.title, { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }));
+          const body = this.add.text(34, y + 26, n.body, { fontFamily: UI_FONT, fontSize: "14px", color: "#9a9aac", wordWrap: { width: this.W - 70 }, lineSpacing: 4 });
+          list.add(body);
+          y += 30 + body.height + 18;
         });
-        return;
       }
+      this.attachScroll(c, list, 156, this.H - 56, y + 10);
+    });
+  }
 
-      let y = 180;
-      NOTICES[tab].forEach((n) => {
-        c.add(this.add.text(34, y, "▸ " + n.title, { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }));
-        const body = this.add.text(34, y + 26, n.body, { fontFamily: UI_FONT, fontSize: "14px", color: "#9a9aac", wordWrap: { width: this.W - 70 }, lineSpacing: 4 });
-        c.add(body);
-        y += 30 + body.height + 18;
-      });
+  // パネル内リストをマスク＋ドラッグ/ホイールでスクロール可能にする（枠はみ出し防止）
+  attachScroll(c, list, viewTop, viewBottom, contentBottom) {
+    const viewH = viewBottom - viewTop;
+    const mg = this.make.graphics();
+    mg.fillStyle(0xffffff);
+    mg.fillRect(12, viewTop, this.W - 24, viewH);
+    mg.setVisible(false);
+    c.add(mg);
+    list.setMask(mg.createGeometryMask());
+    const maxScroll = Math.max(0, contentBottom - viewBottom);
+    const minY = -maxScroll;
+    let thumb = null;
+    const updateBar = () => {
+      if (thumb) {
+        const t = maxScroll > 0 ? -list.y / maxScroll : 0;
+        thumb.y = viewTop + 4 + t * (viewH - 8 - thumb.height);
+      }
+    };
+    if (maxScroll > 0) {
+      c.add(this.add.rectangle(this.W - 16, (viewTop + viewBottom) / 2, 4, viewH, 0xffffff, 0.06));
+      const th = Math.max(28, (viewH * viewH) / (contentBottom - viewTop));
+      thumb = this.add.rectangle(this.W - 16, viewTop + 4 + th / 2, 4, th, 0xc0a0e0, 0.5);
+      thumb.height = th;
+      c.add(thumb);
+    }
+    const zone = this.add.zone(this.W / 2, (viewTop + viewBottom) / 2, this.W - 24, viewH).setInteractive();
+    c.add(zone);
+    if (maxScroll > 0) this.input.setDraggable(zone);
+    let downY = 0;
+    let downListY = 0;
+    zone.on("pointerdown", (p) => {
+      downY = p.y;
+      downListY = list.y;
+    });
+    zone.on("drag", (p) => {
+      list.y = Phaser.Math.Clamp(downListY + (p.y - downY), minY, 0);
+      updateBar();
+    });
+    zone.on("wheel", (p, dx, dy) => {
+      list.y = Phaser.Math.Clamp(list.y - dy * 0.5, minY, 0);
+      updateBar();
     });
   }
 
