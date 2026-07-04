@@ -353,6 +353,7 @@ export default class GameScene extends Phaser.Scene {
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
+      if (!this.textures.exists("char_" + k + "_atk")) this.load.image("char_" + k + "_atk", "chars/comp_" + k + "_atk.png"); // 攻撃フレーム
       if (!this.textures.exists("boss_" + k)) this.load.image("boss_" + k, "chars/boss_" + k + ".png");
       for (let s = 1; s <= 3; s++) {
         const key = "hero_" + k + "_" + s;
@@ -1792,12 +1793,19 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  // 仲間が攻撃時に敵へ踏み込む＋スクワッシュ（生きてる手触り）
+  // 仲間が攻撃時に敵へ踏み込む＋スクワッシュ＋2コマ攻撃フレーム（生きてる手触り）
   companionLunge(comp) {
     const o = this.companionSprites[comp.id];
     if (!o) return;
     const hx = o.baseX != null ? o.baseX : o.spr.x;
     const fit = o.fitScale != null ? o.fitScale : 0.85;
+    // 画像仲間は攻撃フレームへ差し替え → 戻す（フレームアニメ）
+    if (o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion + "_atk")) {
+      o.spr.setTexture("char_" + comp.emotion + "_atk");
+      this.time.delayedCall(220, () => {
+        if (o.spr && o.spr.scene && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion)) o.spr.setTexture("char_" + comp.emotion);
+      });
+    }
     this.tweens.add({ targets: o.spr, x: hx + 48, duration: 110, yoyo: true, ease: "Quad.easeOut", onComplete: () => { o.spr.x = hx; } });
     this.tweens.add({ targets: o.spr, scaleX: fit * 1.15, scaleY: fit * 0.9, duration: 90, yoyo: true, ease: "Quad.easeOut", onComplete: () => o.spr.setScale(fit) });
   }
