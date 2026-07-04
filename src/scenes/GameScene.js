@@ -457,19 +457,20 @@ export default class GameScene extends Phaser.Scene {
     if (this.enemyBody) {
       const v = this.enemySprite.visible;
       const bossA = this.enemyImgActive; // アート表示中か
-      const big = this.enemyImgBoss; // ボス（大）か
+      const aura = this.enemyImgAura || 1.5;
+      const lift = this.enemyImgLift || 6;
       this.enemyBody.setVisible(v);
       this.enemyShadow.setVisible(v);
       if (v) {
         const col = (this.currentEnemy && C.EMOTIONS[this.currentEnemy.lean] && C.EMOTIONS[this.currentEnemy.lean].color) || 0xff4d4d;
-        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y - (big ? 55 : bossA ? 4 : 0)).setFillStyle(col, (big ? 0.16 : 0.12) * this.enemySprite.alpha).setScale(breath * 0.98 * (big ? 5.5 : bossA ? 1.6 : 1));
-        this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 44).setAlpha(0.28 * this.enemySprite.alpha).setScale(big ? 2.8 : bossA ? 1.25 : 1, 1);
+        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y - (bossA ? lift * 0.8 : 0)).setFillStyle(col, (bossA ? 0.15 : 0.12) * this.enemySprite.alpha).setScale(breath * 0.98 * (bossA ? aura : 1));
+        this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 44).setAlpha(0.28 * this.enemySprite.alpha).setScale(bossA ? Math.max(1.15, aura * 0.5) : 1, 1);
       }
       if (this.enemyImg && bossA) {
         this.enemyImg.setVisible(v);
         if (v) {
           this.enemyImg
-            .setPosition(this.enemySprite.x, this.enemySprite.y - (big ? 70 : 6) + Math.sin(time / 520) * (big ? 4 : 2))
+            .setPosition(this.enemySprite.x, this.enemySprite.y - lift + Math.sin(time / 520) * (this.enemyImgBoss ? 4 : 2))
             .setAlpha(this.enemySprite.alpha)
             .setScale(this.enemyImgFit * (1 + Math.sin(time / 520) * 0.03));
         }
@@ -736,11 +737,13 @@ export default class GameScene extends Phaser.Scene {
     const hasArt = this.enemyImg && this.textures.exists(artKey);
     if (hasArt) {
       this.enemyImg.setTexture(artKey).setVisible(true).setAlpha(1).setTint(enemy.tint || 0xffffff).setFlipX(true); // 主人公(左)を向く
-      const px = enemy.boss ? 352 : Math.round(92 * (enemy.mobScale || 1)); // ボス2倍／雑魚は個体差
+      const px = enemy.boss ? enemy.bossPx || 300 : Math.round(92 * (enemy.mobScale || 1)); // ボスは段階的サイズ／雑魚は個体差
       this.enemyImgFit = px / this.enemyImg.width;
       this.enemyImg.setScale(this.enemyImgFit);
       this.enemyImgActive = true;
       this.enemyImgBoss = !!enemy.boss;
+      this.enemyImgLift = enemy.boss ? Math.round(px * 0.2) : 6; // 大きいほど持ち上げる
+      this.enemyImgAura = enemy.boss ? px / 66 : 1.6; // オーラ倍率もサイズ比例
       this.enemySprite.setText(""); // 絵文字は隠す
       this.enemyLabel.setVisible(!enemy.boss); // 雑魚は名前、ボスは上部の大型HPバー
     } else {
@@ -832,8 +835,19 @@ export default class GameScene extends Phaser.Scene {
     const hp = Math.round(Math.max(distHp, powerHp));
     const atk = Math.max(1, Math.round(C.ENEMY_BASE.atk * factor * C.BOSS.atkMult));
     const spd = Math.max(1, Math.round(((C.ENEMY_BASE.spdMin + C.ENEMY_BASE.spdMax) / 2) * C.BOSS.spdMult));
+    // 序盤ボスは控えめ→深部で大きく（最初がラスボス級すぎ問題）
+    const n = this.bossCount;
+    const bossPx = Math.round(196 + Math.min(n, 9) * 20); // boss0=196 … boss9+=376
+    // 同じ種でも雰囲気が変わる色変異（控えめ）
+    const TINTS = {
+      anger: [0xffffff, 0xffffff, 0xff9a6a, 0xff7070, 0xd070d0],
+      sadness: [0xffffff, 0xffffff, 0x8ad0ff, 0x9aa0ff, 0x70e0d0],
+      courage: [0xffffff, 0xffffff, 0xfff0a0, 0xffd070, 0xd0ff90],
+      hope: [0xffffff, 0xffffff, 0xffe0c0, 0xd0e0ff, 0xffd0e0],
+    };
+    const tint = Phaser.Utils.Array.GetRandom(TINTS[emotion] || [0xffffff]);
     this.bossCount += 1;
-    return { hp, maxHp: hp, atk, spd, icon: t.icon, label: t.name, lean: emotion, boss: true };
+    return { hp, maxHp: hp, atk, spd, icon: t.icon, label: t.name, lean: emotion, boss: true, bossPx, tint };
   }
 
   battleTick() {
