@@ -810,7 +810,10 @@ export default class GameScene extends Phaser.Scene {
     const factor = Math.pow(C.ENEMY_BASE.growth, distance / 10);
     const emotion = C.EMOTION_ORDER[this.bossCount % C.EMOTION_ORDER.length];
     const t = C.BOSS.types[emotion];
-    const hp = Math.round(C.ENEMY_BASE.hp * factor * C.BOSS.hpMult);
+    // 距離ベースHP と 「主人公攻撃力×最低撃破回数」の大きい方 → 強い育成でも即溶けしない
+    const distHp = C.ENEMY_BASE.hp * factor * C.BOSS.hpMult;
+    const powerHp = (this.heroStats ? this.heroStats.atk : 20) * (C.BOSS.minHitsToKill || 30);
+    const hp = Math.round(Math.max(distHp, powerHp));
     const atk = Math.max(1, Math.round(C.ENEMY_BASE.atk * factor * C.BOSS.atkMult));
     const spd = Math.max(1, Math.round(((C.ENEMY_BASE.spdMin + C.ENEMY_BASE.spdMax) / 2) * C.BOSS.spdMult));
     this.bossCount += 1;

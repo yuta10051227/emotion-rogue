@@ -372,6 +372,7 @@ export const PROGRESS = {
 export const BOSS = {
   everyMeters: 100, // この距離ごとにボスが待つ（進捗バーの節目と一致）
   hpMult: 5.5, // 取締役調整：ボスは硬い壁に（HP厚く＝白熱する殴り合い）。安全網 maxBattleTicks/forceFinish で長期化フリーズは回避
+  minHitsToKill: 35, // これ未満の攻撃回数で溶けないよう、主人公の攻撃力に応じてHPを底上げ（"すぐ消える"防止）
   atkMult: 1.05, // 攻撃は下げて即死を減らし、粘り合いにする
   spdMult: 0.9,
   warnDistance: 22, // 何m手前で接近警告（予兆を長めに）
