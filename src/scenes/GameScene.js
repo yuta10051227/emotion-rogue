@@ -397,6 +397,9 @@ export default class GameScene extends Phaser.Scene {
     });
     // 兆している主感情のラベル（戦闘中のみ・目標バナー位置を借りる）
     this.formLabel = this.add.text(this.W / 2, 58, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#d8cfc0" }).setOrigin(0.5).setDepth(6).setVisible(false);
+    // 「あと N で進化」予告（主人公の上・報酬の予感で初進化を山場に）
+    this.evoHint = this.add.text(0, 0, "", { fontFamily: UI_FONT, fontSize: "12px", color: "#ffe0a0", fontStyle: "bold" }).setOrigin(0.5).setDepth(7).setVisible(false);
+    this._evoHintShow = false;
   }
 
   preload() {
@@ -699,6 +702,11 @@ export default class GameScene extends Phaser.Scene {
   update(time, delta) {
     if (this.paused) return; // 強化パネル等を開いている間は世界を止める
     this.updateFormingEmotions(time); // 戦闘中の「兆している感情」ライブ表示（勝ち方が感情に結晶化する様を見せる）
+    if (this.evoHint) {
+      const on = this._evoHintShow && (this.mode === "walk" || this.mode === "battle");
+      this.evoHint.setVisible(on);
+      if (on) this.evoHint.setPosition(this.heroX, this.heroSprite.y - 76 + Math.sin(time / 300) * 2); // 主人公の頭上でふわり
+    }
     if (this.mode === "walk") {
       const dt = delta / 1000;
       const adv = C.COMBAT.walkSpeed * dt * this.speed; // 倍速は歩行にも効く
@@ -1369,6 +1377,7 @@ export default class GameScene extends Phaser.Scene {
               form.kind === "triple" ? "（三重混合）" : form.kind === "dark" ? "（闇堕ち）" : form.kind === "double" ? "（混合進化）" : form.stage === 3 ? "（化身）" : form.stage === 2 ? "（戦士）" : "";
             this.pushLog(`✨ キミは "${dispName}"〈${species}〉になった${evoTag}`);
             recordForm(dispName); // 感情図鑑に刻む
+            this.refreshEvoHint(); // 段階が進んだので次の進化目標に更新
 
             this.time.delayedCall(2300, () => {
               this.tweens.add({
@@ -1907,6 +1916,43 @@ export default class GameScene extends Phaser.Scene {
       this.gauges[key].icon.setScale(key === lead.key && lead.value > 0 ? 1.25 : 1);
     }
     this.updateHeroAura(lead);
+    this.refreshEvoHint();
+  }
+
+  // 次の進化までの対象感情と残り量（stage0=主感情／以降=最初に進化した感情の道）
+  evolutionHintInfo() {
+    if (this.evoSpecial || this.evoStage >= 3) return null;
+    let key;
+    let cur;
+    let target;
+    if (this.evoStage === 0) {
+      const lead = leadingEmotion(this.emotions);
+      if (!lead.key) return null;
+      key = lead.key;
+      cur = lead.value;
+      target = this.evoThresholds[0];
+    } else {
+      key = this.evolvedKey;
+      if (!key) return null;
+      cur = this.emotions[key] || 0;
+      target = this.evoThresholds[this.evoStage];
+    }
+    if (cur <= 0) return null; // まだ何も宿していない
+    return { key, remaining: Math.max(0, Math.ceil(target - cur)), ratio: Phaser.Math.Clamp(cur / target, 0, 1) };
+  }
+
+  // 「あと N で進化」予告を更新（感情獲得時・進化直後に呼ぶ）
+  refreshEvoHint() {
+    if (!this.evoHint) return;
+    const info = this.evolutionHintInfo();
+    if (!info) {
+      this._evoHintShow = false;
+      return;
+    }
+    const em = C.EMOTIONS[info.key];
+    const near = info.ratio >= 0.75; // 目前は強調
+    this.evoHint.setText(near ? `${em.icon} 進化まで あと ${info.remaining}！` : `${em.icon} あと ${info.remaining} で進化`).setColor(near ? colorToCss(em.color) : "#ffe0a0");
+    this._evoHintShow = true;
   }
 
   // 主人公の感情オーラ：主感情の色／進行で濃く・大きく（①可視化）

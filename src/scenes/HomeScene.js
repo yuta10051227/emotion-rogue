@@ -271,7 +271,7 @@ export default class HomeScene extends Phaser.Scene {
     this.refreshNoticeBadge();
 
     // 出発
-    this.makeButton(this.W / 2, 576, 300, 64, "▶ 出発する", () => this.scene.start("GameScene"), {
+    this.makeButton(this.W / 2, 576, 300, 64, "▶ 出発する", () => this.openLoadoutPanel(), {
       color: 0x2a3a2a,
       stroke: 0x4caf50,
       hover: 0x354a35,
@@ -502,6 +502,40 @@ export default class HomeScene extends Phaser.Scene {
       const yes = this.makeButton(this.W / 2, 340, 280, 54, "すべて消す", () => { resetSave(); this.scene.restart(); }, { color: 0x3a1414, stroke: 0x8a3a3a, textColor: "#ff9a9a" });
       const no = this.makeButton(this.W / 2, 410, 280, 54, "やめる", () => this.closeActivePanel(), { color: 0x1c2c1c, stroke: 0x4caf50, textColor: "#bfffbf" });
       c.add([yes.rect, yes.txt, yes.badge, no.rect, no.txt, no.badge]);
+    });
+  }
+
+  // ---- 出発前ロードアウト確認（見守り前の唯一の主体的判断＝旅立ちに重み）----
+  openLoadoutPanel() {
+    this.openPanel("旅立ちの支度", (c) => {
+      const s = getSave();
+      const st = computeHeroStats();
+      const active = s.party.bonded.filter((b) => b.active).slice(0, C.COMPANION.maxParty);
+      const rar = C.EQUIPMENT.rarities;
+      let y = 132;
+      c.add(this.add.text(this.W / 2, y, "この編成で旅立ちますか？", { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }).setOrigin(0.5));
+      y += 34;
+      c.add(this.add.text(this.W / 2, y, `キミ　❤${st.maxHp}　⚔${st.atk}　⚡${st.spd}　🛡${st.def}　🍀${st.luk}`, { fontFamily: UI_FONT, fontSize: "14px", color: "#cfcfe0" }).setOrigin(0.5));
+      y += 30;
+      const eq = s.equipment.equipped.map((id) => s.equipment.owned.find((o) => o.id === id)).filter(Boolean);
+      const eqTxt = eq.length ? eq.map((it) => it.name).join("・") : "装備なし";
+      c.add(this.add.text(this.W / 2, y, `🛡 ${eqTxt}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac", align: "center", wordWrap: { width: this.W - 70 } }).setOrigin(0.5));
+      y += 32;
+      c.add(this.add.text(this.W / 2, y, `― 同行する仲間 (${active.length}/${C.COMPANION.maxParty}) ―`, { fontFamily: UI_FONT, fontSize: "12px", color: "#8a8aa0" }).setOrigin(0.5));
+      y += 26;
+      if (!active.length) {
+        c.add(this.add.text(this.W / 2, y, "（まだ仲間がいません。旅で出会えます）", { fontFamily: UI_FONT, fontSize: "12px", color: "#6a6a80" }).setOrigin(0.5));
+        y += 26;
+      } else {
+        active.forEach((b) => {
+          const icon = b.icon || (C.EMOTIONS[b.emotion] && C.EMOTIONS[b.emotion].icon) || "❔";
+          const r = rar.find((x) => x.key === b.rarity) || rar[0];
+          c.add(this.add.text(this.W / 2, y, `${icon} ${b.name}〈${b.roleLabel || ""}〉 Lv.${b.level || 1}　${r.label}`, { fontFamily: UI_FONT, fontSize: "13px", color: colorToCss(r.color) }).setOrigin(0.5));
+          y += 26;
+        });
+      }
+      const go = this.makeButton(this.W / 2, this.H - 116, 300, 60, "▶ この編成で旅立つ", () => this.scene.start("GameScene"), { color: 0x2a3a2a, stroke: 0x4caf50, hover: 0x354a35, textColor: "#bfffbf", fontSize: "20px" });
+      c.add([go.rect, go.txt, go.badge]);
     });
   }
 
