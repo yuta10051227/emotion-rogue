@@ -297,6 +297,15 @@ export default class GameScene extends Phaser.Scene {
     this.farLayer = this.add.tileSprite(this.W / 2, horizon, this.W, 130, "far_hills").setOrigin(0.5, 1).setDepth(-9).setAlpha(0.85);
     this.midLayer = this.add.tileSprite(this.W / 2, this.heroY + 32, this.W, 150, "mid_trees").setOrigin(0.5, 1).setDepth(-7).setAlpha(0.92);
     this.groundLayer = this.add.tileSprite(this.W / 2, this.heroY + 62, this.W, 250, "ground_strip").setOrigin(0.5, 0).setDepth(-5);
+
+    // ピクセル遠景があれば採用（山並みの空）。中景の手続き木立は隠す。
+    if (this.textures.exists("bg_far")) {
+      this.farLayer.setTexture("bg_far");
+      this.farLayer.height = 144; // タイル高と一致＝縦リピートしない
+      this.farLayer.y = horizon + 30; // 山並みの裾を地面に寄せる
+      this.farLayer.setAlpha(1);
+      this.midLayer.setVisible(false);
+    }
   }
 
   // 進軍に合わせて各層を流す（奥ほどゆっくり＝奥行き）
@@ -350,14 +359,18 @@ export default class GameScene extends Phaser.Scene {
 
   preload() {
     // 仲間・ボス・主人公進化アート（Gemini生成）。無ければ絵文字にフォールバック。
+    if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png"); // ピクセル遠景
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
+    if (!this.textures.exists("hero_slime_atk")) this.load.image("hero_slime_atk", "chars/hero_slime_atk.png");
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
       if (!this.textures.exists("char_" + k + "_atk")) this.load.image("char_" + k + "_atk", "chars/comp_" + k + "_atk.png"); // 攻撃フレーム
       if (!this.textures.exists("boss_" + k)) this.load.image("boss_" + k, "chars/boss_" + k + ".png");
+      if (!this.textures.exists("boss_" + k + "_atk")) this.load.image("boss_" + k + "_atk", "chars/boss_" + k + "_atk.png");
       for (let s = 1; s <= 3; s++) {
         const key = "hero_" + k + "_" + s;
         if (!this.textures.exists(key)) this.load.image(key, "chars/" + key + ".png");
+        if (!this.textures.exists(key + "_atk")) this.load.image(key + "_atk", "chars/" + key + "_atk.png");
       }
     }
   }
@@ -396,10 +409,12 @@ export default class GameScene extends Phaser.Scene {
       this.heroBaseW = this.heroSprite.width;
       this.heroFit = this.heroFitFor(0);
       this.heroSprite.setScale(this.heroFit);
+      this.heroFormKey = "hero_slime";
     } else {
       this.heroSprite = this.add.text(this.heroX, this.heroY, "🟢", { fontFamily: EMOJI_FONT, fontSize: "64px" }).setOrigin(0.5).setDepth(2);
       this.heroIsImage = false;
       this.heroFit = 1;
+      this.heroFormKey = null;
     }
     this.enemySprite = this.add.text(this.enemyX, this.enemyY, "", { fontFamily: EMOJI_FONT, fontSize: "56px" }).setOrigin(0.5).setDepth(2).setVisible(false);
     this.enemyLabel = this.add.text(this.enemyX, this.enemyY - 50, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5).setDepth(2).setVisible(false);
@@ -589,7 +604,7 @@ export default class GameScene extends Phaser.Scene {
       this.scrollWorld(adv * 6); // 背景を流して"行軍してる感"を出す
       this.distanceText.setText("距離 " + Math.floor(this.distance) + "m");
       this.updateProgressBar();
-      this.heroSprite.y = this.heroY + Math.sin(time / 120) * 4;
+      this.heroSprite.y = this.heroY + (Math.floor(time / 300) % 2 === 0 ? 0 : -4); // 2コマの跳ね（レトロ待機）
       this.heroAura.y = this.heroSprite.y;
       this.bobCompanions(time);
       this.updatePresence(time);
@@ -605,7 +620,7 @@ export default class GameScene extends Phaser.Scene {
     } else if (this.mode === "battle") {
       // 交戦中も世界はゆっくり進む＝行軍してる感（距離は増やさない・見た目だけ）
       this.scrollWorld(C.COMBAT.walkSpeed * (delta / 1000) * 0.25 * this.speed);
-      this.heroSprite.y = this.heroY + Math.sin(time / 300) * 3; // 戦闘中もそっと呼吸
+      this.heroSprite.y = this.heroY + (Math.floor(time / 360) % 2 === 0 ? 0 : -3); // 戦闘中も2コマ待機
       this.bobCompanions(time);
       this.updatePresence(time);
     }
@@ -840,11 +855,13 @@ export default class GameScene extends Phaser.Scene {
         } else if (ev.skill) {
           // 主人公の必殺技（大きく踏み込む）
           this.lunge(this.heroSprite, this.heroX, 1, 110);
+          this.heroAttackAnim();
           this.playHeroSkill(ev.dmg);
           this.heroSkillCharge = 0;
         } else {
           // 主人公の通常攻撃（踏み込んでクラッシュ＋技ゲージが溜まる）
           this.lunge(this.heroSprite, this.heroX, 1, 78);
+          this.heroAttackAnim();
           this.popDamage(this.enemyX, this.enemyY - 38, ev.dmg, "#ff9a9a", ratio);
           this.knockback(this.enemySprite, this.enemyX, 1, Phaser.Math.Clamp(ratio, 0.2, 1));
           sfx.hit();
@@ -854,6 +871,7 @@ export default class GameScene extends Phaser.Scene {
         // 敵の攻撃：敵が主人公へ踏み込む
         const ratio = ev.dmg / this.heroStats.maxHp;
         this.lunge(this.enemySprite, this.enemyX, -1, 78);
+        this.bossAttackAnim();
         this.popDamage(this.heroX, this.heroY - 38, ev.dmg, "#ffffff", ratio);
         this.knockback(this.heroSprite, this.heroX, -1, Phaser.Math.Clamp(ratio, 0.2, 1));
         sfx.heroHit();
@@ -1142,7 +1160,10 @@ export default class GameScene extends Phaser.Scene {
             flash.destroy();
             if (this.heroIsImage) {
               const tkey = "hero_" + form.key + "_" + (form.kind === "stage" ? form.stage : 1);
-              if (this.textures.exists(tkey)) this.heroSprite.setTexture(tkey);
+              if (this.textures.exists(tkey)) {
+                this.heroSprite.setTexture(tkey);
+                this.heroFormKey = tkey;
+              }
               this.heroFit = this.heroFitFor(form.stage);
               this.heroSprite.setScale(this.heroFit);
             } else {
@@ -1760,7 +1781,10 @@ export default class GameScene extends Phaser.Scene {
     let i = 0;
     for (const comp of this.companions) {
       const o = this.companionSprites[comp.id];
-      if (o) o.spr.y = (o.baseY != null ? o.baseY : this.partyY) + Math.sin(time / 120 + i * 0.8) * 3;
+      if (o) {
+        const base = o.baseY != null ? o.baseY : this.partyY;
+        o.spr.y = base + (Math.floor(time / 340 + i * 1.4) % 2 === 0 ? 0 : -3); // 2コマ待機（少しずらして）
+      }
       i += 1;
     }
   }
@@ -1808,6 +1832,31 @@ export default class GameScene extends Phaser.Scene {
     }
     this.tweens.add({ targets: o.spr, x: hx + 48, duration: 110, yoyo: true, ease: "Quad.easeOut", onComplete: () => { o.spr.x = hx; } });
     this.tweens.add({ targets: o.spr, scaleX: fit * 1.15, scaleY: fit * 0.9, duration: 90, yoyo: true, ease: "Quad.easeOut", onComplete: () => o.spr.setScale(fit) });
+  }
+
+  // 主人公の攻撃モーション：攻撃フレームへ差替＋スクワッシュ（ピクセル2コマ）
+  heroAttackAnim() {
+    if (!this.heroIsImage || !this.heroFormKey) return;
+    const atk = this.heroFormKey + "_atk";
+    if (!this.textures.exists(atk)) return;
+    this.heroSprite.setTexture(atk);
+    const fit = this.heroFit || 1;
+    this.tweens.add({ targets: this.heroSprite, scaleX: fit * 1.12, scaleY: fit * 0.92, duration: 90, yoyo: true, onComplete: () => this.heroSprite.setScale(fit) });
+    this.time.delayedCall(240, () => {
+      if (this.heroSprite && this.heroSprite.scene && this.heroIsImage && this.textures.exists(this.heroFormKey)) this.heroSprite.setTexture(this.heroFormKey);
+    });
+  }
+
+  // ボスの攻撃モーション：攻撃フレームへ差替（拡大は updatePresence が維持）
+  bossAttackAnim() {
+    if (!this.enemyImgActive || !this.currentEnemy) return;
+    const base = "boss_" + this.currentEnemy.lean;
+    const atk = base + "_atk";
+    if (!this.textures.exists(atk)) return;
+    this.enemyImg.setTexture(atk);
+    this.time.delayedCall(260, () => {
+      if (this.enemyImg && this.enemyImgActive && this.currentEnemy && this.textures.exists(base)) this.enemyImg.setTexture(base);
+    });
   }
 
   // 倒した雑魚が浄化されて仲間になる（レアは距離なり）
