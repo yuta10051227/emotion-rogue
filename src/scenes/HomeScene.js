@@ -81,6 +81,13 @@ export default class HomeScene extends Phaser.Scene {
     }
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png");
+    // 図鑑用：主人公の進化形態
+    for (const k of C.EMOTION_ORDER) {
+      for (let s = 1; s <= 3; s++) {
+        const key = "hero_" + k + "_" + s;
+        if (!this.textures.exists(key)) this.load.image(key, "chars/" + key + ".png");
+      }
+    }
   }
 
   // 仲間ポートレート（画像があれば画像／無ければ絵文字）。float=ふわっと浮遊アニメ
@@ -998,13 +1005,15 @@ export default class HomeScene extends Phaser.Scene {
   // ---- お知らせ（運営／物語 タブ）----
   // 感情図鑑：到達した進化形態のコレクション（未到達は❓）
   renderDex(c) {
+    // 基本進化は主人公のpixelアート、混合/三重/闇堕ち/精霊は絵文字。
     const single = [];
-    C.EMOTION_ORDER.forEach((k) => C.EVOLUTION_STAGES.forms[k].forEach((f) => single.push({ icon: f.icon, name: f.name })));
-    const mixed = Object.values(C.MIXED_EVOLUTION.forms);
-    const triple = Object.values(C.TRIPLE_EVOLUTION.forms);
-    const dark = Object.values(C.DARK_EVOLUTION.forms);
+    C.EMOTION_ORDER.forEach((k) => C.EVOLUTION_STAGES.forms[k].forEach((f, s) => single.push({ tex: "hero_" + k + "_" + (s + 1), name: f.name })));
+    const mixed = Object.values(C.MIXED_EVOLUTION.forms).map((f) => ({ icon: f.icon, name: f.name }));
+    const triple = Object.values(C.TRIPLE_EVOLUTION.forms).map((f) => ({ icon: f.icon, name: f.name }));
+    const dark = Object.values(C.DARK_EVOLUTION.forms).map((f) => ({ icon: f.icon, name: f.name }));
     const spirit = [{ icon: "🌈", name: "感情の精霊" }];
     const cats = [
+      { label: "はじまり", forms: [{ tex: "hero_slime", name: "スライム", always: true }] },
       { label: "基本進化", forms: single },
       { label: "混合進化", forms: mixed },
       { label: "三重混合", forms: triple },
@@ -1013,18 +1022,35 @@ export default class HomeScene extends Phaser.Scene {
     ];
     const flat = [...single, ...mixed, ...triple, ...dark, ...spirit];
     const seenAll = flat.filter((f) => formSeen(f.name)).length;
-    c.add(this.add.text(this.W / 2, 160, `感情図鑑　${seenAll} / ${flat.length}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#e8e8ef" }).setOrigin(0.5));
+    c.add(this.add.text(this.W / 2, 150, `感情図鑑　${seenAll} / ${flat.length}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#e8e8ef" }).setOrigin(0.5));
 
-    let y = 188;
+    const list = this.add.container(0, 0);
+    c.add(list);
+    const cols = 4;
+    const cellW = (this.W - 40) / cols;
+    const cellH = 66;
+    let y = 180;
     cats.forEach((cat) => {
-      const got = cat.forms.filter((f) => formSeen(f.name)).length;
-      c.add(this.add.text(28, y, `${cat.label}  ${got}/${cat.forms.length}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#8a8aa0" }).setOrigin(0, 0.5));
-      y += 18;
-      const parts = cat.forms.map((f) => (formSeen(f.name) ? `${f.icon}${f.name}` : "❓"));
-      const body = this.add.text(28, y, parts.join("　"), { fontFamily: UI_FONT, fontSize: "13px", color: "#cfcfe0", wordWrap: { width: this.W - 56 }, lineSpacing: 5 }).setOrigin(0, 0);
-      c.add(body);
-      y += body.height + 14;
+      const got = cat.forms.filter((f) => f.always || formSeen(f.name)).length;
+      list.add(this.add.text(24, y, `${cat.label}  ${got}/${cat.forms.length}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#8a8aa0" }).setOrigin(0, 0.5));
+      y += 22;
+      cat.forms.forEach((f, i) => {
+        const cx = 24 + cellW * (i % cols) + cellW / 2;
+        const cy = y + Math.floor(i / cols) * cellH + 20;
+        const seen = f.always || formSeen(f.name);
+        if (seen && f.tex && this.textures.exists(f.tex)) {
+          list.add(this.add.image(cx, cy, f.tex).setDisplaySize(42, 42));
+        } else if (seen && f.icon) {
+          list.add(this.add.text(cx, cy, f.icon, { fontFamily: EMOJI_FONT, fontSize: "26px" }).setOrigin(0.5));
+        } else {
+          list.add(this.add.text(cx, cy, "❓", { fontFamily: UI_FONT, fontSize: "22px", color: "#44445a" }).setOrigin(0.5));
+        }
+        list.add(this.add.text(cx, cy + 24, seen ? f.name : "？？？", { fontFamily: UI_FONT, fontSize: "9px", color: seen ? "#cfcfe0" : "#55556a", align: "center", wordWrap: { width: cellW - 4 } }).setOrigin(0.5, 0));
+      });
+      y += Math.ceil(cat.forms.length / cols) * cellH + 10;
     });
+    // 図鑑用に主人公進化アートを読み込む（未ロードなら）
+    this.attachScroll(c, list, 168, this.H - 48, y + 10);
   }
 
   openNoticePanel(tab) {
