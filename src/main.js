@@ -30,6 +30,7 @@ const config = {
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: "#0a0a0f",
+  pixelArt: true, // ドット絵をくっきり表示（アンチエイリアス無効・整数丸め）
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
