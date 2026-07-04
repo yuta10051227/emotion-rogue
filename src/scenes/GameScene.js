@@ -771,6 +771,7 @@ export default class GameScene extends Phaser.Scene {
   // 1体と交戦開始（先頭/次の敵が右から歩いて来て、到着で戦闘開始）。HPは持ち越し。
   engageEnemy(enemy) {
     this.currentEnemy = enemy;
+    this._enemyAtkToken = (this._enemyAtkToken || 0) + 1; // 前の敵の攻撃フレーム復帰タイマーを無効化（絵の取り違え防止）
     this.battleTicks = 0;
     this.battle = createBattle(this.heroStats, enemy, this.companions, { skillEvery: this.skill.every, skillMult: this.skill.mult });
 
@@ -959,7 +960,7 @@ export default class GameScene extends Phaser.Scene {
         // 敵の攻撃：敵が主人公へ踏み込む
         const ratio = ev.dmg / this.heroStats.maxHp;
         this.lunge(this.enemySprite, this.enemyX, -1, 78);
-        this.bossAttackAnim();
+        this.enemyAttackAnim();
         this.popDamage(this.heroX, this.heroY - 38, ev.dmg, "#ffffff", ratio);
         this.knockback(this.heroSprite, this.heroX, -1, Phaser.Math.Clamp(ratio, 0.2, 1));
         sfx.heroHit();
@@ -1915,7 +1916,9 @@ export default class GameScene extends Phaser.Scene {
     const light = this.speed >= 3;
     if (!light && !comp.shopId && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion + "_atk")) {
       o.spr.setTexture("char_" + comp.emotion + "_atk");
+      const ctok = (o._atkToken = (o._atkToken || 0) + 1);
       this.time.delayedCall(220, () => {
+        if (ctok !== o._atkToken) return; // 連撃中は古いタイマーで素の絵に戻さない
         if (o.spr && o.spr.scene && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion)) o.spr.setTexture("char_" + comp.emotion);
       });
     }
@@ -1931,19 +1934,25 @@ export default class GameScene extends Phaser.Scene {
     this.heroSprite.setTexture(atk);
     const fit = this.heroFit || 1;
     if (this.speed < 3) this.tweens.add({ targets: this.heroSprite, scaleX: fit * 1.12, scaleY: fit * 0.92, duration: 90, yoyo: true, onComplete: () => this.heroSprite.setScale(fit) });
-    this.time.delayedCall(240, () => {
+    const htok = (this._heroAtkToken = (this._heroAtkToken || 0) + 1);
+    this.time.delayedCall(Math.max(80, 240 / Math.max(1, this.speed)), () => {
+      if (htok !== this._heroAtkToken) return; // 連撃中は古いタイマーで素の絵に戻さない
       if (this.heroSprite && this.heroSprite.scene && this.heroIsImage && this.textures.exists(this.heroFormKey)) this.heroSprite.setTexture(this.heroFormKey);
     });
   }
 
-  // ボスの攻撃モーション：攻撃フレームへ差替（拡大は updatePresence が維持）
-  bossAttackAnim() {
-    if (!this.enemyImgActive || !this.currentEnemy) return;
-    const base = "boss_" + this.currentEnemy.lean;
+  // 敵の攻撃モーション：攻撃フレームへ差替（拡大は updatePresence が維持）。
+  // ボス=boss_ / 雑魚=enemy_ を正しく参照（取り違え防止）。最新の攻撃だけが素の絵に戻す＝技が途切れない。
+  enemyAttackAnim() {
+    if (!this.enemyImg || !this.enemyImgActive || !this.currentEnemy) return;
+    const base = (this.currentEnemy.boss ? "boss_" : "enemy_") + this.currentEnemy.lean;
     const atk = base + "_atk";
-    if (!this.textures.exists(atk)) return;
+    if (!this.textures.exists(atk)) return; // 攻撃フレームが無い敵は差替えず素の絵のまま（取り違え・消失を防ぐ）
+    const token = (this._enemyAtkToken = (this._enemyAtkToken || 0) + 1);
     this.enemyImg.setTexture(atk);
-    this.time.delayedCall(260, () => {
+    const hold = Math.max(90, 260 / Math.max(1, this.speed)); // 倍速でも間延びしない
+    this.time.delayedCall(hold, () => {
+      if (token !== this._enemyAtkToken) return; // 後続の攻撃が来ていれば古いタイマーは戻さない
       if (this.enemyImg && this.enemyImgActive && this.currentEnemy && this.textures.exists(base)) this.enemyImg.setTexture(base);
     });
   }

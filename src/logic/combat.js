@@ -5,11 +5,17 @@
 //  これにより「素早さ差」が攻撃回数に効く（＝勇気＝先制撃破が表現できる）。
 // =====================================================================
 
-import { COMBAT, EMOTION_RULES, COMPANION, SKILL } from "../data/config.js";
+import { COMBAT, EMOTION_RULES, COMPANION, SKILL, BOSS } from "../data/config.js";
 
 function rollDamage(atk) {
   const r = 0.9 + Math.random() * 0.2; // 乱数 0.9〜1.1（設計書§5）
   return Math.max(1, Math.round(atk * r));
+}
+
+// ボスは1発で最大HPの一定割合までしか削れない＝即溶け（画面から"消える"）を防ぎ、殴り合いを白熱させる
+function capBoss(dmg, enemy) {
+  if (enemy && enemy.boss && BOSS.maxHitFrac) return Math.min(dmg, Math.max(1, Math.ceil(enemy.maxHp * BOSS.maxHitFrac)));
+  return dmg;
 }
 
 // 戦闘オブジェクトを生成。hero/enemy は { hp, maxHp, atk, spd }
@@ -60,7 +66,7 @@ export function stepBattle(b) {
       b.heroGauge -= T;
       b.heroAttacks += 1;
       const isSkill = b.heroAttacks % b.skillEvery === 0; // 一定回数ごとに技（ツリーで短縮可）
-      const dmg = rollDamage(b.hero.atk * (isSkill ? b.skillMult : 1));
+      const dmg = capBoss(rollDamage(b.hero.atk * (isSkill ? b.skillMult : 1)), b.enemy);
       b.enemy.hp -= dmg;
       b.turnsToWin += 1;
       events.push({ by: "hero", target: "enemy", dmg, skill: isSkill });
@@ -96,7 +102,7 @@ export function stepBattle(b) {
         if (a.role === "clutch" && b.hero.hp / b.hero.maxHp < COMPANION.clutchHpRatio) {
           atk = a.atk * 2;
         }
-        const dmg = rollDamage(atk);
+        const dmg = capBoss(rollDamage(atk), b.enemy);
         b.enemy.hp -= dmg;
         events.push({ by: "ally", allyId: a.id, target: "enemy", dmg });
         if (b.enemy.hp <= 0) {
