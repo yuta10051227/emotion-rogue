@@ -764,6 +764,7 @@ export function buyShopCompanion(id) {
   s.party.bonded.push({
     id: s.party.nextId++,
     emotion: def.emotion,
+    shopId: def.id, // 専用アート shop_{id} 用（特別な仲間）
     role: def.role,
     icon: def.icon,
     roleLabel: roleInfo ? roleInfo.label : "",

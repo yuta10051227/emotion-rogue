@@ -85,6 +85,7 @@ export default class HomeScene extends Phaser.Scene {
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("town_" + k)) this.load.image("town_" + k, "chars/town_" + k + ".png"); // 街の場所
     }
+    for (const sc of C.SHOP_COMPANIONS) if (!this.textures.exists("shop_" + sc.id)) this.load.image("shop_" + sc.id, "chars/shop_" + sc.id + ".png"); // 課金の特別な子
     // 図鑑用：主人公の進化形態
     for (const k of C.EMOTION_ORDER) {
       for (let s = 1; s <= 3; s++) {
@@ -94,11 +95,13 @@ export default class HomeScene extends Phaser.Scene {
     }
   }
 
-  // 仲間ポートレート（画像があれば画像／無ければ絵文字）。float=ふわっと浮遊アニメ
-  charPortrait(x, y, emotion, size, emojiFallback, float) {
+  // 仲間ポートレート（課金の特別な子は専用アート／画像／絵文字）。float=浮遊。b=bonded記録(任意)
+  charPortrait(x, y, emotion, size, emojiFallback, float, b) {
+    const shopKey = b && b.shopId && this.textures.exists("shop_" + b.shopId) ? "shop_" + b.shopId : null;
+    const key = shopKey || (this.textures.exists("char_" + emotion) ? "char_" + emotion : null);
     let obj;
-    if (this.textures.exists("char_" + emotion)) {
-      obj = this.add.image(x, y, "char_" + emotion).setDisplaySize(size, size);
+    if (key) {
+      obj = this.add.image(x, y, key).setDisplaySize(size, size);
     } else {
       obj = this.add.text(x, y, emojiFallback, { fontFamily: EMOJI_FONT, fontSize: Math.round(size * 0.6) + "px" }).setOrigin(0.5);
     }
@@ -360,7 +363,7 @@ export default class HomeScene extends Phaser.Scene {
     list.forEach((b, i) => {
       const x = startX + step * i;
       const matIcon = C.EMOTIONS[b.emotion] ? C.EMOTIONS[b.emotion].icon : "·";
-      const spr = this.charPortrait(x, y, b.emotion, 40, b.icon, false); // pixel仲間
+      const spr = this.charPortrait(x, y, b.emotion, 40, b.icon, false, b); // pixel仲間（課金は専用）
       this.tweens.add({ targets: spr, y: y - 4, duration: 500 + i * 60, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
       this.add.text(x, y + 22, matIcon, { fontFamily: EMOJI_FONT, fontSize: "12px" }).setOrigin(0.5);
     });
@@ -399,7 +402,7 @@ export default class HomeScene extends Phaser.Scene {
           here.slice(0, 3).forEach((b, j) => {
             const x = cx - 30 + j * 30;
             const yy = cy + 36;
-            const spr = this.charPortrait(x, yy, b.emotion, 28, b.icon, false);
+            const spr = this.charPortrait(x, yy, b.emotion, 28, b.icon, false, b);
             this.tweens.add({ targets: spr, y: yy - 3, duration: 480 + j * 70, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
             c.add(spr);
           });
@@ -631,7 +634,7 @@ export default class HomeScene extends Phaser.Scene {
       const info = C.EMOTIONS[b.emotion] || { color: 0xb0b0c0, label: "" };
       const col = colorToCss(info.color);
       const rar = C.COMPANION.rarities.find((r) => r.key === b.rarity) || C.COMPANION.rarities[0];
-      c.add(this.charPortrait(this.W / 2, 124, b.emotion, 96, b.icon, true));
+      c.add(this.charPortrait(this.W / 2, 124, b.emotion, 96, b.icon, true, b));
       c.add(this.add.text(this.W / 2, 176, `${rar.star}【${rar.label}】`, { fontFamily: UI_FONT, fontSize: "13px", color: colorToCss(rar.color) }).setOrigin(0.5));
       c.add(this.add.text(this.W / 2, 197, `〈${info.label}・${b.roleLabel}〉${b.evo ? "  ✦進化" : ""}　Lv${b.level || 1}`, { fontFamily: UI_FONT, fontSize: "13px", color: col }).setOrigin(0.5));
       const statStr = b.role === "healer" ? `✚ 癒し ${b.heal}　⚡ 速さ ${b.spd}` : `⚔ 攻撃 ${b.atk}　⚡ 速さ ${b.spd}`;
@@ -696,7 +699,8 @@ export default class HomeScene extends Phaser.Scene {
         const owned = isShopOwned(def.id);
         const info = C.EMOTIONS[def.emotion];
         c.add(this.add.rectangle(this.W / 2, y, this.W - 50, 88, owned ? 0x1c2c1c : 0x191926).setStrokeStyle(1, owned ? 0x4caf50 : info.color));
-        c.add(this.add.text(44, y, def.icon, { fontFamily: EMOJI_FONT, fontSize: "34px" }).setOrigin(0.5));
+        if (this.textures.exists("shop_" + def.id)) c.add(this.add.image(46, y, "shop_" + def.id).setDisplaySize(58, 58));
+        else c.add(this.add.text(46, y, def.icon, { fontFamily: EMOJI_FONT, fontSize: "34px" }).setOrigin(0.5));
         c.add(this.add.text(74, y - 26, `${def.name}　〈${def.label}〉`, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(info.color) }).setOrigin(0, 0.5));
         c.add(this.add.text(74, y - 6, def.desc, { fontFamily: UI_FONT, fontSize: "11px", color: "#9a9aac", wordWrap: { width: this.W - 150 } }).setOrigin(0, 0.5));
         const statStr = def.role === "healer" ? `✚${def.heal}  ⚡${def.spd}` : `⚔${def.atk}  ⚡${def.spd}`;
@@ -851,7 +855,7 @@ export default class HomeScene extends Phaser.Scene {
         const emoColor = C.EMOTIONS[b.emotion] ? C.EMOTIONS[b.emotion].color : 0xb0b0c0;
         const rar = C.COMPANION.rarities.find((r) => r.key === b.rarity) || C.COMPANION.rarities[0];
         const row = this.add.rectangle(this.W / 2, y, this.W - 50, rowH, b.active ? 0x1d1726 : 0x17161d).setStrokeStyle(1, b.active ? emoColor : 0x33334a);
-        const icon = this.charPortrait(40, y, b.emotion, 50, b.icon, false);
+        const icon = this.charPortrait(40, y, b.emotion, 50, b.icon, false, b);
         const nm = this.add.text(72, y - 15, `${b.name}〈${b.roleLabel}〉 Lv${b.level || 1}`, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(emoColor) }).setOrigin(0, 0.5);
         const statStr = b.role === "healer" ? `✚${b.heal}  ⚡${b.spd}` : `⚔${b.atk}  ⚡${b.spd}`;
         const voice = "●".repeat(b.stage) + "○".repeat(4 - b.stage);

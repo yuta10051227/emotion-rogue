@@ -396,6 +396,7 @@ export default class GameScene extends Phaser.Scene {
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     if (!this.textures.exists("hero_slime_atk")) this.load.image("hero_slime_atk", "chars/hero_slime_atk.png");
     if (!this.textures.exists("hero_slime_walk")) this.load.image("hero_slime_walk", "chars/hero_slime_walk.png");
+    for (const sc of C.SHOP_COMPANIONS) if (!this.textures.exists("shop_" + sc.id)) this.load.image("shop_" + sc.id, "chars/shop_" + sc.id + ".png"); // 課金の特別な子
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
       if (!this.textures.exists("char_" + k + "_atk")) this.load.image("char_" + k + "_atk", "chars/comp_" + k + "_atk.png"); // 攻撃フレーム
@@ -830,8 +831,14 @@ export default class GameScene extends Phaser.Scene {
     this.clearQueueSilhouettes();
     this.queueSprites = [];
     (this.enemyQueue || []).forEach((e, i) => {
-      const x = this.W - 26 - i * 30;
-      const s = this.add.text(x, this.enemyY, e.icon, { fontFamily: EMOJI_FONT, fontSize: "34px" }).setOrigin(0.5).setAlpha(0.33).setScale(0.8);
+      const x = this.W - 34 - i * 36;
+      let s;
+      if (this.textures.exists("enemy_" + e.lean)) {
+        const sz = 68 * (e.mobScale || 1);
+        s = this.add.image(x, this.enemyY, "enemy_" + e.lean).setDisplaySize(sz, sz).setTint(0x2a2a3c).setAlpha(0.6).setDepth(1);
+      } else {
+        s = this.add.text(x, this.enemyY, e.icon, { fontFamily: EMOJI_FONT, fontSize: "34px" }).setOrigin(0.5).setAlpha(0.33).setScale(0.8);
+      }
       this.tweens.add({ targets: s, y: this.enemyY - 4, duration: 620 + i * 90, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
       this.queueSprites.push(s);
     });
@@ -1906,7 +1913,7 @@ export default class GameScene extends Phaser.Scene {
     const fit = o.fitScale != null ? o.fitScale : 0.85;
     // 画像仲間は攻撃フレームへ差し替え → 戻す（フレームアニメ）。3倍速は軽量化のため簡略。
     const light = this.speed >= 3;
-    if (!light && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion + "_atk")) {
+    if (!light && !comp.shopId && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion + "_atk")) {
       o.spr.setTexture("char_" + comp.emotion + "_atk");
       this.time.delayedCall(220, () => {
         if (o.spr && o.spr.scene && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion)) o.spr.setTexture("char_" + comp.emotion);
@@ -1983,11 +1990,12 @@ export default class GameScene extends Phaser.Scene {
     const bodyColor = emo ? emo.color : 0xffffff;
     const shadow = this.add.ellipse(bx, by + 22, 58, 15, 0x000000, 0.26).setDepth(0);
     const body = this.add.circle(bx, by, 26, bodyColor, 0).setDepth(1); // ピクセルではオーラ無し（影のみ）
-    // 相棒アートがあれば画像、無ければ絵文字。fitScale＝settled時の拡大率（画像は384px基準で正規化）
+    // 相棒アート（課金の特別な子は専用アート）。無ければ絵文字。fitScale＝settled時の拡大率。
+    const cKey = comp.shopId && this.textures.exists("shop_" + comp.shopId) ? "shop_" + comp.shopId : "char_" + comp.emotion;
     let spr, fitScale;
-    if (this.textures.exists("char_" + comp.emotion)) {
-      spr = this.add.image(bx, by, "char_" + comp.emotion).setDepth(2);
-      fitScale = 54 / spr.width;
+    if (this.textures.exists(cKey)) {
+      spr = this.add.image(bx, by, cKey).setDepth(2);
+      fitScale = (comp.shopId ? 58 : 54) / spr.width; // 特別な子は少し大きく
     } else {
       spr = this.add.text(bx, by, comp.icon, { fontFamily: EMOJI_FONT, fontSize: "32px" }).setOrigin(0.5).setDepth(2);
       fitScale = 0.85;
