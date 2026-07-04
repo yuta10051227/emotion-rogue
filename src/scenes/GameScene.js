@@ -362,6 +362,7 @@ export default class GameScene extends Phaser.Scene {
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png"); // ピクセル遠景
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     if (!this.textures.exists("hero_slime_atk")) this.load.image("hero_slime_atk", "chars/hero_slime_atk.png");
+    if (!this.textures.exists("hero_slime_walk")) this.load.image("hero_slime_walk", "chars/hero_slime_walk.png");
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
       if (!this.textures.exists("char_" + k + "_atk")) this.load.image("char_" + k + "_atk", "chars/comp_" + k + "_atk.png"); // 攻撃フレーム
@@ -372,6 +373,7 @@ export default class GameScene extends Phaser.Scene {
         const key = "hero_" + k + "_" + s;
         if (!this.textures.exists(key)) this.load.image(key, "chars/" + key + ".png");
         if (!this.textures.exists(key + "_atk")) this.load.image(key + "_atk", "chars/" + key + "_atk.png");
+        if (!this.textures.exists(key + "_walk")) this.load.image(key + "_walk", "chars/" + key + "_walk.png");
       }
     }
   }
@@ -607,7 +609,12 @@ export default class GameScene extends Phaser.Scene {
       this.scrollWorld(adv * 6); // 背景を流して"行軍してる感"を出す
       this.distanceText.setText("距離 " + Math.floor(this.distance) + "m");
       this.updateProgressBar();
-      this.heroSprite.y = this.heroY + (Math.floor(time / 300) % 2 === 0 ? 0 : -4); // 2コマの跳ね（レトロ待機）
+      this.heroSprite.y = this.heroY + (Math.floor(time / 260) % 2 === 0 ? 0 : -4); // 2コマの跳ね
+      // 進軍中は歩行フレームと交互に（歩いてる感）
+      if (this.heroIsImage && this.heroFormKey && this.textures.exists(this.heroFormKey + "_walk")) {
+        const wkey = Math.floor(time / 220) % 2 === 0 ? this.heroFormKey : this.heroFormKey + "_walk";
+        if (this.heroSprite.texture.key !== wkey) this.heroSprite.setTexture(wkey);
+      }
       this.heroAura.y = this.heroSprite.y;
       this.bobCompanions(time);
       this.updatePresence(time);
@@ -709,6 +716,7 @@ export default class GameScene extends Phaser.Scene {
     this.mode = "battle";
     this.heroSkillCharge = 0;
     this.heroSprite.y = this.heroY;
+    if (this.heroIsImage && this.heroFormKey && this.heroSprite.texture.key !== this.heroFormKey) this.heroSprite.setTexture(this.heroFormKey); // 歩行→待機に戻す
     this.heroStats.hp = this.heroStats.maxHp; // 接敵の最初だけ全回復（群れの間はHP持ち越し＝圧）
 
     // 群れ編成（ボスは単体）。先頭と控え（右に並ぶ）。
