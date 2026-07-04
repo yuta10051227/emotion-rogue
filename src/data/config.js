@@ -31,7 +31,7 @@ export const COMBAT = {
   walkSpeed: 22, // 進軍速度(m/s)
   distancePerEncounter: 14, // 何mごとに敵が出るか（±ゆらぎあり）
   maxBattleTicks: 340, // 戦闘の最長ティック。超えたら強制決着（フリーズ防止の安全網。ボスHP増に合わせ拡大）
-  swarmEnabled: false, // 群れ（複数の敵を連戦）。今は1体ずつ。後で丁寧に再開する。
+  swarmEnabled: true, // 群れ（複数の敵を連戦）。控えは右にシルエット表示。取締役：進軍する群れを採用。
 };
 
 // ---- 戦い方 → 宿る感情（このゲームの肝：設計書§4-3）----
@@ -430,7 +430,7 @@ export const COMPANION = {
   // 共鳴孵化（Palworld配合の翻案：2体以上同行で絆が積もり、卵→新しい仲間）
   resonance: { threshold: 300, childStatMult: 1.3 },
   // 個体強化（お金で各仲間を永続レベルアップ＝ローグウィズ型・愛着の核）
-  upgrade: { baseCost: 30, growth: 1.5, statMult: 1.15 },
+  upgrade: { baseCost: 30, growth: 1.5, statMult: 1.2 },
   // 出自の一言（設計書§17-1：仲間＝誰かが捨てた感情。愛着を生む物語の欠片）
   origins: {
     anger: ["誰かが「もう怒らない」と決めて、置いていった怒り。", "守りたかった。でも守れなかった日の、行き場のない怒り。", "言えなかった「ふざけるな」が、ひとりで燻っていた。"],
@@ -440,7 +440,7 @@ export const COMPANION = {
   },
   // 仲間の進化（設計書§17：仲間も同行で進化する）
   evolveAtStage: 3, // 声がこの段階に達したら進化
-  evolveStatMult: 1.4, // 進化で攻撃/癒しが ×この値
+  evolveStatMult: 1.9, // 進化で攻撃/癒しが ×この値（取締役：もっと強く）
   evolvedIcons: { anger: "👹", sadness: "🌊", courage: "🌩️", hope: "💫" }, // 進化後の姿
   // 感情 → 役割（設計書§17-1）
   roles: {
