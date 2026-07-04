@@ -73,7 +73,7 @@ export default class GameScene extends Phaser.Scene {
     this.resonanceKey = stats.resonanceKey; // 記憶の共鳴（多く抱いた感情）
     this.baseFragMult = fragMultipliers(); // ツリーの欠片獲得ボーナス
     this.evoThreshold = effectiveEvoThreshold(); // ツリーで下がりうる進化閾値（1段目）
-    this.evoThresholds = [this.evoThreshold, this.evoThreshold + 7, this.evoThreshold + 20]; // 獣/戦士/化身
+    this.evoThresholds = [this.evoThreshold, this.evoThreshold + 14, this.evoThreshold + 34]; // 獣/戦士/化身（進化を遅めに）
     this.skill = skillParams(); // 技：発動間隔・威力（ツリーで育つ）
 
     // 消耗アイテム：出撃で1本ずつ消費する旅バフ＋倒れた時の蘇生（不死鳥の羽）
@@ -460,14 +460,14 @@ export default class GameScene extends Phaser.Scene {
       this.enemyShadow.setVisible(v);
       if (v) {
         const col = (this.currentEnemy && C.EMOTIONS[this.currentEnemy.lean] && C.EMOTIONS[this.currentEnemy.lean].color) || 0xff4d4d;
-        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y - (bossA ? 16 : 0)).setFillStyle(col, (bossA ? 0.16 : 0.12) * this.enemySprite.alpha).setScale(breath * 0.98 * (bossA ? 3.2 : 1));
-        this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 44).setAlpha(0.28 * this.enemySprite.alpha).setScale(bossA ? 1.9 : 1, 1);
+        this.enemyBody.setPosition(this.enemySprite.x, this.enemySprite.y - (bossA ? 55 : 0)).setFillStyle(col, (bossA ? 0.16 : 0.12) * this.enemySprite.alpha).setScale(breath * 0.98 * (bossA ? 5.5 : 1));
+        this.enemyShadow.setPosition(this.enemySprite.x, this.enemyY + 44).setAlpha(0.28 * this.enemySprite.alpha).setScale(bossA ? 2.8 : 1, 1);
       }
       if (this.enemyImg && bossA) {
         this.enemyImg.setVisible(v);
         if (v) {
           this.enemyImg
-            .setPosition(this.enemySprite.x, this.enemySprite.y - 18 + Math.sin(time / 520) * 4)
+            .setPosition(this.enemySprite.x, this.enemySprite.y - 70 + Math.sin(time / 520) * 4)
             .setAlpha(this.enemySprite.alpha)
             .setScale(this.enemyImgFit * (1 + Math.sin(time / 520) * 0.03));
         }
@@ -733,7 +733,7 @@ export default class GameScene extends Phaser.Scene {
     const bossArt = enemy.boss && this.enemyImg && this.textures.exists("boss_" + enemy.lean);
     if (bossArt) {
       this.enemyImg.setTexture("boss_" + enemy.lean).setVisible(true).setAlpha(1);
-      this.enemyImgFit = 176 / this.enemyImg.width;
+      this.enemyImgFit = 352 / this.enemyImg.width; // 取締役指定：ボス2倍
       this.enemyImg.setScale(this.enemyImgFit);
       this.enemyImgActive = true;
       this.enemySprite.setText(""); // 絵文字は隠す
@@ -1794,10 +1794,10 @@ export default class GameScene extends Phaser.Scene {
   layoutCompanions(instant = false) {
     const rank = { attacker: 3, striker: 2, clutch: 1, healer: 0 };
     const slots = [
-      { dx: 20, dy: 18 }, // 前衛（前方寄り）
-      { dx: -22, dy: 38 }, // 中
-      { dx: -54, dy: 22 }, // 後衛
-      { dx: 48, dy: 44 }, // 予備
+      { dx: 34, dy: 16 }, // 前衛（前方寄り）
+      { dx: -40, dy: 32 }, // 中
+      { dx: -74, dy: 10 }, // 後衛
+      { dx: 72, dy: 42 }, // 予備
     ];
     const order = this.companions.slice().sort((a, b) => (rank[b.role] || 0) - (rank[a.role] || 0));
     order.forEach((comp, i) => {

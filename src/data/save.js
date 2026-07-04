@@ -123,11 +123,17 @@ function ensure(s) {
   s.party.eggs = Array.isArray(s.party.eggs) ? s.party.eggs : [];
   if (typeof s.gold !== "number") s.gold = 0;
   // 既存の仲間に 個体強化/愛着/レア度フィールドを補完
+  let _activeN = 0;
   for (const b of s.party.bonded) {
     if (typeof b.level !== "number") b.level = 1;
     if (typeof b.runs !== "number") b.runs = 0;
     if (typeof b.originIdx !== "number") b.originIdx = 0;
     if (typeof b.rarity !== "string") b.rarity = b.special ? "epic" : "common"; // 旧セーブの仲間は既定レア
+    // 旧バグ掃除：同行(active)は maxParty まで。超過分は留守番に。
+    if (b.active) {
+      _activeN += 1;
+      if (_activeN > COMPANION.maxParty) b.active = false;
+    }
   }
   s.shopOwned = Array.isArray(s.shopOwned) ? s.shopOwned : [];
   s.prefs = { ...d.prefs, ...(s.prefs || {}) };
@@ -715,9 +721,9 @@ export function buyRosterSlot() {
   return { ok: true, cap: carryoverSlots() };
 }
 
-// 出撃に同行する仲間（active な持ち越し仲間）
+// 出撃に同行する仲間（active な持ち越し仲間）。maxParty で上限（全員同行バグ防止）。
 export function getActiveCompanions() {
-  return getSave().party.bonded.filter((b) => b.active);
+  return getSave().party.bonded.filter((b) => b.active).slice(0, COMPANION.maxParty);
 }
 
 // 〔同行/留守番〕の切り替え。同行は maxParty まで。
@@ -835,9 +841,12 @@ export function commitRunCompanions(runComps, runDistance = 0) {
     }
   }
   // 2) 新しく出会った仲間：空き枠の分だけ絆を結ぶ
+  let activeCount = s.party.bonded.filter((b) => b.active).length; // 同行は maxParty まで（全員同行バグ防止）
   for (const rc of runComps) {
     if (rc.bondedId == null) {
       if (s.party.bonded.length < cap) {
+        const willActive = activeCount < COMPANION.maxParty;
+        if (willActive) activeCount += 1;
         const rec = {
           id: s.party.nextId++,
           emotion: rc.emotion,
@@ -854,7 +863,7 @@ export function commitRunCompanions(runComps, runDistance = 0) {
           level: rc.level || 1,
           runs: rc.runs || 0,
           originIdx: rc.originIdx || 0,
-          active: true,
+          active: willActive,
         };
         s.party.bonded.push(rec);
         newlyBonded.push(rec);

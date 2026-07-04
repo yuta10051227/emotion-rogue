@@ -61,7 +61,7 @@ export const DIMINISH = {
 
 // ---- 進化（試作は初進化のみ：指示書§5）----
 export const EVOLUTION = {
-  threshold: 5, // いずれかの感情累計がこの値で初進化
+  threshold: 12, // いずれかの感情累計がこの値で初進化（取締役：早すぎ→引き上げ）
   statMultiplier: 1.5, // 進化時 ATK/HP ×1.5
 };
 
