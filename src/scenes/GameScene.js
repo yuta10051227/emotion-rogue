@@ -10,7 +10,7 @@ import { createBattle, stepBattle, forceFinish } from "../logic/combat.js";
 import { createEmotionState, gainEmotions, checkEvolution, leadingEmotion, secondEmotion } from "../logic/evolution.js";
 import { makeCompanion, voiceStage, pickVoiceLine } from "../logic/companion.js";
 import { sfx, onFirstGesture, setMuted } from "../logic/audio.js";
-import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm, markBattleCoached, recordEnding, endingCollected } from "../data/save.js";
+import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm, markBattleCoached, recordEnding, endingCollected, getPlayer } from "../data/save.js";
 
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const UI_FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
@@ -218,11 +218,12 @@ export default class GameScene extends Phaser.Scene {
     this.paused = true;
     if (this.battleTimer) this.battleTimer.paused = true;
     this._coachSteps = [
-      { text: "ようこそ。\nキミは戦いを「見守る」。\nどう戦うかで、宿す感情が変わる。" },
-      { text: "上の 🔥 💧 ⚡ ✨ は、\nこの戦いで兆している感情。\n速攻=🔥 / 耐え=💧 / 先制=⚡ / 逆転=✨", arrow: { x: this.W / 2, y: 92 } },
-      { text: "感情が満ちると、キミは進化する。\n頭上の「あと N で進化」が目印。", arrow: { x: this.heroX, y: this.heroY - 62 } },
-      { text: "下のボタンで ⚙強化・倍速・↗撤退。\n引き際も、キミの裁量。", arrow: { x: this.W / 2, y: this.H - 90 } },
-      { text: "では ──\n見守ろう。" },
+      { text: "これが キミの あいぼう！\nいっしょに たたかうよ。", arrow: { x: this.heroX, y: this.heroY - 40 } },
+      { text: "まえの てきを、あいぼうが\nやっつけて くれる。おうえん しよう！", arrow: { x: this.enemyX, y: this.heroY - 30 } },
+      { text: "うえの 🔥💧⚡✨ は いま そだってる キモチ。\nはやくたおす=🔥 / たえる=💧 / さきに=⚡ / ぎゃくてん=✨", arrow: { x: this.W / 2, y: 92 } },
+      { text: "キモチが たまると、あいぼうは\n「しんか」できる。すがたを えらべるよ！", arrow: { x: this.heroX, y: this.heroY - 62 } },
+      { text: "したの ボタンで ⚙つよく・はやさ・↩かえる。\nつかれたら おうちに かえろう。", arrow: { x: this.W / 2, y: this.H - 90 } },
+      { text: "じゃあ ──\nいってらっしゃい！" },
     ];
     this.buildCoach();
   }
@@ -532,6 +533,7 @@ export default class GameScene extends Phaser.Scene {
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png"); // ピクセル遠景
     for (let i = 1; i <= 3; i++) if (!this.textures.exists("bg_far" + i)) this.load.image("bg_far" + i, "chars/bg_far" + i + ".png"); // バイオーム
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
+    for (const k of ["kid_boy", "kid_boy_walk", "kid_girl", "kid_girl_walk"]) if (!this.textures.exists(k)) this.load.image(k, "chars/" + k + ".png"); // 主人公(男/女)＝相棒に指示
     if (!this.textures.exists("hero_slime_atk")) this.load.image("hero_slime_atk", "chars/hero_slime_atk.png");
     if (!this.textures.exists("hero_slime_walk")) this.load.image("hero_slime_walk", "chars/hero_slime_walk.png");
     for (const sc of C.SHOP_COMPANIONS) if (!this.textures.exists("shop_" + sc.id)) this.load.image("shop_" + sc.id, "chars/shop_" + sc.id + ".png"); // 課金の特別な子
@@ -598,6 +600,18 @@ export default class GameScene extends Phaser.Scene {
     this.enemySprite = this.add.text(this.enemyX, this.enemyY, "", { fontFamily: EMOJI_FONT, fontSize: "56px" }).setOrigin(0.5).setDepth(2).setVisible(false);
     this.enemyLabel = this.add.text(this.enemyX, this.enemyY - 50, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5).setDepth(2).setVisible(false);
 
+    // 主人公の子供（男の子/女の子）＝相棒に指示を出す。戦闘には参加しない別オーバーレイ。
+    const pg = getPlayer() || { gender: "boy" };
+    this.kidFormKey = "kid_" + (pg.gender === "girl" ? "girl" : "boy");
+    this.kidX = this.heroX - 52;
+    if (this.textures.exists(this.kidFormKey)) {
+      this.kidSprite = this.add.image(this.kidX, this.heroY + 6, this.kidFormKey).setDepth(2).setScale(0.72);
+      this.kidIsImage = true;
+    } else {
+      this.kidSprite = this.add.text(this.kidX, this.heroY, pg.gender === "girl" ? "👧" : "👦", { fontFamily: EMOJI_FONT, fontSize: "40px" }).setOrigin(0.5).setDepth(2);
+      this.kidIsImage = false;
+    }
+
     this.addAtmosphere(); // 周縁ビネット
     this.time.addEvent({ delay: 130, loop: true, callback: () => this.emitEmotionParticle() }); // 感情の専用パーティクル
 
@@ -628,6 +642,15 @@ export default class GameScene extends Phaser.Scene {
   // 毎フレーム、シャドウ／ボディを絵文字に追従させ、ゆっくり呼吸させる
   updatePresence(time) {
     const breath = 1 + Math.sin(time / 340) * 0.06;
+    if (this.kidSprite) {
+      this.kidSprite.y = this.heroY + 6 + (Math.floor(time / 260) % 2 === 0 ? 0 : -3); // 子供も跳ねる
+      if (this.kidIsImage && this.mode === "walk" && this.textures.exists(this.kidFormKey + "_walk")) {
+        const wk = Math.floor(time / 220) % 2 === 0 ? this.kidFormKey : this.kidFormKey + "_walk";
+        if (this.kidSprite.texture.key !== wk) this.kidSprite.setTexture(wk);
+      } else if (this.kidIsImage && this.kidSprite.texture.key !== this.kidFormKey) {
+        this.kidSprite.setTexture(this.kidFormKey);
+      }
+    }
     if (this.heroBody) {
       this.heroBody.setPosition(this.heroSprite.x, this.heroSprite.y).setScale(breath);
       this.heroShadow.setPosition(this.heroSprite.x, this.heroY + 44).setScale(1 / breath, 1);
@@ -1504,7 +1527,7 @@ export default class GameScene extends Phaser.Scene {
 
             const named = form.kind === "stage" && form.stage > 1; // 既に名がある→「進化した」
             const nameTxt = this.add
-              .text(this.W / 2, this.H / 2 - 110, `キミは "${dispName}"\n〈${species}〉${named ? "へと 進化した" : "と名づけられた"}`, {
+              .text(this.W / 2, this.H / 2 - 110, `あいぼうは "${dispName}"\n〈${species}〉${named ? "に しんかした！" : "に なった！"}`, {
                 fontFamily: UI_FONT,
                 fontSize: "23px",
                 color: "#ffffff",
@@ -1518,7 +1541,7 @@ export default class GameScene extends Phaser.Scene {
             this.tweens.add({ targets: nameTxt, alpha: 1, y: this.H / 2 - 124, duration: 700 });
             const evoTag =
               form.kind === "triple" ? "（三重混合）" : form.kind === "dark" ? "（闇堕ち）" : form.kind === "double" ? "（混合進化）" : form.stage === 3 ? "（化身）" : form.stage === 2 ? "（戦士）" : "";
-            this.pushLog(`✨ キミは "${dispName}"〈${species}〉になった${evoTag}`);
+            this.pushLog(`✨ あいぼうは "${dispName}"〈${species}〉に なった${evoTag}`);
             recordForm(dispName); // 感情図鑑に刻む
             this.refreshEvoHint(); // 段階が進んだので次の進化目標に更新
 
