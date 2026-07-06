@@ -50,6 +50,7 @@ export function importSave(code) {
 function defaultSave() {
   return {
     seenIntro: false,
+    player: { chosen: false, gender: "boy", name: "" }, // 主人公（男の子/女の子）＋なまえ
     battleCoached: false, // 初回バトルのコーチマークを見たか
     grantedStarters: false,
     nextEquipId: 1,
@@ -152,6 +153,7 @@ function ensure(s) {
   s.dex = s.dex && typeof s.dex === "object" ? s.dex : { forms: {} };
   s.dex.forms = s.dex.forms && typeof s.dex.forms === "object" ? s.dex.forms : {};
   s.endings = s.endings && typeof s.endings === "object" ? s.endings : {};
+  s.player = { ...d.player, ...(s.player || {}) };
   if (typeof s.nextEquipId !== "number") s.nextEquipId = 1;
   return s;
 }
@@ -656,6 +658,20 @@ export function markIntroSeen() {
 
 export function markBattleCoached() {
   getSave().battleCoached = true;
+  persist();
+}
+
+// 主人公（男の子/女の子＋なまえ）
+export function getPlayer() {
+  return getSave().player;
+}
+export function setPlayer(patch) {
+  const s = getSave();
+  s.player = { ...s.player, ...patch };
+  persist();
+}
+export function markPlayerChosen() {
+  getSave().player.chosen = true;
   persist();
 }
 

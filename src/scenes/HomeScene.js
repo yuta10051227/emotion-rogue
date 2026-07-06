@@ -6,7 +6,7 @@
 
 import Phaser from "phaser";
 import * as C from "../data/config.js";
-import { onFirstGesture, setMuted, isMuted } from "../logic/audio.js";
+import { onFirstGesture, setMuted, isMuted, sfx } from "../logic/audio.js";
 import {
   getSave,
   resetSave,
@@ -17,6 +17,9 @@ import {
   craftItem,
   itemCount,
   markIntroSeen,
+  getPlayer,
+  setPlayer,
+  markPlayerChosen,
   markNoticesRead,
   getPref,
   setPref,
@@ -82,6 +85,7 @@ export default class HomeScene extends Phaser.Scene {
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png");
     if (!this.textures.exists("town_nest")) this.load.image("town_nest", "chars/town_nest.png"); // 卵の巣
+    for (const k of ["kid_boy", "kid_boy_walk", "kid_girl", "kid_girl_walk", "egg"]) if (!this.textures.exists(k)) this.load.image(k, "chars/" + k + ".png"); // 主人公(男/女)＋たまご
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("town_" + k)) this.load.image("town_" + k, "chars/town_" + k + ".png"); // 街の場所
     }
@@ -121,11 +125,11 @@ export default class HomeScene extends Phaser.Scene {
     this.panel = null;
     // 背景：夜空グラデ＋pixel遠景の山並み（世界観・黒背景の解消）
     const bgG = this.add.graphics();
-    bgG.fillGradientStyle(0x0a0c1c, 0x0a0c1c, 0x141420, 0x0d0d16, 1, 1, 1, 1);
+    bgG.fillGradientStyle(0x4a6aa8, 0x5578b8, 0x6a86ac, 0x7a90ae, 1, 1, 1, 1); // 明るい朝方の空（暗さ解消）
     bgG.fillRect(0, 0, this.W, this.H);
     if (this.textures.exists("bg_far")) {
-      this.add.image(this.W / 2, 250, "bg_far").setDisplaySize(this.W, 150).setAlpha(0.5);
-      this.add.rectangle(this.W / 2, 325, this.W, this.H - 325, 0x0c0c16, 0.55); // 街の地面を少し暗く
+      this.add.image(this.W / 2, 250, "bg_far").setDisplaySize(this.W, 150).setAlpha(0.32);
+      this.add.rectangle(this.W / 2, 325, this.W, this.H - 325, 0x3a5a4a, 0.35); // 街の地面（明るい緑）
     }
 
     // 音：設定反映＋初回操作で解錠
@@ -133,8 +137,8 @@ export default class HomeScene extends Phaser.Scene {
     this.input.once("pointerdown", onFirstGesture);
 
     const s = getSave();
-    if (!s.seenIntro) {
-      this.playIntro();
+    if (!s.player || !s.player.chosen) {
+      this.runOnboarding();
       return;
     }
     this.buildHome();
@@ -187,6 +191,86 @@ export default class HomeScene extends Phaser.Scene {
       }
       show();
     });
+  }
+
+  // ---- 初回オンボーディング（主人公えらび＋なまえ＋たまご孵化）明るい導入 ----
+  runOnboarding() {
+    const cx = this.W / 2;
+    const overlay = this.add.rectangle(cx, this.H / 2, this.W, this.H, 0xdff3ff, 1).setDepth(100).setInteractive();
+    const layer = this.add.container(0, 0).setDepth(101);
+    const draw = (build) => { layer.removeAll(true); build(); };
+    const emoji = (e, x, y, sz) => this.add.text(x, y, e, { fontFamily: EMOJI_FONT, fontSize: sz }).setOrigin(0.5);
+    let gender = "boy";
+    let name = "";
+    const defaultName = () => (gender === "boy" ? "ソラ" : "ヒカリ");
+
+    const step1 = () =>
+      draw(() => {
+        layer.add(this.add.text(cx, 118, "ようこそ、キモチの せかいへ！", { fontFamily: UI_FONT, fontSize: "22px", color: "#2e4468", fontStyle: "bold" }).setOrigin(0.5));
+        layer.add(this.add.text(cx, 156, "キミは だあれ？", { fontFamily: UI_FONT, fontSize: "16px", color: "#4a5a78" }).setOrigin(0.5));
+        const boyC = this.add.rectangle(cx - 92, 320, 152, 214, 0xffffff, 0.92).setStrokeStyle(3, 0x4aa0ff).setInteractive({ useHandCursor: true });
+        const boyImg = this.textures.exists("kid_boy") ? this.add.image(cx - 92, 300, "kid_boy").setScale(0.9) : emoji("👦", cx - 92, 300, "72px");
+        const boyT = this.add.text(cx - 92, 400, "男の子", { fontFamily: UI_FONT, fontSize: "18px", color: "#1f5fa8", fontStyle: "bold" }).setOrigin(0.5);
+        const girlC = this.add.rectangle(cx + 92, 320, 152, 214, 0xffffff, 0.92).setStrokeStyle(3, 0xff7ab0).setInteractive({ useHandCursor: true });
+        const girlImg = this.textures.exists("kid_girl") ? this.add.image(cx + 92, 300, "kid_girl").setScale(0.9) : emoji("👧", cx + 92, 300, "72px");
+        const girlT = this.add.text(cx + 92, 400, "女の子", { fontFamily: UI_FONT, fontSize: "18px", color: "#d0407a", fontStyle: "bold" }).setOrigin(0.5);
+        boyC.on("pointerdown", () => { gender = "boy"; name = ""; sfx.tap(); step2(); });
+        girlC.on("pointerdown", () => { gender = "girl"; name = ""; sfx.tap(); step2(); });
+        layer.add([boyC, boyImg, boyT, girlC, girlImg, girlT]);
+      });
+
+    const step2 = () =>
+      draw(() => {
+        if (!name) name = defaultName();
+        const img = this.textures.exists("kid_" + gender) ? this.add.image(cx, 220, "kid_" + gender).setScale(1.15) : emoji(gender === "boy" ? "👦" : "👧", cx, 220, "80px");
+        layer.add(img);
+        layer.add(this.add.text(cx, 322, "なまえは？", { fontFamily: UI_FONT, fontSize: "18px", color: "#4a5a78" }).setOrigin(0.5));
+        const nameT = this.add.text(cx, 362, name, { fontFamily: UI_FONT, fontSize: "30px", color: "#2e4468", fontStyle: "bold" }).setOrigin(0.5);
+        layer.add(nameT);
+        const rename = this.makeButton(cx, 434, 236, 48, "なまえを かえる", () => {
+          const inp = typeof window !== "undefined" && window.prompt ? window.prompt("なまえを いれてね（8もじまで）", name) : "";
+          const v = (inp || "").trim().slice(0, 8);
+          if (v) { name = v; nameT.setText(name); }
+        }, { color: 0xffffff, stroke: 0x9ec4e6, textColor: "#4a5a78", fontSize: "16px" });
+        const ok = this.makeButton(cx, 500, 236, 56, "この なまえで！", () => { sfx.tap(); step3(); }, { color: 0xffe08a, stroke: 0xffb020, textColor: "#7a4a00", fontSize: "20px" });
+        layer.add([rename.rect, rename.txt, rename.badge, ok.rect, ok.txt, ok.badge]);
+      });
+
+    const step3 = () =>
+      draw(() => {
+        layer.add(this.add.text(cx, 128, `${name}の ぼうけんが はじまるよ！`, { fontFamily: UI_FONT, fontSize: "19px", color: "#2e4468", fontStyle: "bold" }).setOrigin(0.5));
+        layer.add(this.add.text(cx, 166, "タマゴから あいぼうが うまれる…", { fontFamily: UI_FONT, fontSize: "14px", color: "#4a5a78" }).setOrigin(0.5));
+        const egg = this.textures.exists("egg") ? this.add.image(cx, 300, "egg").setScale(1.25) : emoji("🥚", cx, 300, "84px");
+        layer.add(egg);
+        const wob = this.tweens.add({ targets: egg, angle: -8, duration: 190, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+        const hatch = this.makeButton(cx, 470, 244, 60, "🥚 タマゴを なでる", () => {
+          hatch.rect.disableInteractive();
+          wob.stop();
+          this.tweens.add({
+            targets: egg,
+            scale: 0.08,
+            alpha: 0,
+            duration: 320,
+            onComplete: () => {
+              egg.destroy();
+              const hasSlime = this.textures.exists("hero_slime");
+              const slime = hasSlime ? this.add.image(cx, 296, "hero_slime").setScale(0.1) : emoji("🟢", cx, 296, "12px");
+              layer.add(slime);
+              this.tweens.add({ targets: slime, scale: hasSlime ? 1.25 : 7, duration: 520, ease: "Back.easeOut" });
+              layer.add(this.add.text(cx, 402, "あいぼうが うまれた！", { fontFamily: UI_FONT, fontSize: "20px", color: "#2e4468", fontStyle: "bold" }).setOrigin(0.5));
+              const go = this.makeButton(cx, 500, 244, 60, "▶ いっしょに たびへ！", () => {
+                setPlayer({ gender, name });
+                markPlayerChosen();
+                this.tweens.add({ targets: [overlay, layer], alpha: 0, duration: 420, onComplete: () => { overlay.destroy(); layer.destroy(true); this.buildHome(); } });
+              }, { color: 0x8fe08a, stroke: 0x30a030, textColor: "#164a16", fontSize: "20px" });
+              layer.add([go.rect, go.txt, go.badge]);
+            },
+          });
+        }, { color: 0xffe08a, stroke: 0xffb020, textColor: "#7a4a00", fontSize: "20px" });
+        layer.add([hatch.rect, hatch.txt, hatch.badge]);
+      });
+
+    step1();
   }
 
   // ---- home ----
@@ -1271,11 +1355,11 @@ export default class HomeScene extends Phaser.Scene {
 
     const cx = this.W / 2;
     let y = this.H / 2 - 150;
-    c.add(this.add.text(cx, y, sum.died ? "── 倒れた ──" : "── 撤退した ──", { fontFamily: UI_FONT, fontSize: "22px", color: "#e8e8ef" }).setOrigin(0.5));
+    c.add(this.add.text(cx, y, sum.died ? "── きょうの ぼうけん、おしまい！ ──" : "── おうちに かえってきた！ ──", { fontFamily: UI_FONT, fontSize: "20px", color: "#e8e8ef" }).setOrigin(0.5));
     y += 46;
     c.add(this.add.text(cx, y, `今回の旅　${sum.distance}m${sum.newBest ? "　★最高更新!" : ""}`, { fontFamily: UI_FONT, fontSize: "17px", color: sum.newBest ? "#ffd24d" : "#cfcfe0" }).setOrigin(0.5));
     y += 40;
-    c.add(this.add.text(cx, y, "感情は散らばった。\nだが ── 記憶だけが、魂に刻まれた。", { fontFamily: UI_FONT, fontSize: "15px", color: "#9a9aac", align: "center", lineSpacing: 6 }).setOrigin(0.5));
+    c.add(this.add.text(cx, y, "あつめた キモチは、ちゃんと のこってるよ。\nつぎは もっと おおきく なれる！", { fontFamily: UI_FONT, fontSize: "15px", color: "#bfe0d0", align: "center", lineSpacing: 6 }).setOrigin(0.5));
     y += 62;
     c.add(this.add.text(cx, y, `魂レベル +${sum.levelGain}　→　Lv.${sum.newLevel}`, { fontFamily: UI_FONT, fontSize: "18px", color: "#bfffbf" }).setOrigin(0.5));
     y += 30;

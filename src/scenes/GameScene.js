@@ -1931,8 +1931,9 @@ export default class GameScene extends Phaser.Scene {
     this.enemyLabel.setVisible(false);
     this.tweens.killTweensOf(this.enemySprite);
     sfx.death();
-    this.pushLog("倒れた… 感情は散らばった。（記憶だけが、残る）");
-    this.tweens.add({ targets: this.heroSprite, alpha: 0.2, angle: 90, duration: 400 });
+    this.pushLog("あいぼうは くたくた…！ きょうは おうちで やすもう（あつめた キモチは きえないよ）");
+    this.tweens.add({ targets: this.heroSprite, alpha: 0.55, duration: 400 });
+    this.popDamage(this.heroX, this.heroY - 40, "💫", "#ffe08a");
     this.tweens.add({ targets: this.enemySprite, alpha: 0, duration: 300 });
     this.time.delayedCall(1500, () => this.bankRunAndGoHome(true));
   }
