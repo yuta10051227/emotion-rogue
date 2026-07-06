@@ -1761,7 +1761,7 @@ export default class GameScene extends Phaser.Scene {
   // 主感情/均衡/絶望で分岐するエンディングの種類を決める。
   //  この旅の感情(this.emotions)で判定＝岐路カードや戦い方で結末を操縦できる（プレイヤーの主体性）。
   determineEndingKey() {
-    if (this.despair >= (C.DARK_EVOLUTION ? C.DARK_EVOLUTION.despairThreshold : 3)) return "dark"; // 瀕死を耐え抜いた旅＝闇堕ち
+    // 闇堕ちエンドは廃止（明るいゲームへ）。dark は返さない。
     const em = this.emotions || {};
     const vals = C.EMOTION_ORDER.map((k) => em[k] || 0);
     const total = vals.reduce((a, b) => a + b, 0) || 1;
@@ -1774,33 +1774,33 @@ export default class GameScene extends Phaser.Scene {
     const D = {
       anger: { icon: "🔥", color: C.EMOTIONS.anger.color, dexForm: "焔の精霊", close: "怒りは、愛のかたち。",
         beats: [
-          [{ text: "捨てられた感情の中で、" }, { text: "いちばん熱かったのは ── 怒り。", color: "#ffbfae" }],
+          [{ text: "キミと あつめた キモチの なかで、" }, { text: "いちばん熱かったのは ── 怒り。", color: "#ffbfae" }],
           [{ text: "それは 弱さではなかった。" }, { text: "大切なものを 守る、焔だった。", color: "#ffbfae" }],
-          [{ text: "キミを捨てた心も、" }, { text: "本当は ずっと 怒っていた。自分に。", color: "#cfc6ba" }],
+          [{ text: "いかりは、たいせつな ものを" }, { text: "まもる ちからに なった。", color: "#ffbfae" }],
         ] },
       sadness: { icon: "💧", color: C.EMOTIONS.sadness.color, dexForm: "雫の精霊", close: "悲しみは、優しさの器。",
         beats: [
-          [{ text: "捨てられた感情の中で、" }, { text: "いちばん深かったのは ── 悲しみ。", color: "#bfe0ff" }],
+          [{ text: "キミと あつめた キモチの なかで、" }, { text: "いちばん深かったのは ── 悲しみ。", color: "#bfe0ff" }],
           [{ text: "涙は 弱さではなかった。" }, { text: "誰かの痛みを 知る、深さだった。", color: "#bfe0ff" }],
-          [{ text: "キミを捨てた心も、" }, { text: "泣けずに ただ、渇いていた。", color: "#cfc6ba" }],
+          [{ text: "なみだは、だれかの いたみを" }, { text: "わかる やさしさに なった。", color: "#bfe0ff" }],
         ] },
       courage: { icon: "⚡", color: C.EMOTIONS.courage.color, dexForm: "雷の精霊", close: "勇気は、優しさの脚。",
         beats: [
-          [{ text: "捨てられた感情の中で、" }, { text: "いちばん速かったのは ── 勇気。", color: "#ffe9a0" }],
+          [{ text: "キミと あつめた キモチの なかで、" }, { text: "いちばん速かったのは ── 勇気。", color: "#ffe9a0" }],
           [{ text: "前へ出る力は 弱さではなかった。" }, { text: "怖さを 知って なお、進む光。", color: "#ffe9a0" }],
-          [{ text: "キミを捨てた心も、" }, { text: "本当は もう一度、動きたかった。", color: "#cfc6ba" }],
+          [{ text: "こわさを しって なお、" }, { text: "まえに すすむ ちからに なった。", color: "#ffe9a0" }],
         ] },
       hope: { icon: "✨", color: 0xfff0c0, dexForm: "灯の精霊", close: "希望は、消えない灯。",
         beats: [
-          [{ text: "捨てられた感情の中で、" }, { text: "いちばん静かだったのは ── 希望。", color: "#fff4e6" }],
+          [{ text: "キミと あつめた キモチの なかで、" }, { text: "いちばん静かだったのは ── 希望。", color: "#fff4e6" }],
           [{ text: "それは 弱さではなかった。" }, { text: "どんな闇でも 消えなかった、灯。", color: "#fff4e6" }],
-          [{ text: "キミを捨てた心の奥にも、" }, { text: "小さく ずっと、灯っていた。", color: "#cfc6ba" }],
+          [{ text: "きぼうは、どんな よるでも" }, { text: "きえない あかりに なった。", color: "#fff4e6" }],
         ] },
       dark: { icon: "🌑", color: 0x5a3a6a, dexForm: "澱の精霊", close: "闇を抱いて なお、心は 心。",
         beats: [
           [{ text: "幾度も 瀕死を 越えた。" }, { text: "感情は 澱み、影を 帯びた。", color: "#c9a0e0" }],
           [{ text: "だが 闇もまた ── キミだった。" }, { text: "堕ちることすら、生きた証。", color: "#c9a0e0" }],
-          [{ text: "キミを捨てた心は、" }, { text: "壊れたまま、それでも キミを 見ていた。", color: "#cfc6ba" }],
+          [{ text: "ふしぎな ちからも、" }, { text: "ぜんぶ キミの いちぶ。", color: "#c9a0e0" }],
         ] },
     };
     return D[key] || D.hope;
@@ -1902,48 +1902,38 @@ export default class GameScene extends Phaser.Scene {
     const my = this.H / 2 + 30;
     const beats = [
       () => {
-        T(my - 20, "── すべての感情を、知った ──", { size: "22px" });
-        T(my + 28, "怒りも、悲しみも、勇気も、希望も。", { size: "15px", color: "#cfc6ba" });
+        T(my - 20, "── すべての キモチを、しった ──", { size: "22px" });
+        T(my + 28, "うれしいも、かなしいも、こわいも、わくわくも。", { size: "14px", color: "#cfc6ba" });
       },
       () => {
-        T(my - 16, "キミは ずっと、見守られていた。", { size: "19px" });
-        T(my + 30, 'その "心" は ── かつて、キミを 捨てた。', { size: "16px", color: "#cfc6ba" });
+        T(my - 8, "キミと あいぼうは、たくさんの\nキモチを あつめて、ここまで きた。", { size: "17px", color: "#efeae2" });
       },
       () => {
-        T(my - 16, "感情を捨てた、ひとりの人間の\n空っぽの心。", { size: "18px" });
-        T(my + 44, "それが、キミを 導いていた。", { size: "16px", color: "#cfc6ba" });
+        T(my - 16, "かなしくて ないた ひも、\nこわくて にげたく なった ひも あった。", { size: "16px", color: "#cfc6ba" });
+        T(my + 48, "でも ── その ぜんぶが、ちからに なった。", { size: "16px", color: "#ffd9a0" });
       },
       () => {
-        T(my - 24, "捨てられた感情 ＝ キミ。", { size: "18px", color: "#ffd9a0" });
-        T(my + 6, "捨てた心 ＝ わたし。", { size: "18px", color: "#bfe0ff" });
-        T(my + 40, "二つで、ひとりの 人間だった。", { size: "16px", color: "#cfc6ba" });
-      },
-      () => {
-        // 色が戻る暖かい和音
-        this.tweens.add({ targets: warm, fillAlpha: 0.16, duration: 1400 });
+        // 色が あかるく もどる
+        this.tweens.add({ targets: warm, fillAlpha: 0.22, duration: 1400 });
         sfx.ending();
-        T(my - 6, "分かたれていた心が、ひとつに戻る。", { size: "19px", color: "#fff4e6" });
+        T(my - 8, "キモチは、よわさじゃ なかった。", { size: "23px", color: "#fff4e6" });
+        T(my + 36, "ぜんぶ、キミを おおきく する ちからだったんだ。", { size: "15px", color: "#e6dccf" });
       },
       () => {
-        // 感情の精霊にプレイヤーが名をつける（設計書§頂点：プレイヤー命名）
+        // 育った あいぼうに、プレイヤーが名をつける
         let nm = getSave().spiritName;
         if (!nm) {
-          const input = typeof window !== "undefined" && window.prompt ? window.prompt("生まれた精霊に、名をつけて。", "") : "";
+          const input = typeof window !== "undefined" && window.prompt ? window.prompt("そだった あいぼうに、なまえを つけよう", "") : "";
           nm = (input || "").trim().slice(0, 12);
           if (!nm) nm = "ヒカリ";
           setSpiritName(nm);
         }
         T(my - 12, `── "${nm}" ──`, { size: "26px", color: "#fff4e6" });
-        T(my + 34, "それが、ひとつに戻った心の 名。", { size: "14px", color: "#cfc6ba" });
+        T(my + 34, "キミと あいぼうの、たからものの なまえ。", { size: "14px", color: "#cfc6ba" });
       },
       () => {
-        T(my - 40, "「ありがとう」", { size: "30px", color: "#ffffff" });
-        T(my + 18, "── 感情を捨てた、人間たちへ。", { size: "14px", color: "#cfc6ba" });
-        T(my + 56, "捨てられなければ、生まれなかった。\nそれすら、肯定する。", { size: "14px", color: "#cfc6ba" });
-      },
-      () => {
-        T(my - 16, "……わかってほしかった。\nただ、それだけ。", { size: "17px", color: "#e6dccf" });
-        T(my + 52, "けれど、問いは残る。\n人は、また 感情を捨てる。\n── まだ、途上。", { size: "13px", color: "#9a9088" });
+        T(my - 30, "「ありがとう」", { size: "30px", color: "#ffffff" });
+        T(my + 24, "たくさんの キモチを くれて、ありがとう。\nまた、あたらしい ぼうけんへ！", { size: "14px", color: "#e6dccf" });
       },
     ];
 
