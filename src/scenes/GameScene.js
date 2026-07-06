@@ -1015,6 +1015,7 @@ export default class GameScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.enemySprite); // 前の敵の撃破/浄化フェードtweenを止める（次の敵＝ボスが透明化するバグ根絶）
     this.tweens.killTweensOf(this.enemyLabel);
     this.currentEnemy = enemy;
+    this.mode = "battle"; // 進化(mode=evolve)後の群れ継戦でも walk-in→startBattleTimer が動くよう再設定＝ソフトロック根絶
     this._enemyAtkToken = (this._enemyAtkToken || 0) + 1; // 前の敵の攻撃フレーム復帰タイマーを無効化（絵の取り違え防止）
     this._resolveScheduled = false; // 決着スケジュールの二重防止（手動commandとtickの競合対策）
     this._heroIdle = 0;
@@ -1724,7 +1725,7 @@ export default class GameScene extends Phaser.Scene {
 
   // ============================ 転生：ホームへ戻る ============================
   retreatToHome() {
-    if (this.upPanel || this._choice || this._leaving) return; // 岐路カードを開いている間はホットキー撤退も禁止（宙ぶらり防止）
+    if (this.upPanel || this._choice || this._coach || this._leaving) return; // パネル/カード/チュートリアル中はホットキー撤退も禁止（宙ぶらり防止）
     // 進化・エピローグ・死亡演出中以外は、戦闘中でも撤退できる（引き際の裁量）
     if (this.mode !== "walk" && this.mode !== "battle") return;
     if (this.battleTimer) this.battleTimer.remove();
@@ -2098,6 +2099,7 @@ export default class GameScene extends Phaser.Scene {
       this.reviveFromItem();
       return;
     }
+    this.setBattleActionsVisible(false); // 手動ボタンを隠す
     this.mode = "dead";
     this.battle = null;
     this.enemyLabel.setVisible(false);
