@@ -30,6 +30,25 @@ function rollCrit(luk) {
   return Math.random() < chance;
 }
 
+// 主人公(相棒)の1撃を解決してイベントを返す（オート/手動 共用）。
+//  手動時は forceSkill でのみ必殺、オート時は heroAttacks%skillEvery で自動的に必殺。
+function heroAct(b, forceSkill) {
+  b.heroAttacks += 1;
+  const isSkill = b.manual ? !!forceSkill : b.heroAttacks % b.skillEvery === 0;
+  const crit = rollCrit(b.hero.luk);
+  let raw = rollDamage(b.hero.atk * (isSkill ? b.skillMult : 1));
+  if (crit) raw = Math.round(raw * CRIT.mult);
+  const dmg = capBoss(raw, b.enemy);
+  b.enemy.hp -= dmg;
+  b.turnsToWin += 1;
+  const ev = { by: "hero", target: "enemy", dmg, skill: isSkill, crit };
+  if (b.enemy.hp <= 0) {
+    b.enemy.hp = 0;
+    finish(b, true);
+  }
+  return ev;
+}
+
 // 戦闘オブジェクトを生成。hero/enemy は { hp, maxHp, atk, spd }
 // allies（仲間）は被弾しない助太刀。各 { id, role, atk, heal, spd, gauge }（設計書§17）。
 export function createBattle(hero, enemy, allies = [], opts = {}) {
@@ -41,6 +60,9 @@ export function createBattle(hero, enemy, allies = [], opts = {}) {
     heroGauge: 0,
     enemyGauge: 0,
     heroAttacks: 0, // 技ゲージ用：主人公の攻撃回数
+    manual: !!opts.manual, // 手動操作（こうげき/ひっさつを子供が指示）
+    heroReady: false, // 手動時：相棒の行動ゲージが満ちて指示待ち
+    heroSkillCharge: 0, // 手動時：ひっさつのチャージ（攻撃で貯まる）
     skillEvery: opts.skillEvery || SKILL.heroEvery, // ツリーで短縮可
     skillMult: opts.skillMult || SKILL.heroMult, // ツリーで強化可
     // 判定用に記録する値（設計書§4-3）
@@ -66,6 +88,11 @@ export function stepBattle(b) {
   b.enemyGauge += b.enemy.spd;
   for (const a of b.allies) a.gauge += a.spd;
 
+  if (b.manual) {
+    if (b.heroGauge > T) b.heroGauge = T; // 上限で待機（子供の指示待ち＝勝手に動かない）
+    b.heroReady = b.heroGauge >= T;
+  }
+
   // 閾値に達した者を「行動ゲージの高い順」に1体ずつ処理。
   // 貯めが2回分あれば同じティックでも再行動できる＝spdが攻撃回数に効く（勇気=SPDが機能）。CAPで暴走防止。
   let acts = 0;
@@ -74,26 +101,14 @@ export function stepBattle(b) {
     const consider = (who, gauge, spd, ally) => {
       if (gauge >= T && (!pick || gauge > pick.gauge || (gauge === pick.gauge && spd > pick.spd))) pick = { who, gauge, spd, ally };
     };
-    consider("hero", b.heroGauge, b.hero.spd, null);
+    if (!b.manual) consider("hero", b.heroGauge, b.hero.spd, null); // 手動時は自動で動かず、ボタン指示を待つ
     consider("enemy", b.enemyGauge, b.enemy.spd, null);
     for (const a of b.allies) consider("ally", a.gauge, a.spd, a);
     if (!pick) break;
 
     if (pick.who === "hero") {
       b.heroGauge -= T;
-      b.heroAttacks += 1;
-      const isSkill = b.heroAttacks % b.skillEvery === 0; // 一定回数ごとに技（ツリーで短縮可）
-      const crit = rollCrit(b.hero.luk);
-      let raw = rollDamage(b.hero.atk * (isSkill ? b.skillMult : 1));
-      if (crit) raw = Math.round(raw * CRIT.mult);
-      const dmg = capBoss(raw, b.enemy);
-      b.enemy.hp -= dmg;
-      b.turnsToWin += 1;
-      events.push({ by: "hero", target: "enemy", dmg, skill: isSkill, crit });
-      if (b.enemy.hp <= 0) {
-        b.enemy.hp = 0;
-        finish(b, true);
-      }
+      events.push(heroAct(b, false));
     } else if (pick.who === "enemy") {
       b.enemyGauge -= T;
       const dmg = mitigate(rollDamage(b.enemy.atk), b.hero.def); // DEFで軽減（悲しみ=盾）
@@ -149,6 +164,28 @@ function finish(b, win) {
 export function forceFinish(b) {
   if (b.finished) return;
   finish(b, b.hero.hp >= b.enemy.hp);
+}
+
+// 手動操作：子供が相棒に「こうげき」を指示。発動できなければ null。
+export function commandAttack(b) {
+  if (!b || b.finished || !b.manual || !b.heroReady) return null;
+  b.heroGauge -= COMBAT.atbThreshold;
+  b.heroReady = b.heroGauge >= COMBAT.atbThreshold;
+  const ev = heroAct(b, false);
+  b.heroSkillCharge = Math.min(b.skillEvery, (b.heroSkillCharge || 0) + 1);
+  return { events: [ev], finished: b.finished, win: b.win };
+}
+// 手動操作：ひっさつ（チャージ満タンでのみ発動）。
+export function commandSkill(b) {
+  if (!b || b.finished || !b.manual || !b.heroReady || (b.heroSkillCharge || 0) < b.skillEvery) return null;
+  b.heroGauge -= COMBAT.atbThreshold;
+  b.heroReady = b.heroGauge >= COMBAT.atbThreshold;
+  const ev = heroAct(b, true);
+  b.heroSkillCharge = 0;
+  return { events: [ev], finished: b.finished, win: b.win };
+}
+export function heroSkillReady(b) {
+  return !!(b && b.manual && b.heroReady && (b.heroSkillCharge || 0) >= b.skillEvery);
 }
 
 // 「どう勝ったか」→ 宿る感情（複数可）

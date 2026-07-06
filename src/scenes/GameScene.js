@@ -6,7 +6,7 @@
 
 import Phaser from "phaser";
 import * as C from "../data/config.js";
-import { createBattle, stepBattle, forceFinish } from "../logic/combat.js";
+import { createBattle, stepBattle, forceFinish, commandAttack, commandSkill, heroSkillReady } from "../logic/combat.js";
 import { createEmotionState, gainEmotions, checkEvolution, leadingEmotion, secondEmotion } from "../logic/evolution.js";
 import { makeCompanion, voiceStage, pickVoiceLine } from "../logic/companion.js";
 import { sfx, onFirstGesture, setMuted } from "../logic/audio.js";
@@ -95,6 +95,7 @@ export default class GameScene extends Phaser.Scene {
     // 見守る速度・おまかせ強化（設定を引き継ぐ）／進行可視化・ポーズ状態
     this.speed = getPref("speed") || 1;
     this.autoInvest = !!getPref("autoInvest");
+    this.manualMode = !!getPref("manual"); // てうち（手動）モード：子供が相棒に こうげき/ひっさつ を指示
     this.savedBest = getSave().soul.bestDistance;
     this.coinBonus = getArtifactBonuses().coin; // 結晶のコイン%（DR④）
     this.lastMilestone = 0;
@@ -813,6 +814,16 @@ export default class GameScene extends Phaser.Scene {
       textColor: "#ffcaa0",
     });
 
+    // ---- 手動バトル操作（子供が相棒に指示）。戦闘中のみ表示 ----
+    this.modeBtn = this.makeBarButton(52, 688, 92, 40, this.manualMode ? "てうち" : "おまかせ", () => this.toggleManual(), { color: 0x1c2c1c, stroke: 0x4a6a4a, textColor: "#bfe0bf", fontSize: "13px" });
+    this.attackBtn = this.makeBarButton(this.W / 2 - 6, 688, 138, 54, "⚔ こうげき", () => this.doCommand(false), { color: 0x2a3a2a, stroke: 0x4caf50, textColor: "#bfffbf", fontSize: "19px" });
+    this.skillBtn = this.makeBarButton(this.W - 88, 688, 138, 54, "✦ ひっさつ", () => this.doCommand(true), { color: 0x3a2a48, stroke: 0xb060e0, textColor: "#e6c2ff", fontSize: "19px" });
+    for (const b of [this.modeBtn, this.attackBtn, this.skillBtn]) {
+      b.rect.setDepth(6);
+      b.txt.setDepth(6);
+    }
+    this.setBattleActionsVisible(false);
+
     this.refreshSpeedBtns();
   }
 
@@ -995,6 +1006,7 @@ export default class GameScene extends Phaser.Scene {
     for (let i = 1; i < groupSize; i++) this.enemyQueue.push(this.makeEnemy(this.distance));
     this.spawnQueueSilhouettes();
     this.engageEnemy(front);
+    this.setBattleActionsVisible(true); // 手動なら こうげき/ひっさつ を表示
     this.maybeCoach(); // 初回だけ：戦い方→感情→進化の核を教える
   }
 
@@ -1004,8 +1016,10 @@ export default class GameScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.enemyLabel);
     this.currentEnemy = enemy;
     this._enemyAtkToken = (this._enemyAtkToken || 0) + 1; // 前の敵の攻撃フレーム復帰タイマーを無効化（絵の取り違え防止）
+    this._resolveScheduled = false; // 決着スケジュールの二重防止（手動commandとtickの競合対策）
+    this._heroIdle = 0;
     this.battleTicks = 0;
-    this.battle = createBattle(this.heroStats, enemy, this.companions, { skillEvery: this.skill.every, skillMult: this.skill.mult });
+    this.battle = createBattle(this.heroStats, enemy, this.companions, { skillEvery: this.skill.every, skillMult: this.skill.mult, manual: this.manualMode });
 
     const scale = enemy.boss ? 1.5 : 1;
     this.enemySprite.setText(enemy.icon).setVisible(true).setScale(scale).setAlpha(1);
@@ -1163,9 +1177,23 @@ export default class GameScene extends Phaser.Scene {
     if (!this.battle.finished && this.battleTicks > C.COMBAT.maxBattleTicks) forceFinish(this.battle);
 
     const events = stepBattle(this.battle);
+    this.renderBattleEvents(events);
+    this.drawHpBars();
+    // 手動：相棒が指示待ちのまま放置されたら、やさしく自動発動（理不尽/フリーズ防止）
+    if (this.battle.manual && this.battle.heroReady && !this.battle.finished) {
+      this._heroIdle = (this._heroIdle || 0) + 1;
+      if (this._heroIdle > 8) this.doCommand(false);
+    } else {
+      this._heroIdle = 0;
+    }
+    this.refreshBattleButtons();
+    this.checkBattleFinish();
+  }
+
+  // 戦闘イベントの演出（tickと手動コマンドの両方から呼ぶ）
+  renderBattleEvents(events) {
     for (const ev of events) {
       if (ev.heal) {
-        // 仲間（癒し）が主人公を回復＝後衛からの癒しの波
         this.popDamage(this.heroX, this.heroY - 38, "+" + ev.heal, "#7fff9f");
         const ally = this.companions.find((c) => c.id === ev.allyId);
         if (ally) this.playCompanionSkill(ally, true);
@@ -1173,7 +1201,6 @@ export default class GameScene extends Phaser.Scene {
       } else if (ev.target === "enemy") {
         const ratio = this.currentEnemy ? ev.dmg / this.currentEnemy.maxHp : 0;
         if (ev.by === "ally") {
-          // 仲間の技（役割別の演出）
           const ally = this.companions.find((c) => c.id === ev.allyId);
           if (ally) this.playCompanionSkill(ally, false);
           this.pulseCompanion(ev.allyId);
@@ -1181,13 +1208,11 @@ export default class GameScene extends Phaser.Scene {
           this.knockback(this.enemySprite, this.enemyX, 1, Phaser.Math.Clamp(ratio, 0.2, 1));
           sfx.hit();
         } else if (ev.skill) {
-          // 主人公の必殺技（大きく踏み込む）
           this.lunge(this.heroSprite, this.heroX, 1, 110);
           this.heroAttackAnim();
           this.playHeroSkill(ev.dmg);
           this.heroSkillCharge = 0;
         } else {
-          // 主人公の通常攻撃（踏み込んでクラッシュ＋技ゲージが溜まる）
           this.lunge(this.heroSprite, this.heroX, 1, 78);
           this.heroAttackAnim();
           this.popDamage(this.enemyX, this.enemyY - 38, ev.dmg, ev.crit ? "#ffe14d" : "#ff9a9a", ev.crit ? Math.min(1, ratio * 1.5) : ratio);
@@ -1196,7 +1221,6 @@ export default class GameScene extends Phaser.Scene {
           this.heroSkillCharge = Math.min(this.skill.every, this.heroSkillCharge + 1);
         }
       } else {
-        // 敵の攻撃：敵が主人公へ踏み込む
         const ratio = ev.dmg / this.heroStats.maxHp;
         this.lunge(this.enemySprite, this.enemyX, -1, 78);
         this.enemyAttackAnim();
@@ -1205,12 +1229,55 @@ export default class GameScene extends Phaser.Scene {
         sfx.heroHit();
       }
     }
+  }
+
+  // 決着のスケジュール（tick/手動コマンドどちらから来ても一度だけ）
+  checkBattleFinish() {
+    if (!this.battle || !this.battle.finished || this._resolveScheduled) return;
+    this._resolveScheduled = true;
+    if (this.battle.win && this.currentEnemy && this.currentEnemy.boss) this.finisherSlowmo(0.35, 300);
+    if (this.battleTimer) this.battleTimer.remove();
+    this.time.delayedCall(280, this.resolveBattle, [], this);
+  }
+
+  // 手動：こうげき/ひっさつ を実行（子供が相棒に指示）
+  doCommand(skill) {
+    if (!this.battle || this.battle.finished || this.paused) return;
+    this._heroIdle = 0;
+    const r = skill ? commandSkill(this.battle) : commandAttack(this.battle);
+    if (!r) return;
+    this.renderBattleEvents(r.events);
     this.drawHpBars();
-    if (this.battle.finished) {
-      if (this.battle.win && this.currentEnemy && this.currentEnemy.boss) this.finisherSlowmo(0.35, 300); // ボス撃破の"決定的瞬間"をスローに（見守り型の見せ場）
-      this.battleTimer.remove();
-      this.time.delayedCall(280, this.resolveBattle, [], this);
+    this.refreshBattleButtons();
+    this.checkBattleFinish();
+  }
+
+  setBattleActionsVisible(inBattle) {
+    if (!this.modeBtn) return;
+    const showActions = inBattle && this.manualMode;
+    this.modeBtn.rect.setVisible(inBattle);
+    this.modeBtn.txt.setVisible(inBattle);
+    for (const b of [this.attackBtn, this.skillBtn]) {
+      b.rect.setVisible(showActions);
+      b.txt.setVisible(showActions);
     }
+    if (showActions) this.refreshBattleButtons();
+  }
+
+  refreshBattleButtons() {
+    if (!this.attackBtn || !this.battle || !this.manualMode || this.mode !== "battle") return;
+    const ready = !!this.battle.heroReady && !this.battle.finished;
+    this.attackBtn.rect.setAlpha(ready ? 1 : 0.5).setStrokeStyle(2, ready ? 0x7dff7d : 0x3a5a3a);
+    const sready = heroSkillReady(this.battle);
+    this.skillBtn.rect.setAlpha(sready ? 1 : 0.5).setStrokeStyle(2, sready ? 0xd090ff : 0x50406a);
+  }
+
+  toggleManual() {
+    this.manualMode = !this.manualMode;
+    setPref("manual", this.manualMode);
+    if (this.battle) this.battle.manual = this.manualMode;
+    if (this.modeBtn) this.modeBtn.txt.setText(this.manualMode ? "てうち" : "おまかせ");
+    this.setBattleActionsVisible(this.mode === "battle");
   }
 
   resolveBattle() {
@@ -1312,6 +1379,7 @@ export default class GameScene extends Phaser.Scene {
 
   endBattle() {
     if (this._leaving) return; // 撤退中は戦闘終了処理（mode=walk化）を走らせない
+    this.setBattleActionsVisible(false);
     this.clearQueueSilhouettes();
     this.enemyQueue = [];
     this.enemySprite.setVisible(false);
