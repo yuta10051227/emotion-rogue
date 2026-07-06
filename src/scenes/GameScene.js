@@ -1366,9 +1366,13 @@ export default class GameScene extends Phaser.Scene {
 
       this.advanceCompanionVoices(); // 同行で「声」が育つ（設計書§17-2）
 
-      const evoForm = this.nextEvolutionForm(); // 多段進化：次の段階へ進めるか
-      if (evoForm) {
-        this.time.delayedCall(500, () => this.doEvolution(evoForm));
+      const evoOptions = this.computeEvolutionOptions(); // 進化できる姿の候補（自分で選ぶ）
+      if (evoOptions.length) {
+        if (this.autoInvest) {
+          this.time.delayedCall(500, () => this.doEvolution(evoOptions[0])); // おまかせ：自動で進化（見守りでも育つ）
+        } else {
+          this.time.delayedCall(420, () => this.openEvolutionChoicePanel(evoOptions)); // 自分で すがたを えらぶ
+        }
       } else {
         this.afterBattleResolved(); // 群れに控えが居れば次へ、居なければ終了
       }
@@ -1526,6 +1530,93 @@ export default class GameScene extends Phaser.Scene {
     if ((this.emotions[key] || 0) < this.evoThresholds[nextStage - 1]) return null;
     const f = C.EVOLUTION_STAGES.forms[key][nextStage - 1];
     return { key, name: f.name, label: f.label, icon: f.icon, color: C.EMOTIONS[key].color, kind: "stage", stage: nextStage };
+  }
+
+  // 拮抗が成立する 混合/三重 の候補（配列）。闇堕ちは出さない＝無害化（明るいゲームへ）。
+  resolveMixOptions() {
+    const ranked = C.EMOTION_ORDER.map((k) => ({ key: k, value: this.emotions[k] })).sort((a, b) => b.value - a.value);
+    const lead = ranked[0].value;
+    if (lead <= 0) return [];
+    const ratio = C.MIXED_EVOLUTION.ratio;
+    const out = [];
+    if (ranked[2].value > 0 && ranked[2].value >= lead * ratio) {
+      const form = C.TRIPLE_EVOLUTION.forms[ranked[3].key];
+      if (form) out.push({ ...form, kind: "triple" });
+    }
+    if (ranked[1].value > 0 && ranked[1].value >= lead * ratio) {
+      const pair = [ranked[0].key, ranked[1].key].sort((a, b) => C.EMOTION_ORDER.indexOf(a) - C.EMOTION_ORDER.indexOf(b)).join("+");
+      const form = C.MIXED_EVOLUTION.forms[pair];
+      if (form) out.push({ ...form, kind: "double" });
+    }
+    return out;
+  }
+
+  // いま「えらべる」進化の候補リスト（単一の段階形態＋拮抗成立の混合/三重）。
+  computeEvolutionOptions() {
+    if (this.evoSpecial) return [];
+    const nextStage = this.evoStage + 1;
+    if (nextStage > 3) return [];
+    const opts = [];
+    if (nextStage === 1) {
+      const lead = leadingEmotion(this.emotions);
+      if (!lead.key || lead.value < this.evoThresholds[0]) return [];
+      const f = C.EVOLUTION_STAGES.forms[lead.key][0];
+      opts.push({ key: lead.key, name: f.name, label: f.label, icon: f.icon, color: C.EMOTIONS[lead.key].color, kind: "stage", stage: 1 });
+      for (const m of this.resolveMixOptions()) opts.push({ ...m, key: lead.key, stage: 1 }); // 限定進化路線
+    } else {
+      const key = this.evolvedKey;
+      if (!key) return [];
+      if ((this.emotions[key] || 0) < this.evoThresholds[nextStage - 1]) return [];
+      const f = C.EVOLUTION_STAGES.forms[key][nextStage - 1];
+      opts.push({ key, name: f.name, label: f.label, icon: f.icon, color: C.EMOTIONS[key].color, kind: "stage", stage: nextStage });
+    }
+    return opts;
+  }
+
+  // 進化の姿を「自分で」えらぶカードパネル（感情の岐路UIを踏襲）。見送りも可。
+  openEvolutionChoicePanel(options) {
+    if (this._choice || this._leaving || this.mode !== "battle") {
+      this.afterBattleResolved();
+      return;
+    }
+    this.paused = true;
+    if (this.battleTimer) this.battleTimer.paused = true;
+    const cards = options.slice(0, 3);
+    const c = this.add.container(0, 0).setDepth(215);
+    c.add(this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x05050c, 0.82).setInteractive());
+    c.add(this.add.text(this.W / 2, 150, "── しんか できる！ ──", { fontFamily: UI_FONT, fontSize: "20px", color: "#ffd24d", fontStyle: "bold" }).setOrigin(0.5));
+    c.add(this.add.text(this.W / 2, 182, "どの すがたに なる？", { fontFamily: UI_FONT, fontSize: "14px", color: "#e8e8ef" }).setOrigin(0.5));
+    const cardW = 130;
+    const gap = 10;
+    const total = cards.length * cardW + (cards.length - 1) * gap;
+    let x = this.W / 2 - total / 2 + cardW / 2;
+    const cardY = this.H / 2 + 12;
+    for (const form of cards) {
+      const card = this.add.rectangle(x, cardY, cardW, 208, 0x14141f, 0.98).setStrokeStyle(2, form.color || 0xffffff).setInteractive({ useHandCursor: true });
+      const icon = this.add.text(x, cardY - 64, form.icon, { fontFamily: EMOJI_FONT, fontSize: "44px" }).setOrigin(0.5);
+      const title = this.add.text(x, cardY - 6, form.name, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(form.color || 0xffffff), align: "center", wordWrap: { width: cardW - 12 } }).setOrigin(0.5);
+      const kindLabel = form.kind === "triple" ? "三重しんか" : form.kind === "double" ? "こんごうしんか" : "しんか";
+      const desc = this.add.text(x, cardY + 48, `〈${form.label}〉\n${kindLabel}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#b8b8c8", align: "center", lineSpacing: 4, wordWrap: { width: cardW - 14 } }).setOrigin(0.5);
+      const picked = form;
+      card.on("pointerover", () => card.setFillStyle(0x1e1e2c, 0.98));
+      card.on("pointerout", () => card.setFillStyle(0x14141f, 0.98));
+      card.on("pointerdown", () => this.chooseEvolution(c, picked));
+      c.add([card, icon, title, desc]);
+      x += cardW + gap;
+    }
+    const skip = this.add.text(this.W / 2, this.H - 92, "まだ しんかしない", { fontFamily: UI_FONT, fontSize: "14px", color: "#8a8aa0" }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    skip.on("pointerdown", () => this.chooseEvolution(c, null));
+    c.add(skip);
+    this._choice = c;
+  }
+
+  chooseEvolution(container, form) {
+    if (this._choice !== container) return;
+    container.destroy(true);
+    this._choice = null;
+    this.paused = false;
+    if (form) this.doEvolution(form); // 選んだ姿へ（doEvolutionのonCompleteでafterBattleResolved）
+    else this.afterBattleResolved(); // 進化を見送って次へ
   }
 
   // ============================ evolution（多段進化：スライム→獣→戦士→化身）============================
