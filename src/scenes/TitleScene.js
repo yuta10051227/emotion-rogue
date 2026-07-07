@@ -21,15 +21,15 @@ export default class TitleScene extends Phaser.Scene {
     this.W = C.GAME_WIDTH;
     this.H = C.GAME_HEIGHT;
 
-    // 深い夜のグラデ（黒藍→群青）。感情の色は「差し色」としてだけ灯す
+    // 明るい朝の空グラデ（澄んだ青空→淡い水色）。旧: 深い夜。
     const bgG = this.add.graphics();
-    bgG.fillGradientStyle(0x05050c, 0x05050c, 0x0d1226, 0x101a33, 1, 1, 1, 1);
+    bgG.fillGradientStyle(0x74b8ee, 0x74b8ee, 0xbfe4f5, 0xe8f6ff, 1, 1, 1, 1);
     bgG.fillRect(0, 0, this.W, this.H);
 
-    // 地平線にわずかな残光（夜明け前の気配）
+    // 地平線のあたたかな陽ざし
     const glow = this.add.graphics();
-    glow.fillGradientStyle(0x1a2a4a, 0x1a2a4a, 0x05050c, 0x05050c, 0.0, 0.0, 0.55, 0.55);
-    glow.fillRect(0, this.H * 0.62, this.W, this.H * 0.2);
+    glow.fillGradientStyle(0xfff2d0, 0xfff2d0, 0xe8f6ff, 0xe8f6ff, 0.0, 0.0, 0.6, 0.6);
+    glow.fillRect(0, this.H * 0.6, this.W, this.H * 0.22);
 
     // 漂う感情の残り火（怒/悲/勇/希の色が静かに昇る）
     for (let i = 0; i < 26; i++) this.makeMote(true);
@@ -51,23 +51,23 @@ export default class TitleScene extends Phaser.Scene {
     // ロゴ（明朝体。背後に淡い発光の重ね文字）
     const logoY = this.H * 0.36;
     const logoGlow = this.add
-      .text(this.W / 2, logoY, "ラクリマ", { fontFamily: DISPLAY_FONT, fontSize: "54px", color: "#7aa8ff", fontStyle: "bold" })
+      .text(this.W / 2, logoY, "ラクリマ", { fontFamily: DISPLAY_FONT, fontSize: "54px", color: "#ffffff", fontStyle: "bold" })
       .setOrigin(0.5)
-      .setAlpha(0.22)
-      .setScale(1.04);
+      .setAlpha(0.7)
+      .setScale(1.08);
     const logo = this.add
-      .text(this.W / 2, logoY, "ラクリマ", { fontFamily: DISPLAY_FONT, fontSize: "54px", color: "#e8ecf8", fontStyle: "bold" })
+      .text(this.W / 2, logoY, "ラクリマ", { fontFamily: DISPLAY_FONT, fontSize: "54px", color: "#133a66", fontStyle: "bold" })
       .setOrigin(0.5);
     const sub = this.add
-      .text(this.W / 2, logoY + 46, "─  L A C R Y M A  ─", { fontFamily: UI_FONT, fontSize: "13px", color: "#6a7a9a" })
+      .text(this.W / 2, logoY + 46, "─  L A C R Y M A  ─", { fontFamily: UI_FONT, fontSize: "13px", color: "#3a5c82" })
       .setOrigin(0.5);
 
     // 惹句（テーマの入口だけ見せる。核心「感情は弱さではない」はエンディングで回収）
     const t1 = this.add
-      .text(this.W / 2, this.H * 0.50, "捨てられた感情を、拾いにいく。", { fontFamily: DISPLAY_FONT, fontSize: "17px", color: "#b8c4dc" })
+      .text(this.W / 2, this.H * 0.50, "捨てられた感情を、拾いにいく。", { fontFamily: DISPLAY_FONT, fontSize: "17px", color: "#22496e" })
       .setOrigin(0.5);
     const t2 = this.add
-      .text(this.W / 2, this.H * 0.50 + 30, "涙は、やがて光になる。", { fontFamily: DISPLAY_FONT, fontSize: "13px", color: "#66748e" })
+      .text(this.W / 2, this.H * 0.50 + 30, "涙は、やがて光になる。", { fontFamily: DISPLAY_FONT, fontSize: "13px", color: "#456486" })
       .setOrigin(0.5);
 
     const s = getSave();
@@ -78,17 +78,17 @@ export default class TitleScene extends Phaser.Scene {
     // 開始（静かな明滅。騒がしくしない）
     const has = s.soul.rebirths > 0 || s.soul.level > 1 || (s.bonds && s.bonds.met > 0) || s.endingSeen;
     const startT = this.add
-      .text(this.W / 2, this.H * 0.72, has ? "つづきから" : "旅をはじめる", { fontFamily: DISPLAY_FONT, fontSize: "22px", color: "#dfe6f4" })
+      .text(this.W / 2, this.H * 0.72, has ? "つづきから" : "旅をはじめる", { fontFamily: DISPLAY_FONT, fontSize: "22px", color: "#14497a" })
       .setOrigin(0.5);
-    const startRule = this.add.rectangle(this.W / 2, this.H * 0.72 + 22, 150, 1, 0x4a5878, 0.8);
+    const startRule = this.add.rectangle(this.W / 2, this.H * 0.72 + 22, 150, 1, 0x6a92c0, 0.9);
     this.tweens.add({ targets: [startT, startRule], alpha: 0.45, duration: 1300, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-    this.add.text(this.W / 2, this.H * 0.72 + 40, "画面にふれてください", { fontFamily: UI_FONT, fontSize: "11px", color: "#5a6478" }).setOrigin(0.5);
+    this.add.text(this.W / 2, this.H * 0.72 + 40, "画面にふれてください", { fontFamily: UI_FONT, fontSize: "11px", color: "#5a7a9a" }).setOrigin(0.5);
 
-    // 四隅を落とすビネット（安価な矩形グラデで空気を締める）
+    // 四隅にほんのり陽の陰り（明るい空を保つため、ごく淡く上下だけ）
     const vig = this.add.graphics().setDepth(5);
-    vig.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.55, 0.55, 0, 0);
+    vig.fillGradientStyle(0x9fd0f0, 0x9fd0f0, 0x9fd0f0, 0x9fd0f0, 0.35, 0.35, 0, 0);
     vig.fillRect(0, 0, this.W, 90);
-    vig.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.6, 0.6);
+    vig.fillGradientStyle(0xbfe0c0, 0xbfe0c0, 0xbfe0c0, 0xbfe0c0, 0, 0, 0.3, 0.3);
     vig.fillRect(0, this.H - 110, this.W, 110);
 
     // Webフォント読込後に明朝体テキストを再描画（読込前はローカル明朝でフォールバック）

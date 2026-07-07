@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="treeLeaf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c5f5c0"/>
+      <stop offset="1" stop-color="#7be07f"/>
+    </linearGradient>
+    <linearGradient id="treeTrunk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c19a70"/>
+      <stop offset="1" stop-color="#a5794f"/>
+    </linearGradient>
+  </defs>
+  <path d="M28 40 L28 54 Q28 56 30 56 L34 56 Q36 56 36 54 L36 40 Z" fill="url(#treeTrunk)" stroke="#7a5733" stroke-width="2.4" stroke-linejoin="round"/>
+  <path d="M32 8 Q46 8 50 20 Q58 24 55 34 Q56 44 44 45 Q38 49 32 45 Q26 49 20 45 Q8 44 9 34 Q6 24 14 20 Q18 8 32 8 Z" fill="url(#treeLeaf)" stroke="#2e9e4f" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

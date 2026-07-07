@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="superStarFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ffe066"/>
+    </linearGradient>
+    <linearGradient id="superRay" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff8c8"/>
+      <stop offset="1" stop-color="#ffd24d"/>
+    </linearGradient>
+  </defs>
+  <polygon points="32,2 34.5,8.5 32,15 29.5,8.5" fill="url(#superRay)" stroke="#f9a825" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="32,62 34.5,55.5 32,49 29.5,55.5" fill="url(#superRay)" stroke="#f9a825" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="2,32 8.5,29.5 15,32 8.5,34.5" fill="url(#superRay)" stroke="#f9a825" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="62,32 55.5,29.5 49,32 55.5,34.5" fill="url(#superRay)" stroke="#f9a825" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="32,10 39.6,25.4 56.5,27.8 44.3,39.7 47.2,56.5 32,48.6 16.8,56.5 19.7,39.7 7.5,27.8 24.4,25.4" fill="url(#superStarFace)" stroke="#f9a825" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="32,17 36,26 32,33 28,26" fill="#ffffff" opacity="0.8" stroke="none"/>
+  <path d="M21 28 L16.5 34" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+</svg>

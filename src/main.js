@@ -29,11 +29,21 @@ const config = {
   parent: "game",
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
-  backgroundColor: "#0a0a0f",
-  pixelArt: true, // ドット絵をくっきり表示（アンチエイリアス無効・整数丸め）
+  backgroundColor: "#dff1ff", // 明るい空色（旧: 真っ黒 #0a0a0f）
+  // 素材は「塗り絵調（アンチエイリアス前提）」で pixelArt ではない。
+  // pixelArt:true（最近傍・AA無効）だと縮小表示で輪郭がギザつき画質が落ちていた。
+  // → AAを有効化し、ミップマップで縮小をなめらかに。高DPI端末では実解像度でレンダ。
+  render: {
+    antialias: true,
+    antialiasGL: true,
+    roundPixels: false,
+    pixelArt: false,
+    mipmapFilter: "LINEAR_MIPMAP_LINEAR",
+  },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    zoom: Math.min(2, Math.max(1, Math.floor(window.devicePixelRatio || 1))), // Retina等で内部解像度を上げてくっきり
   },
   // 起動は TitleScene → HomeScene（拠点）→ GameScene（進軍）。
   scene: [TitleScene, HomeScene, GameScene],

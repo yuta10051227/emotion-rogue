@@ -132,19 +132,19 @@ export default class HomeScene extends Phaser.Scene {
     this.W = C.GAME_WIDTH;
     this.H = C.GAME_HEIGHT;
     this.panel = null;
-    // 背景：夜空グラデ＋pixel遠景の山並み（世界観・黒背景の解消）
+    // 背景：明るい朝の空＋草原（旧: 群青の夜）。ポケモン/デジモン級の快活な明るさへ。
     const bgG = this.add.graphics();
-    bgG.fillGradientStyle(0x0c0e1c, 0x101427, 0x161a30, 0x1a1e38, 1, 1, 1, 1); // 群青の夜（静かな時間）
+    bgG.fillGradientStyle(0x8fc8f0, 0x9fd0ee, 0xc4e8e0, 0xeef0d6, 1, 1, 1, 1); // 空色→やわらか草原
     bgG.fillRect(0, 0, this.W, this.H);
     if (this.textures.exists("bg_far")) {
-      this.add.image(this.W / 2, 250, "bg_far").setDisplaySize(this.W, 150).setAlpha(0.22);
-      this.add.rectangle(this.W / 2, 325, this.W, this.H - 325, 0x141a26, 0.4); // 夜の街の地面
+      this.add.image(this.W / 2, 250, "bg_far").setDisplaySize(this.W, 150).setAlpha(0.18).setTint(0xd8e8ff); // かすんだ遠山
+      this.add.rectangle(this.W / 2, 325, this.W, this.H - 325, 0xbfe0a8, 0.5); // 明るい草地
     }
-    // ごく薄いビネット（四辺を落として視線を中央へ）
-    this.add.rectangle(this.W / 2, 20, this.W, 40, 0x000000, 0.28);
-    this.add.rectangle(this.W / 2, this.H - 20, this.W, 40, 0x000000, 0.28);
-    this.add.rectangle(14, this.H / 2, 28, this.H, 0x000000, 0.18);
-    this.add.rectangle(this.W - 14, this.H / 2, 28, this.H, 0x000000, 0.18);
+    // ごく薄いビネット（四辺をほんのり締める・暗くしすぎない）
+    this.add.rectangle(this.W / 2, 20, this.W, 40, 0x2a4a6a, 0.1);
+    this.add.rectangle(this.W / 2, this.H - 20, this.W, 40, 0x2a4a3a, 0.12);
+    this.add.rectangle(14, this.H / 2, 28, this.H, 0x2a4a6a, 0.07);
+    this.add.rectangle(this.W - 14, this.H / 2, 28, this.H, 0x2a4a6a, 0.07);
 
     // 音：設定反映＋初回操作で解錠
     setMuted(getPref("muted"));
@@ -168,7 +168,7 @@ export default class HomeScene extends Phaser.Scene {
       'キミは それを見守る "心"。',
       "ここは、旅の灯がともる場所。\n［ タップして ホームへ ］",
     ];
-    const overlay = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x05050a, 1).setDepth(100);
+    const overlay = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x18233c, 1).setDepth(100);
     const txt = this.add
       .text(this.W / 2, this.H / 2, "", {
         fontFamily: UI_FONT,
@@ -211,7 +211,7 @@ export default class HomeScene extends Phaser.Scene {
   // ---- 初回オンボーディング（主人公えらび＋なまえ＋たまご孵化）明るい導入 ----
   runOnboarding() {
     const cx = this.W / 2;
-    const overlay = this.add.rectangle(cx, this.H / 2, this.W, this.H, 0x0a0a14, 1).setDepth(100).setInteractive();
+    const overlay = this.add.rectangle(cx, this.H / 2, this.W, this.H, 0x18233c, 1).setDepth(100).setInteractive();
     const layer = this.add.container(0, 0).setDepth(101);
     const draw = (build) => { layer.removeAll(true); build(); };
     const emoji = (e, x, y, sz) => this.add.text(x, y, e, { fontFamily: EMOJI_FONT, fontSize: sz }).setOrigin(0.5);
@@ -326,14 +326,14 @@ export default class HomeScene extends Phaser.Scene {
       this.time.delayedCall(380, () => this.showWelcomeBack(idle));
     }
 
-    this.add.text(this.W / 2, 52, "─ HOME ─", { fontFamily: DISPLAY_FONT, fontSize: "13px", color: "#6a6a86" }).setOrigin(0.5);
-    // タイトル：明朝＋うしろに淡い光（ぼかした複製を重ねる）
-    const titleStyle = { fontFamily: DISPLAY_FONT, fontSize: "28px", color: "#f0f0f0", letterSpacing: 6 };
-    const titleGlow = this.add.text(this.W / 2, 80, "やすらぎの灯", { ...titleStyle, color: "#8ab8ff" }).setOrigin(0.5).setAlpha(0.25).setScale(1.06);
+    this.add.text(this.W / 2, 52, "─ HOME ─", { fontFamily: DISPLAY_FONT, fontSize: "13px", color: "#4a6a86" }).setOrigin(0.5);
+    // タイトル：明朝。明るい空の上で読めるよう深い藍緑に（うしろに白のにじみで浮かせる）
+    const titleStyle = { fontFamily: DISPLAY_FONT, fontSize: "28px", color: "#1c5a6e", letterSpacing: 6 };
+    const titleGlow = this.add.text(this.W / 2, 80, "やすらぎの灯", { ...titleStyle, color: "#ffffff" }).setOrigin(0.5).setAlpha(0.55).setScale(1.08);
     this.add.text(this.W / 2, 80, "やすらぎの灯", titleStyle).setOrigin(0.5);
-    this.tweens.add({ targets: titleGlow, alpha: 0.12, duration: 2200, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: titleGlow, alpha: 0.3, duration: 2200, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
     if (s.spiritName) {
-      this.add.text(this.W / 2, 102, `〈感情の精霊〉 ${s.spiritName}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#ffd9a0" }).setOrigin(0.5);
+      this.add.text(this.W / 2, 102, `〈感情の精霊〉 ${s.spiritName}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#b0742a" }).setOrigin(0.5);
     }
 
     // 主人公プレビュー（転生後はまたスライムから）
@@ -344,7 +344,7 @@ export default class HomeScene extends Phaser.Scene {
       this.add.text(this.W / 2, 158, "🟢", { fontFamily: EMOJI_FONT, fontSize: "62px" }).setOrigin(0.5);
     }
     this.heroStatsText = this.add
-      .text(this.W / 2, 208, "", { fontFamily: UI_FONT, fontSize: "16px", color: "#cfcfe0" })
+      .text(this.W / 2, 208, "", { fontFamily: UI_FONT, fontSize: "16px", color: "#33465c" })
       .setOrigin(0.5);
     this.refreshHomeStats();
 

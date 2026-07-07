@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="angerBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffb03c"/>
+      <stop offset="0.5" stop-color="#ff7a3c"/>
+      <stop offset="1" stop-color="#ff5a3c"/>
+    </linearGradient>
+    <linearGradient id="angerCore" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff6cc"/>
+      <stop offset="1" stop-color="#ffd24d"/>
+    </linearGradient>
+    <linearGradient id="angerSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff8a3c"/>
+      <stop offset="1" stop-color="#ff5a3c"/>
+    </linearGradient>
+  </defs>
+  <!-- left small flame tongue -->
+  <path d="M18 40 C13 33 16 27 19 24 C19 30 23 30 24 35 C25 40 22 45 18 44 Z"
+        fill="url(#angerSide)" stroke="#b71c1c" stroke-width="2.3" stroke-linejoin="round"/>
+  <!-- right small flame tongue -->
+  <path d="M46 40 C51 33 48 27 45 24 C45 30 41 30 40 35 C39 40 42 45 46 44 Z"
+        fill="url(#angerSide)" stroke="#b71c1c" stroke-width="2.3" stroke-linejoin="round"/>
+  <!-- main central flame body -->
+  <path d="M32 8
+           C36 16 44 20 44 32
+           C44 46 38 55 32 55
+           C26 55 20 46 20 32
+           C20 22 26 18 27 12
+           C29 16 31 15 32 8 Z"
+        fill="url(#angerBody)" stroke="#b71c1c" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- bright inner core -->
+  <path d="M32 26
+           C35 31 37 34 37 40
+           C37 47 34 51 32 51
+           C30 51 27 47 27 40
+           C27 35 29 32 32 26 Z"
+        fill="url(#angerCore)" stroke="#f9a825" stroke-width="1.6" stroke-linejoin="round"/>
+</svg>

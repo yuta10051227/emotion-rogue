@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="healFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c5f5c0"/>
+      <stop offset="1" stop-color="#7be07f"/>
+    </linearGradient>
+    <linearGradient id="healGlow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eafff0" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#eafff0" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- soft glow -->
+  <circle cx="32" cy="32" r="25" fill="url(#healGlow)"/>
+  <!-- rounded plus -->
+  <path d="M26 10 h12 a3 3 0 0 1 3 3 v10 h10 a3 3 0 0 1 3 3 v12 a3 3 0 0 1 -3 3 h-10 v10 a3 3 0 0 1 -3 3 h-12 a3 3 0 0 1 -3 -3 v-10 h-10 a3 3 0 0 1 -3 -3 v-12 a3 3 0 0 1 3 -3 h10 v-10 a3 3 0 0 1 3 -3 Z"
+        fill="url(#healFill)" stroke="#2e9e4f" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M27 14 h6 v6 h-2 v-4 h-4 Z M18 27 v6 h-4 v-2 h2 v-4 Z" fill="#eafff0" opacity="0.8"/>
+</svg>

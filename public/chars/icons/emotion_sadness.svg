@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="tearBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bfe4ff"/>
+      <stop offset="0.45" stop-color="#7bc0ff"/>
+      <stop offset="1" stop-color="#4d9fff"/>
+    </linearGradient>
+  </defs>
+  <!-- teardrop: pointed top, round bottom -->
+  <path d="M32 7
+           C32 7 46 28 46 40
+           C46 49.5 40 56 32 56
+           C24 56 18 49.5 18 40
+           C18 28 32 7 32 7 Z"
+        fill="url(#tearBody)" stroke="#1565c0" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- big white highlight -->
+  <circle cx="26" cy="38" r="5.5" fill="#ffffff" opacity="0.9"/>
+  <!-- small highlight streak -->
+  <ellipse cx="30" cy="24" rx="2.4" ry="4.2" fill="#ffffff" opacity="0.75" transform="rotate(-18 30 24)"/>
+</svg>

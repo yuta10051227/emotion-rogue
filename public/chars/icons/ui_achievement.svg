@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="medGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe999"/>
+      <stop offset="1" stop-color="#ffd24d"/>
+    </linearGradient>
+    <linearGradient id="medRib1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff9e9e"/>
+      <stop offset="1" stop-color="#ff6a6a"/>
+    </linearGradient>
+    <linearGradient id="medRib2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a8d6ff"/>
+      <stop offset="1" stop-color="#6ab4ff"/>
+    </linearGradient>
+  </defs>
+  <path d="M22 8 L34 30 L26 34 L15 14 Q14 12 16 11 L20 8.5 Q21.5 7.5 22 8 Z" fill="url(#medRib2)" stroke="#2a7fd0" stroke-width="2.2" stroke-linejoin="round"/>
+  <path d="M42 8 L30 30 L38 34 L49 14 Q50 12 48 11 L44 8.5 Q42.5 7.5 42 8 Z" fill="url(#medRib1)" stroke="#d84545" stroke-width="2.2" stroke-linejoin="round"/>
+  <circle cx="32" cy="42" r="15" fill="url(#medGold)" stroke="#c8971f" stroke-width="2.5"/>
+  <circle cx="32" cy="42" r="8" fill="none" stroke="#c8971f" stroke-width="2.2"/>
+</svg>

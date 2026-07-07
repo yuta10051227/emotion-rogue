@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="abyGlow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c3a0f5"/>
+      <stop offset="1" stop-color="#9a6ae8"/>
+    </linearGradient>
+    <linearGradient id="abyOuter" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a97ee8"/>
+      <stop offset="1" stop-color="#8a5adf"/>
+    </linearGradient>
+    <linearGradient id="abyMid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6a44b0"/>
+      <stop offset="1" stop-color="#4a2a8a"/>
+    </linearGradient>
+    <linearGradient id="abyCore" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#31184f"/>
+      <stop offset="1" stop-color="#1a0a30"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="26" fill="url(#abyGlow)" stroke="#c9aef7" stroke-width="2.4"/>
+  <circle cx="32" cy="32" r="21" fill="url(#abyOuter)" stroke="#6a3fc0" stroke-width="2.4"/>
+  <circle cx="32" cy="32" r="14" fill="url(#abyMid)" stroke="#33206a" stroke-width="2.4"/>
+  <circle cx="32" cy="32" r="7" fill="url(#abyCore)" stroke="#0d041a" stroke-width="2.2"/>
+</svg>

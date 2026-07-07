@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="defFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b8dcff"/>
+      <stop offset="1" stop-color="#6ab4ff"/>
+    </linearGradient>
+    <linearGradient id="defShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 8 C24 13 17 15 11 15 C11 32 14 47 32 56 C50 47 53 32 53 15 C47 15 40 13 32 8 Z"
+        fill="url(#defFill)" stroke="#1976d2" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- center vertical line -->
+  <rect x="30" y="16" width="4" height="34" rx="2" fill="#1976d2" opacity="0.55"/>
+  <!-- highlight -->
+  <path d="M32 12 C27 15.5 22 17.5 16 18.5 C16 30 17.5 40 24 47 C19 39 18 30 18 20 C23 19 28 17 32 14 Z"
+        fill="url(#defShine)"/>
+</svg>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="luckFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c5f5c0"/>
+      <stop offset="1" stop-color="#7be07f"/>
+    </linearGradient>
+    <linearGradient id="luckShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- stem -->
+  <path d="M32 33 C33 42 33 48 30 55" fill="none" stroke="#2e9e4f" stroke-width="3" stroke-linecap="round"/>
+  <!-- top leaf -->
+  <path d="M32 32 C25 22 27 13 32 13 C37 13 39 22 32 32 Z"
+        fill="url(#luckFill)" stroke="#2e9e4f" stroke-width="2.3" stroke-linejoin="round"/>
+  <!-- left leaf -->
+  <path d="M32 32 C22 25 13 27 13 32 C13 37 22 39 32 32 Z"
+        fill="url(#luckFill)" stroke="#2e9e4f" stroke-width="2.3" stroke-linejoin="round"/>
+  <!-- right leaf -->
+  <path d="M32 32 C42 25 51 27 51 32 C51 37 42 39 32 32 Z"
+        fill="url(#luckFill)" stroke="#2e9e4f" stroke-width="2.3" stroke-linejoin="round"/>
+  <!-- bottom leaf -->
+  <path d="M32 32 C25 42 27 51 32 51 C37 51 39 42 32 32 Z"
+        fill="url(#luckFill)" stroke="#2e9e4f" stroke-width="2.3" stroke-linejoin="round"/>
+  <!-- center -->
+  <circle cx="32" cy="32" r="3" fill="#2e9e4f"/>
+  <!-- shines -->
+  <path d="M30 16 C28.5 19 28.5 24 30 28 C27 24 27 19 30 16 Z" fill="url(#luckShine)"/>
+</svg>

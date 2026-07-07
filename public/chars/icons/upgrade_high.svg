@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="starFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff3a0"/>
+      <stop offset="1" stop-color="#ffd24d"/>
+    </linearGradient>
+  </defs>
+  <polygon points="32,7 40.4,24 59,26.7 45.5,39.8 48.7,58.3 32,49.6 15.3,58.3 18.5,39.8 5,26.7 23.6,24" fill="url(#starFace)" stroke="#f9a825" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="32,15 36.5,24.5 32,32 27.5,24.5" fill="#fff8c8" opacity="0.75" stroke="none"/>
+  <path d="M20 27 L15 34" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+</svg>

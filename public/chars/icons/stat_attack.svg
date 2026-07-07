@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="atkBlade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#cfd8e6"/>
+    </linearGradient>
+    <linearGradient id="atkGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe79a"/>
+      <stop offset="1" stop-color="#ffd24d"/>
+    </linearGradient>
+  </defs>
+  <!-- blade -->
+  <path d="M32 7 L38 15 L38 40 L26 40 L26 15 Z"
+        fill="url(#atkBlade)" stroke="#78909c" stroke-width="2.2" stroke-linejoin="round"/>
+  <path d="M30 15 L30 39 L27.5 39 L27.5 15.5 Z" fill="#ffffff" opacity="0.85"/>
+  <!-- guard -->
+  <rect x="18" y="40" width="28" height="7" rx="3.5"
+        fill="url(#atkGold)" stroke="#c8971f" stroke-width="2.2" stroke-linejoin="round"/>
+  <!-- grip -->
+  <rect x="28.5" y="46" width="7" height="11" rx="3"
+        fill="url(#atkGold)" stroke="#c8971f" stroke-width="2.2" stroke-linejoin="round"/>
+</svg>

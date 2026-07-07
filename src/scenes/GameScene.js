@@ -413,7 +413,7 @@ export default class GameScene extends Phaser.Scene {
 
   // ============================ build ============================
   buildBackground() {
-    this.bgRect = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x0a0a0f).setDepth(-12);
+    this.bgRect = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0xbfe4ff).setDepth(-12); // 明るい空色（旧: 0x0a0a0f 真っ黒）
     this.edgeFlash = this.add
       .rectangle(this.W / 2, this.H / 2, this.W, this.H, 0xffffff)
       .setDepth(50)
@@ -445,13 +445,15 @@ export default class GameScene extends Phaser.Scene {
         g.fillRect(x - 4, 118, 8, 32);
       });
     });
-    // 地面：道（横線＋周期16のダッシュで seamless）
+    // 地面：明るい土の道（緑の縁＋暖色のダッシュ）。旧: 真っ黒に近い藍。
     this.makeTex("ground_strip", 64, 120, (g) => {
-      g.fillStyle(0x14141e, 1);
+      g.fillStyle(0xcbb083, 1); // 明るい土色
       g.fillRect(0, 0, 64, 120);
-      g.fillStyle(0x1d1d2c, 1);
-      g.fillRect(0, 0, 64, 5);
-      g.fillStyle(0x0d0d15, 1);
+      g.fillStyle(0x8fc46a, 1); // 上端：草の縁
+      g.fillRect(0, 0, 64, 6);
+      g.fillStyle(0xe0cba0, 1); // 道のハイライト
+      g.fillRect(0, 8, 64, 3);
+      g.fillStyle(0xa9885a, 1); // 小石・轍
       [8, 24, 40, 56].forEach((x) => g.fillRect(x, 34, 6, 3));
       [16, 48].forEach((x) => g.fillRect(x, 72, 4, 3));
     });
@@ -471,14 +473,17 @@ export default class GameScene extends Phaser.Scene {
       this.farLayer.setTexture("bg_far");
       const sc = this.farLayer.height / 144;
       this.farLayer.setTileScale(sc, sc);
-      this.farLayer.setAlpha(1);
+      // 遠景の夜景ピクセル画は暗い。透過を下げ＋明色ティントで「昼のかすんだ遠山」にし、
+      // 背後の明るい空グラデを透けさせる（= 全体が明るく）。深淵時のみ濃いめに残す。
+      this.farLayer.setAlpha(this.abyss ? 0.72 : 0.4);
+      this.farLayer.setTint(this.abyss ? 0x9a7ad0 : 0xd8e8ff);
       this.midLayer.setVisible(false);
-      // バイオーム（距離で移り変わる世界観）。遠景tex＋空の色。
+      // バイオーム（距離で移り変わる世界観）。空を明るい昼の色に（ポケモン/デジモン級の明るさ）。
       this.biomes = [
-        { tex: "bg_far", top: 0x24356e, bot: 0x2a2444, name: "山鳴りの道" }, // 夜の藍
-        { tex: "bg_far1", top: 0x1c4a34, bot: 0x203a2c, name: "囁きの森" }, // 森の緑
-        { tex: "bg_far2", top: 0x5a3820, bot: 0x3a281e, name: "忘れられた廃墟" }, // 夕の橙
-        { tex: "bg_far3", top: 0x40286e, bot: 0x2c1e50, name: "幽玄の境" }, // 幽玄の紫
+        { tex: "bg_far", top: 0x7ec8ff, bot: 0xe8f6ff, name: "山鳴りの道" }, // 晴れた青空
+        { tex: "bg_far1", top: 0x9be0b4, bot: 0xf0fff4, name: "囁きの森" }, // 新緑の明るさ
+        { tex: "bg_far2", top: 0xffc98f, bot: 0xfff2e0, name: "忘れられた廃墟" }, // 暖かな砂・夕陽
+        { tex: "bg_far3", top: 0xcfa8ff, bot: 0xf4eaff, name: "幽玄の境" }, // やわらかな薄紫
       ].filter((b) => this.textures.exists(b.tex));
       this.curBiome = -1;
       this.setBiome(0);
@@ -509,8 +514,9 @@ export default class GameScene extends Phaser.Scene {
 
   buildHud() {
     // 上部HUDフレーム（情報ゾーン：DRの2ゾーン指針）
-    this.add.rectangle(this.W / 2, 54, this.W, 108, 0x080812, 0.5).setDepth(-1);
-    this.add.rectangle(this.W / 2, 108, this.W, 1, 0x2a2a42).setDepth(-1);
+    // 上部HUD帯：明るい空の上でも文字が読めるよう、やわらかい紺の半透明バナー
+    this.add.rectangle(this.W / 2, 54, this.W, 108, 0x102138, 0.46).setDepth(-1);
+    this.add.rectangle(this.W / 2, 108, this.W, 1, 0x4a5c80).setDepth(-1);
 
     this.distanceText = this.add.text(18, 12, "距離 0m", { fontFamily: UI_FONT, fontSize: "20px", color: "#e8e8ef" });
     this.coinText = this.add.text(this.W - 18, 12, "💰 0", { fontFamily: UI_FONT, fontSize: "20px", color: "#ffd24d" }).setOrigin(1, 0);
@@ -657,19 +663,22 @@ export default class GameScene extends Phaser.Scene {
     this.bossNameT = this.add.text(this.W / 2, 124, "", { fontFamily: UI_FONT, fontSize: "15px", color: "#ffd24d" }).setOrigin(0.5).setDepth(5).setVisible(false);
   }
 
-  // 周縁を落とすビネット（背景の隅を暗くして"作品感"を出す。UI/キャラより奥＝可読性は保つ）
+  // 周縁のごく淡いフレーミング。明るい世界を保つため、暗さは最小限に。
+  //  ただし下部だけは「旅のしるし（ログ）」の可読性のため、少し濃いめの藍スクリムを残す。
   addAtmosphere() {
-    const c = 0x05050c;
+    const c = this.abyss ? 0x140a24 : 0x22406e; // 深淵は紫、通常は淡い藍
     const g = this.add.graphics().setDepth(-1);
-    const w = 96;
-    const h = 96;
-    g.fillGradientStyle(c, c, c, c, 0.55, 0.55, 0, 0);
-    g.fillRect(0, 0, this.W, h); // 上
-    g.fillGradientStyle(c, c, c, c, 0, 0, 0.65, 0.65);
-    g.fillRect(0, this.H - h, this.W, h); // 下
-    g.fillGradientStyle(c, c, c, c, 0.45, 0, 0.45, 0);
+    const w = 70;
+    const topA = this.abyss ? 0.4 : 0.1;
+    const botA = this.abyss ? 0.5 : 0.32; // 下はログ背景を兼ねてやや濃く
+    const sideA = this.abyss ? 0.35 : 0.08;
+    g.fillGradientStyle(c, c, c, c, topA, topA, 0, 0);
+    g.fillRect(0, 0, this.W, 72); // 上
+    g.fillGradientStyle(c, c, c, c, 0, 0, botA, botA);
+    g.fillRect(0, this.H - 120, this.W, 120); // 下（ログの下地）
+    g.fillGradientStyle(c, c, c, c, sideA, 0, sideA, 0);
     g.fillRect(0, 0, w, this.H); // 左
-    g.fillGradientStyle(c, c, c, c, 0, 0.45, 0, 0.45);
+    g.fillGradientStyle(c, c, c, c, 0, sideA, 0, sideA);
     g.fillRect(this.W - w, 0, w, this.H); // 右
   }
 
@@ -1376,7 +1385,8 @@ export default class GameScene extends Phaser.Scene {
   // ---- 感情スキル（ログウィズ①：CD式アクティブ。押さなくても勝てるが、押すと戦局が動く）----
   buildSkillButtons() {
     this.skillBtns = {};
-    const y = this.H - 150;
+    // ログ帯(612〜716)と重なって読みづらかったため、ログの上（「旅のしるし」ラベル596の さらに上）へ分離。
+    const y = this.H - 244; // = 556。範囲 530〜582：ログ・操作バーと完全に非重複。
     const w = 64;
     const h = 52;
     const keys = C.EMOTION_ORDER;
