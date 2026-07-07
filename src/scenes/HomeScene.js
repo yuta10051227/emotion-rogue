@@ -223,15 +223,37 @@ export default class HomeScene extends Phaser.Scene {
       draw(() => {
         layer.add(this.add.text(cx, 118, "ようこそ、感情の世界へ", { fontFamily: DISPLAY_FONT, fontSize: "24px", color: "#f0f0f0" }).setOrigin(0.5));
         layer.add(this.add.text(cx, 156, "あなたは、どちら？", { fontFamily: UI_FONT, fontSize: "15px", color: "#9a9aac" }).setOrigin(0.5));
-        const boyC = this.add.rectangle(cx - 92, 320, 152, 214, 0x14141f, 0.92).setStrokeStyle(1, 0x4d9fff).setInteractive({ useHandCursor: true });
-        const boyImg = this.textures.exists("kid_boy") ? this.add.image(cx - 92, 300, "kid_boy").setScale(0.9) : emoji("👦", cx - 92, 300, "72px");
-        const boyT = this.add.text(cx - 92, 400, "男の子", { fontFamily: UI_FONT, fontSize: "17px", color: "#8ec2ff" }).setOrigin(0.5);
-        const girlC = this.add.rectangle(cx + 92, 320, 152, 214, 0x14141f, 0.92).setStrokeStyle(1, 0xff4d8d).setInteractive({ useHandCursor: true });
-        const girlImg = this.textures.exists("kid_girl") ? this.add.image(cx + 92, 300, "kid_girl").setScale(0.9) : emoji("👧", cx + 92, 300, "72px");
-        const girlT = this.add.text(cx + 92, 400, "女の子", { fontFamily: UI_FONT, fontSize: "17px", color: "#ff9ec0" }).setOrigin(0.5);
-        boyC.on("pointerdown", () => { gender = "boy"; name = ""; sfx.tap(); step2(); });
-        girlC.on("pointerdown", () => { gender = "girl"; name = ""; sfx.tap(); step2(); });
-        layer.add([boyC, boyImg, boyT, girlC, girlImg, girlT]);
+        // 選べるカード。背景(0x0a0a14)と同化しないよう、明確に明るい面＋太い発光縁で「押せる」と分かる形に。
+        const CW = 158;
+        const CH = 224;
+        const CY = 314;
+        const makeCard = (x, fill, stroke, glow, onPick) => {
+          const g = this.add.graphics();
+          const draw = (hover) => {
+            g.clear();
+            g.fillStyle(glow, hover ? 0.22 : 0.12); // 外周のやわらかい光
+            g.fillRoundedRect(x - CW / 2 - 5, CY - CH / 2 - 5, CW + 10, CH + 10, 20);
+            g.fillStyle(fill, 1); // 面：背景よりはっきり明るい
+            g.fillRoundedRect(x - CW / 2, CY - CH / 2, CW, CH, 16);
+            g.lineStyle(hover ? 3.5 : 2.5, stroke, 1); // 感情色の太い縁
+            g.strokeRoundedRect(x - CW / 2, CY - CH / 2, CW, CH, 16);
+          };
+          draw(false);
+          const zone = this.add.rectangle(x, CY, CW, CH, 0x000000, 0.001).setInteractive({ useHandCursor: true });
+          zone.on("pointerover", () => draw(true));
+          zone.on("pointerout", () => draw(false));
+          zone.on("pointerdown", onPick);
+          return [g, zone];
+        };
+        // 面はそれぞれの感情色にほんのり寄せる（青み/赤みの濃紺）。背景の黒藍と十分コントラストを付ける。
+        const boy = makeCard(cx - 92, 0x18223a, 0x6ab4ff, 0x4d9fff, () => { gender = "boy"; name = ""; sfx.tap(); step2(); });
+        const boyImg = this.textures.exists("kid_boy") ? this.add.image(cx - 92, 296, "kid_boy").setScale(0.9) : emoji("👦", cx - 92, 296, "72px");
+        const boyT = this.add.text(cx - 92, 400, "男の子", { fontFamily: UI_FONT, fontSize: "17px", color: "#bfe0ff" }).setOrigin(0.5);
+        const girl = makeCard(cx + 92, 0x36192a, 0xff7ab0, 0xff4d8d, () => { gender = "girl"; name = ""; sfx.tap(); step2(); });
+        const girlImg = this.textures.exists("kid_girl") ? this.add.image(cx + 92, 296, "kid_girl").setScale(0.9) : emoji("👧", cx + 92, 296, "72px");
+        const girlT = this.add.text(cx + 92, 400, "女の子", { fontFamily: UI_FONT, fontSize: "17px", color: "#ffc2dc" }).setOrigin(0.5);
+        // カード → 画像 → ラベルの順で重ねる（クリックは透明ゾーンが拾う）
+        layer.add([boy[0], girl[0], boyImg, boyT, girlImg, girlT, boy[1], girl[1]]);
       });
 
     const step2 = () =>

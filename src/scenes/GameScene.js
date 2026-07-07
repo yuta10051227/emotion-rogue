@@ -2359,13 +2359,8 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // 5) テーマ（節目のみ。通奏低音）
-    if (full) {
-      beats.push((dyn) => {
-        T(dyn, this.H / 2 - 20, "感情は、弱さではない。", { size: "23px", color: "#ffffff" });
-        T(dyn, this.H / 2 + 34, "……わかってほしかった。\nただ、それだけ。", { size: "15px", color: "#9a9aac" });
-      });
-    }
+    // ※ テーマ（「感情は、弱さではない」等の核心）は死亡サマリーでは出さない。
+    //   エンディング（playEnding / playEmotionEnding）まで伏せて、真の見せ場で回収する。
 
     return beats;
   }
