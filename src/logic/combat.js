@@ -35,7 +35,11 @@ function rollCrit(luk) {
 function heroAct(b, forceSkill) {
   b.heroAttacks += 1;
   const isSkill = b.manual ? !!forceSkill : b.heroAttacks % b.skillEvery === 0;
-  const crit = rollCrit(b.hero.luk);
+  let crit = rollCrit(b.hero.luk);
+  if (b.forcedCrits > 0) {
+    crit = true; // 祈り（感情スキル）：確定会心を消費
+    b.forcedCrits -= 1;
+  }
   let raw = rollDamage(b.hero.atk * (isSkill ? b.skillMult : 1));
   if (crit) raw = Math.round(raw * CRIT.mult);
   const dmg = capBoss(raw, b.enemy);

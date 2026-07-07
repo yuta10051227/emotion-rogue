@@ -9,8 +9,8 @@ import * as C from "../data/config.js";
 import { createBattle, stepBattle, forceFinish, commandAttack, commandSkill, heroSkillReady } from "../logic/combat.js";
 import { createEmotionState, gainEmotions, checkEvolution, leadingEmotion, secondEmotion } from "../logic/evolution.js";
 import { makeCompanion, voiceStage, pickVoiceLine } from "../logic/companion.js";
-import { sfx, onFirstGesture, setMuted } from "../logic/audio.js";
-import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm, markBattleCoached, recordEnding, endingCollected, getPlayer } from "../data/save.js";
+import { sfx, onFirstGesture, setMuted, setMusicMood } from "../logic/audio.js";
+import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm, markBattleCoached, recordEnding, endingCollected, getPlayer, abyssActive } from "../data/save.js";
 
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const UI_FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
@@ -54,6 +54,13 @@ export default class GameScene extends Phaser.Scene {
     this.currentEnemy = null;
     this._leaving = false;
     this.logLines = [];
+
+    // 深淵モード（エンディング後の高難度）：敵が苛烈になる代わりに報酬が跳ねる
+    this.abyss = abyssActive();
+    this.bossKillCount = 0;
+    // 感情スキル（CD式アクティブ）：残りクールダウン（戦闘ティック数）
+    this.skillCd = { anger: 0, sadness: 0, courage: 0, hope: 0 };
+    this._skillHintShown = false;
 
     // 仲間（救った感情）。同行＝魂の絆で持ち越した子＋旅で新たに出会う子。
     this.companionSprites = {};
@@ -112,10 +119,29 @@ export default class GameScene extends Phaser.Scene {
     this.buildControls();
     this.buildParty();
 
+    // ヒットストップ（実時間タイマー）。シーン終了時に必ず復帰させる＝timeScale残留の根絶
+    this._hitStopTid = null;
+    this.events.once("shutdown", () => {
+      if (this._hitStopTid) {
+        window.clearTimeout(this._hitStopTid);
+        this._hitStopTid = null;
+      }
+      if (this.time) this.time.timeScale = 1;
+      if (this.tweens) this.tweens.timeScale = 1;
+    });
+
+    // ログウィズ流「タップ攻撃」：戦闘エリアを叩くと相棒が応えて小さな追撃（命令ではなく応援）
+    const tapZone = this.add.zone(this.W / 2, 380, this.W, 420).setInteractive();
+    tapZone.on("pointerdown", (p) => this.tapAssist(p));
+    // 長押し連続強化の解除はグローバルに拾う（ボタンが作り直されても離した瞬間に止まる）
+    this.input.on("pointerup", () => this.stopUpgradeHold());
+    this.events.once("shutdown", () => this.stopUpgradeHold());
+
     // 音：ミュート設定を反映し、初回操作で解錠
     setMuted(getPref("muted"));
     this.input.once("pointerdown", onFirstGesture);
     this.input.keyboard.once("keydown", onFirstGesture);
+    setMusicMood("journey"); // 旅は少し陰る調べ
 
     const s = getSave();
     const reso = this.resonanceKey ? `／ ${C.EMOTIONS[this.resonanceKey].icon}の記憶が共鳴` : "";
@@ -153,6 +179,8 @@ export default class GameScene extends Phaser.Scene {
     this.fragMult = {};
     const rl = this.runLean || {};
     for (const k of C.EMOTION_ORDER) this.fragMult[k] = this.baseFragMult[k] + fragBonus + (rl[k] || 0);
+    // 深淵：欠片獲得×2（gainEmotions は amount×(1+mult) なので (m+1)×2−1 に変換）
+    if (this.abyss) for (const k of C.EMOTION_ORDER) this.fragMult[k] = (this.fragMult[k] + 1) * C.ABYSS.fragMult - 1;
   }
 
   upgradeCost(key) {
@@ -326,7 +354,7 @@ export default class GameScene extends Phaser.Scene {
     this.runStatLean[a.stat] = (this.runStatLean[a.stat] || 0) + a.amount;
     this.applyRunUpgrades();
     const info = C.EMOTIONS[key];
-    this.pushLog(`${info.icon} ${info.label}に 心が傾いた（岐路）`);
+    this.pushLog(`${info.icon} ${info.label}に 心が傾いた（岐路）`, colorToCss(info.color));
     this.flashEdge(key);
     this.refreshEvoHint();
     this.paused = false;
@@ -359,6 +387,7 @@ export default class GameScene extends Phaser.Scene {
       if (can) {
         btn.on("pointerdown", () => {
           if (this.buyUpgrade(it.key)) this.buildUpgradePanel();
+          this.beginUpgradeHold(it.key); // 長押しで連続強化（ログウィズ流QoL）
         });
       }
       c.add([row, icon, nm, ds, btn, bt]);
@@ -389,6 +418,8 @@ export default class GameScene extends Phaser.Scene {
       .rectangle(this.W / 2, this.H / 2, this.W, this.H, 0xffffff)
       .setDepth(50)
       .setFillStyle(0xffffff, 0);
+    // 深淵：世界が紫の闇に沈む（背景の上・キャラの下）
+    if (this.abyss) this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, C.ABYSS.tint, 0.34).setDepth(-4);
   }
 
   // 手続き生成テクスチャ（アセット無しで"ローグウィズ的"な横スクロール進軍を作る）
@@ -483,6 +514,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.distanceText = this.add.text(18, 12, "距離 0m", { fontFamily: UI_FONT, fontSize: "20px", color: "#e8e8ef" });
     this.coinText = this.add.text(this.W - 18, 12, "💰 0", { fontFamily: UI_FONT, fontSize: "20px", color: "#ffd24d" }).setOrigin(1, 0);
+    // 深淵モードのタグ（距離ラベルの隣・紫）
+    if (this.abyss) this.add.text(this.W / 2, 22, `🕳 ${C.ABYSS.label}`, { fontFamily: UI_FONT, fontSize: "14px", color: "#c9a0e0", fontStyle: "bold" }).setOrigin(0.5);
 
     // 次の節目までの進捗バー（旗に向かって進軍する）
     const bw = this.W - 44;
@@ -656,6 +689,16 @@ export default class GameScene extends Phaser.Scene {
       this.heroBody.setPosition(this.heroSprite.x, this.heroSprite.y).setScale(breath);
       this.heroShadow.setPosition(this.heroSprite.x, this.heroY + 44).setScale(1 / breath, 1);
     }
+    // 相棒＋子供の呼吸（生きてる感）。攻撃スクワッシュ/進化演出中は触らない＝スケールのドリフト防止
+    if (this.heroSprite && this.heroSprite.scene && !this._heroSquash && (this.mode === "walk" || this.mode === "battle")) {
+      const fit = this.heroFit || 1;
+      const amp = this.mode === "battle" ? 0.03 : 0.02; // 戦闘待機は深め、進軍中はかすかなボブ
+      this.heroSprite.setScale(fit, fit * (1 + Math.max(0, Math.sin(time / 286)) * amp));
+    }
+    if (this.kidSprite && this.kidSprite.scene && (this.mode === "walk" || this.mode === "battle")) {
+      const kfit = this.kidIsImage ? 0.72 : 1;
+      this.kidSprite.setScale(kfit, kfit * (1 + Math.max(0, Math.sin(time / 310)) * 0.03));
+    }
     if (this.enemyBody) {
       const v = this.enemySprite.visible;
       const bossA = this.enemyImgActive; // アート表示中か
@@ -766,20 +809,12 @@ export default class GameScene extends Phaser.Scene {
 
   buildLog() {
     this.add.text(this.W / 2, 596, "─ 旅のしるし ─", { fontFamily: UI_FONT, fontSize: "13px", color: "#55556a" }).setOrigin(0.5);
-    this.logText = this.add
-      .text(this.W / 2, 716, "", {
-        fontFamily: UI_FONT,
-        fontSize: "14px",
-        color: "#b8b8c8",
-        align: "center",
-        lineSpacing: 5,
-        wordWrap: { width: this.W - 40 },
-      })
-      .setOrigin(0.5, 1); // 下端そろえ＝最新行は必ず操作バーの上に出る
+    // 行ごとに色を持てるよう、1行=1テキストで積む（感情の欠片ログをその感情色に）
+    this.logTextObjs = [];
     // 溢れた古い行は上側でクリップ（操作バーの裏に隠れない）
     const mk = this.make.graphics({ x: 0, y: 0, add: false });
     mk.fillRect(0, 612, this.W, 108); // y612〜720（操作バー上端）
-    this.logText.setMask(mk.createGeometryMask());
+    this._logMask = mk.createGeometryMask();
   }
 
   // ---- 下部操作バー（親指圏：倍速／強化／撤退。DRの2ゾーン指針）----
@@ -822,6 +857,10 @@ export default class GameScene extends Phaser.Scene {
       b.rect.setDepth(6);
       b.txt.setDepth(6);
     }
+
+    // ---- 感情スキル（CD式アクティブ）。操作バーの上・戦闘中のみ表示 ----
+    this.buildSkillButtons();
+
     this.setBattleActionsVisible(false);
 
     this.refreshSpeedBtns();
@@ -923,6 +962,16 @@ export default class GameScene extends Phaser.Scene {
     const info = C.EMOTIONS[emotion];
     sfx.bossWarn();
     this.cameras.main.shake(700, 0.008);
+    // カメラのズームパンチ（ぐっと寄って戻る＝気配の圧）
+    if (this.speed < 3) {
+      this.cameras.main.zoomTo(1.06, 120, "Quad.easeOut");
+      this.time.delayedCall(200, () => {
+        if (this.cameras && this.cameras.main) this.cameras.main.zoomTo(1, 360, "Sine.easeInOut");
+      });
+    }
+    // 周縁が暗く脈打つビネットパルス
+    const vg = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x05050c, 0).setDepth(57);
+    this.tweens.add({ targets: vg, fillAlpha: 0.35, duration: 220, yoyo: true, repeat: 1, onComplete: () => vg.destroy() });
 
     // 画面が感情色に沈む（重い気配）
     const veil = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, info.color, 0).setDepth(58);
@@ -934,8 +983,14 @@ export default class GameScene extends Phaser.Scene {
     const cx = this.W / 2;
     const cy = this.H / 2 - 30;
     const omen = this.add.text(cx, cy, "── 強大な気配 ──", { fontFamily: UI_FONT, fontSize: "18px", color: colorToCss(info.color) }).setOrigin(0.5).setDepth(59).setAlpha(0);
-    const nameT = this.add.text(cx, cy + 34, `${t.icon} ${t.name}`, { fontFamily: UI_FONT, fontSize: "28px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(59).setAlpha(0).setScale(1.35);
-    this.tweens.add({ targets: [omen, nameT], alpha: 1, duration: 260 });
+    const nameT = this.add
+      .text(cx - 40, cy + 34, `${t.icon} ${t.name}`, { fontFamily: UI_FONT, fontSize: "28px", color: "#ffffff", fontStyle: "bold", stroke: colorToCss(info.color), strokeThickness: 4, letterSpacing: 4 })
+      .setOrigin(0.5)
+      .setDepth(59)
+      .setAlpha(0)
+      .setScale(1.35);
+    this.tweens.add({ targets: omen, alpha: 1, duration: 260 });
+    this.tweens.add({ targets: nameT, alpha: 1, x: cx, duration: 320, ease: "Quad.easeOut" }); // 横からドラマチックにスライドイン
     this.tweens.add({ targets: nameT, scale: 1, duration: 460, ease: "Back.easeOut" });
     // 名の周りに感情色の粒が集う
     for (let i = 0; i < 14; i++) {
@@ -1014,6 +1069,11 @@ export default class GameScene extends Phaser.Scene {
   engageEnemy(enemy) {
     this.tweens.killTweensOf(this.enemySprite); // 前の敵の撃破/浄化フェードtweenを止める（次の敵＝ボスが透明化するバグ根絶）
     this.tweens.killTweensOf(this.enemyLabel);
+    if (this._dissolveFitTween) {
+      this._dissolveFitTween.stop(); // 前の敵のディゾルブ膨張が enemyImgFit を上書きし続けないように
+      this._dissolveFitTween = null;
+    }
+    this.enemySprite.y = this.enemyY; // ディゾルブ途中の浮き上がりをリセット
     this.currentEnemy = enemy;
     this.mode = "battle"; // 進化(mode=evolve)後の群れ継戦でも walk-in→startBattleTimer が動くよう再設定＝ソフトロック根絶
     this._enemyAtkToken = (this._enemyAtkToken || 0) + 1; // 前の敵の攻撃フレーム復帰タイマーを無効化（絵の取り違え防止）
@@ -1114,7 +1174,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   makeEnemy(distance) {
-    const factor = Math.pow(C.ENEMY_BASE.growth, distance / 10);
+    // 深淵：距離インフレが急＋基礎倍率（HP/ATKに効く。spdは据え置き）
+    const factor = Math.pow(this.abyss ? C.ABYSS.growth : C.ENEMY_BASE.growth, distance / 10) * (this.abyss ? C.ABYSS.enemyStatMult : 1);
     // バイオーム別ロスターから選ぶ（周回マンネリ対策）。データ欠落時は従来 ENEMY_TYPES にフォールバック。
     const bi = (((this.curBiome || 0) % 4) + 4) % 4;
     const roster = (C.BIOME_ENEMIES && C.BIOME_ENEMIES[bi]) || null;
@@ -1136,14 +1197,16 @@ export default class GameScene extends Phaser.Scene {
 
   // 固定距離ボス：強敵。感情系統は順に巡る（戦い方の多様性を促す）。
   makeBoss(distance) {
-    const factor = Math.pow(C.ENEMY_BASE.growth, distance / 10);
+    // 深淵：距離インフレが急＋基礎倍率（HP/ATKに効く）
+    const abyssMult = this.abyss ? C.ABYSS.enemyStatMult : 1;
+    const factor = Math.pow(this.abyss ? C.ABYSS.growth : C.ENEMY_BASE.growth, distance / 10);
     const emotion = C.EMOTION_ORDER[this.bossCount % C.EMOTION_ORDER.length];
     const t = C.BOSS.types[emotion];
     // 距離ベースHP と 「主人公攻撃力×最低撃破回数」の大きい方 → 強い育成でも即溶けしない
     const distHp = C.ENEMY_BASE.hp * factor * C.BOSS.hpMult;
     const powerHp = (this.heroStats ? this.heroStats.atk : 20) * (C.BOSS.minHitsToKill || 30);
-    const hp = Math.round(Math.max(distHp, powerHp));
-    const atk = Math.max(1, Math.round(C.ENEMY_BASE.atk * factor * C.BOSS.atkMult));
+    const hp = Math.round(Math.max(distHp, powerHp) * abyssMult);
+    const atk = Math.max(1, Math.round(C.ENEMY_BASE.atk * factor * C.BOSS.atkMult * abyssMult));
     const spd = Math.max(1, Math.round(((C.ENEMY_BASE.spdMin + C.ENEMY_BASE.spdMax) / 2) * C.BOSS.spdMult));
     // 序盤ボスは控えめ→深部で大きく（最初がラスボス級すぎ問題）
     const n = this.bossCount;
@@ -1177,6 +1240,21 @@ export default class GameScene extends Phaser.Scene {
     this.battleTicks = (this.battleTicks || 0) + 1;
     if (!this.battle.finished && this.battleTicks > C.COMBAT.maxBattleTicks) forceFinish(this.battle);
 
+    // 感情スキルのCDを1減らす（ティック基準＝倍速でも自然にスケール）
+    if (this.skillCd) {
+      let cdChanged = false;
+      for (const k in this.skillCd) {
+        if (this.skillCd[k] > 0) {
+          this.skillCd[k] -= 1;
+          cdChanged = true;
+        }
+      }
+      if (cdChanged) this.refreshSkillButtons();
+    }
+    // おまかせ：状況を見て自動でスキルを導く
+    if (this.autoInvest && this.battle && !this.battle.finished) this.autoCastSkill();
+    if (!this.battle) return; // スキルで決着→resolve済みの保険
+
     const events = stepBattle(this.battle);
     this.renderBattleEvents(events);
     this.drawHpBars();
@@ -1205,8 +1283,15 @@ export default class GameScene extends Phaser.Scene {
           const ally = this.companions.find((c) => c.id === ev.allyId);
           if (ally) this.playCompanionSkill(ally, false);
           this.pulseCompanion(ev.allyId);
-          this.popDamage(this.enemyX, this.enemyY - 38, ev.dmg, ev.crit ? "#ffe14d" : "#bfe0ff", ev.crit ? Math.min(1, ratio * 1.5) : ratio);
+          this.popDamage(this.enemyX, this.enemyY - 38, ev.dmg, ev.crit ? "#ffe14d" : "#bfe0ff", ev.crit ? Math.min(1, ratio * 1.5) : ratio, { crit: ev.crit });
           this.knockback(this.enemySprite, this.enemyX, 1, Phaser.Math.Clamp(ratio, 0.2, 1));
+          this.impactFlash(this.enemyX, this.enemyY, ev.crit ? 0xffd24d : 0xffffff);
+          this.hitTintFlash(this.enemyVictimSprite(), this.currentEnemy ? this.currentEnemy.tint : null);
+          if (ev.crit) {
+            this.critSparks(this.enemyX, this.enemyY);
+            this.cameras.main.shake(90, 0.004);
+            this.hitStop();
+          }
           sfx.hit();
         } else if (ev.skill) {
           this.lunge(this.heroSprite, this.heroX, 1, 110);
@@ -1216,17 +1301,28 @@ export default class GameScene extends Phaser.Scene {
         } else {
           this.lunge(this.heroSprite, this.heroX, 1, 78);
           this.heroAttackAnim();
-          this.popDamage(this.enemyX, this.enemyY - 38, ev.dmg, ev.crit ? "#ffe14d" : "#ff9a9a", ev.crit ? Math.min(1, ratio * 1.5) : ratio);
+          this.popDamage(this.enemyX, this.enemyY - 38, ev.dmg, ev.crit ? "#ffe14d" : "#ff9a9a", ev.crit ? Math.min(1, ratio * 1.5) : ratio, { crit: ev.crit });
           this.knockback(this.enemySprite, this.enemyX, 1, Phaser.Math.Clamp(ratio, 0.2, 1));
+          this.impactFlash(this.enemyX, this.enemyY, ev.crit ? 0xffd24d : 0xffffff);
+          this.hitTintFlash(this.enemyVictimSprite(), this.currentEnemy ? this.currentEnemy.tint : null);
+          if (ev.crit) {
+            this.critSparks(this.enemyX, this.enemyY);
+            this.cameras.main.shake(90, 0.004);
+            this.hitStop();
+          }
           sfx.hit();
           this.heroSkillCharge = Math.min(this.skill.every, this.heroSkillCharge + 1);
         }
       } else {
         const ratio = ev.dmg / this.heroStats.maxHp;
+        const eColor = (this.currentEnemy && C.EMOTIONS[this.currentEnemy.lean] && C.EMOTIONS[this.currentEnemy.lean].color) || 0xffffff;
         this.lunge(this.enemySprite, this.enemyX, -1, 78);
         this.enemyAttackAnim();
         this.popDamage(this.heroX, this.heroY - 38, ev.dmg, "#ffffff", ratio);
         this.knockback(this.heroSprite, this.heroX, -1, Phaser.Math.Clamp(ratio, 0.2, 1));
+        this.impactFlash(this.heroX, this.heroY, eColor);
+        this.hitTintFlash(this.heroSprite, null);
+        if (this.currentEnemy && this.currentEnemy.boss) this.cameras.main.shake(70, 0.003); // ボスの一撃は画面が揺れる
         sfx.heroHit();
       }
     }
@@ -1236,6 +1332,7 @@ export default class GameScene extends Phaser.Scene {
   checkBattleFinish() {
     if (!this.battle || !this.battle.finished || this._resolveScheduled) return;
     this._resolveScheduled = true;
+    if (this.battle.win) this.hitStop(); // とどめの一撃は一瞬とまる（フィニッシュの余韻）
     if (this.battle.win && this.currentEnemy && this.currentEnemy.boss) this.finisherSlowmo(0.35, 300);
     if (this.battleTimer) this.battleTimer.remove();
     this.time.delayedCall(280, this.resolveBattle, [], this);
@@ -1263,6 +1360,170 @@ export default class GameScene extends Phaser.Scene {
       b.txt.setVisible(showActions);
     }
     if (showActions) this.refreshBattleButtons();
+    // 感情スキルの列も戦闘中のみ
+    if (this.skillBtns) {
+      for (const key in this.skillBtns) for (const o of this.skillBtns[key].all) o.setVisible(inBattle);
+      if (inBattle) {
+        this.refreshSkillButtons();
+        if (!this._skillHintShown) {
+          this._skillHintShown = true;
+          this.pushLog("感情スキルが 使えるようになった（ボタンで発動）");
+        }
+      }
+    }
+  }
+
+  // ---- 感情スキル（ログウィズ①：CD式アクティブ。押さなくても勝てるが、押すと戦局が動く）----
+  buildSkillButtons() {
+    this.skillBtns = {};
+    const y = this.H - 150;
+    const w = 64;
+    const h = 52;
+    const keys = C.EMOTION_ORDER;
+    keys.forEach((key, i) => {
+      const def = C.ACTIVE_SKILLS.defs[key];
+      const info = C.EMOTIONS[key];
+      if (!def || !info) return;
+      const x = this.W / 2 + (i - (keys.length - 1) / 2) * 80;
+      const rect = this.add.rectangle(x, y, w, h, 0x14141f, 0.96).setStrokeStyle(1, info.color).setDepth(6).setInteractive({ useHandCursor: true });
+      const icon = this.add.text(x, y - 11, def.icon, { fontFamily: EMOJI_FONT, fontSize: "18px" }).setOrigin(0.5).setDepth(6);
+      const name = this.add.text(x, y + 14, def.name, { fontFamily: UI_FONT, fontSize: "11px", color: colorToCss(info.color) }).setOrigin(0.5).setDepth(6);
+      // クールダウン表示：下から積まれた暗い幕（残りに比例して縮む）＋残りティック数
+      const cdRect = this.add.rectangle(x, y + h / 2, w, h, 0x05050c, 0.74).setOrigin(0.5, 1).setDepth(7).setVisible(false);
+      const cdTxt = this.add.text(x, y, "", { fontFamily: UI_FONT, fontSize: "15px", color: "#e8e8ef", fontStyle: "bold" }).setOrigin(0.5).setDepth(8).setVisible(false);
+      rect.on("pointerdown", () => this.castEmotionSkill(key));
+      this.skillBtns[key] = { rect, icon, name, cdRect, cdTxt, all: [rect, icon, name, cdRect, cdTxt] };
+    });
+  }
+
+  // スキルボタンの見た目更新（CD中は暗く沈み、幕と残り数を出す）
+  refreshSkillButtons() {
+    if (!this.skillBtns) return;
+    const total = C.ACTIVE_SKILLS.cooldownTicks || 1;
+    for (const key in this.skillBtns) {
+      const b = this.skillBtns[key];
+      const cd = this.skillCd ? this.skillCd[key] || 0 : 0;
+      const ready = cd <= 0;
+      b.rect.setAlpha(ready ? 1 : 0.55);
+      b.icon.setAlpha(ready ? 1 : 0.5);
+      b.name.setAlpha(ready ? 1 : 0.5);
+      const show = !ready && b.rect.visible;
+      b.cdRect.setVisible(show);
+      b.cdTxt.setVisible(show);
+      if (show) {
+        b.cdRect.displayHeight = Math.max(2, 52 * Math.min(1, cd / total));
+        b.cdTxt.setText("" + cd);
+      }
+    }
+  }
+
+  // おまかせ：状況を見て自動でスキルを導く（1tickに最大1発）
+  autoCastSkill() {
+    const b = this.battle;
+    if (!b || b.finished || this.mode !== "battle") return;
+    const cd = this.skillCd || {};
+    if ((cd.sadness || 0) <= 0 && b.hero.hp / b.hero.maxHp < 0.45) this.castEmotionSkill("sadness");
+    else if ((cd.anger || 0) <= 0 && (b.enemy.boss || b.enemy.hp > b.hero.atk * 6)) this.castEmotionSkill("anger");
+    else if ((cd.anger || 0) <= 0 && (cd.courage || 0) <= 0) this.castEmotionSkill("courage");
+  }
+
+  // 感情スキルの発動（手動タップ／おまかせ自動の両方から）
+  // タップ攻撃（ログウィズ流）：見守り中の指先の参加感。攻撃×0.2の追撃＋火花。連打は300msで間引く。
+  tapAssist(pointer) {
+    if (this.mode !== "battle" || !this.battle || this.battle.finished) return;
+    if (this.paused || this.upPanel || this._choice || this._coach || this._leaving || this.careBtn) return;
+    const now = this.time.now;
+    if (this._lastAssist && now - this._lastAssist < 300) return;
+    this._lastAssist = now;
+    const b = this.battle;
+    let dmg = Math.max(1, Math.round(b.hero.atk * 0.2));
+    if (b.enemy.boss) dmg = Math.min(dmg, Math.max(1, Math.ceil(b.enemy.maxHp * C.BOSS.maxHitFrac * 0.5)));
+    b.enemy.hp -= dmg;
+    this.popDamage(this.enemyX, this.enemyY - 30, dmg, "#cfd8ff", 0.8);
+    // タップ位置に小さな火花（押した実感）
+    const spark = this.add.circle(pointer.worldX, pointer.worldY, 4, 0xffffff, 0.9).setDepth(80);
+    this.tweens.add({ targets: spark, scale: 2.2, alpha: 0, duration: 200, ease: "Quad.easeOut", onComplete: () => spark.destroy() });
+    if (b.enemy.hp <= 0) {
+      b.enemy.hp = 0;
+      forceFinish(b); // 通常の感情判定・決着フローに乗せる
+    }
+    this.drawHpBars();
+    this.checkBattleFinish();
+  }
+
+  // 長押し連続強化（ログウィズ流QoL）：買うたびパネルは作り直されるが、離せば止まる
+  beginUpgradeHold(key) {
+    this.stopUpgradeHold();
+    this._holdDelay = window.setTimeout(() => {
+      this._holdTimer = window.setInterval(() => {
+        if (!this.upPanel || !this.buyUpgrade(key)) {
+          this.stopUpgradeHold();
+          return;
+        }
+        this.buildUpgradePanel();
+      }, 200);
+    }, 450);
+  }
+  stopUpgradeHold() {
+    if (this._holdDelay) {
+      window.clearTimeout(this._holdDelay);
+      this._holdDelay = null;
+    }
+    if (this._holdTimer) {
+      window.clearInterval(this._holdTimer);
+      this._holdTimer = null;
+    }
+  }
+
+  castEmotionSkill(key) {
+    if (this.paused || this.upPanel || this._choice || this._coach || this._leaving) return; // パネル/チュートリアル中は撃てない
+    if (this.mode !== "battle" || !this.battle || this.battle.finished) return;
+    if (!this.skillCd || (this.skillCd[key] || 0) > 0) return;
+    const def = C.ACTIVE_SKILLS.defs[key];
+    const info = C.EMOTIONS[key];
+    if (!def || !info) return;
+    const b = this.battle;
+
+    if (key === "anger") {
+      // 焦熱：攻撃×3の一撃（ボスは即溶け防止の上限あり）
+      let dmg = Math.max(1, Math.round(b.hero.atk * def.dmgMult));
+      if (b.enemy.boss) dmg = Math.min(dmg, Math.max(1, Math.ceil(b.enemy.maxHp * C.BOSS.maxHitFrac)));
+      b.enemy.hp -= dmg;
+      this.popDamage(this.enemyX, this.enemyY - 40, dmg, "#ff8a4d", 1, { skillGlow: "#ff5a3c" });
+      this.impactFlash(this.enemyX, this.enemyY, 0xff6a3c);
+      this.knockback(this.enemySprite, this.enemyX, 1, 1);
+      this.cameras.main.shake(110, 0.004);
+      if (b.enemy.hp <= 0) {
+        b.enemy.hp = 0;
+        forceFinish(b); // HP比較で勝ち＝通常の感情判定・決着フローに乗る
+      }
+    } else if (key === "sadness") {
+      // 鎮魂：最大HPの35%を癒す
+      const heal = Math.round(b.hero.maxHp * def.healRatio);
+      b.hero.hp = Math.min(b.hero.maxHp, b.hero.hp + heal);
+      this.popDamage(this.heroX, this.heroY - 40, "+" + heal, "#7fdfff");
+      this.impactFlash(this.heroX, this.heroY, info.color);
+      this.flashEdge(key);
+    } else if (key === "courage") {
+      // 疾風：行動ゲージが一気に貯まる（次tickで連続行動）
+      b.heroGauge += C.COMBAT.atbThreshold * def.gaugeBoost;
+      for (let i = 0; i < 3; i++) {
+        const streak = this.add.rectangle(this.heroX - 60, this.heroY - 20 + i * 16, 34, 2, 0xffffff, 0.85).setDepth(45);
+        this.tweens.add({ targets: streak, x: this.heroX + 70, alpha: 0, duration: 240 + i * 60, ease: "Quad.easeOut", onComplete: () => streak.destroy() });
+      }
+    } else if (key === "hope") {
+      // 祈り：次の3撃が必ず会心（combat.js の heroAct が消費）
+      b.forcedCrits = (b.forcedCrits || 0) + def.critHits;
+      this.impactFlash(this.heroX, this.heroY - 20, 0xfff0c0);
+      this.flashEdge(key);
+    }
+
+    this.skillCd[key] = C.ACTIVE_SKILLS.cooldownTicks;
+    sfx.skill();
+    this.pushLog(`${def.icon} ${def.name}が ほとばしった`, colorToCss(info.color));
+    this.drawHpBars();
+    this.refreshSkillButtons();
+    this.checkBattleFinish();
   }
 
   refreshBattleButtons() {
@@ -1307,21 +1568,13 @@ export default class GameScene extends Phaser.Scene {
       if (willJoin) {
         this.purifyEnemyToCompanion(joinEmotion);
       } else {
-        // 撃破：吹き飛びながら消える
-        this.tweens.add({
-          targets: this.enemySprite,
-          alpha: 0,
-          scale: 0.5,
-          x: this.enemyX + 44,
-          duration: 260,
-          ease: "Quad.easeIn",
-          onComplete: () => this.enemySprite.setVisible(false).setScale(1).setAlpha(1).setX(this.enemyX),
-        });
+        this.playEnemyDissolve(); // 撃破：白く灼けて、影の残滓を残しながら溶けて消える
       }
 
       let reward = Math.round((3 + Math.floor(this.distance / 10)) * (1 + this.coinBonus / 100));
       if (isBoss) {
         reward *= C.BOSS.rewardMult;
+        this.bossKillCount = (this.bossKillCount || 0) + 1; // 旅のボス討伐数（帰還時の記録用）
         // 撃破：大演出＋次のボスへ
         this.flashWhite(0.3);
         this.cameras.main.shake(260, 0.008);
@@ -1338,6 +1591,7 @@ export default class GameScene extends Phaser.Scene {
         this.nextBoss += C.BOSS.everyMeters;
         this.bossWarned = false;
       }
+      if (this.abyss) reward = Math.round(reward * C.ABYSS.coinMult); // 深淵：コイン報酬が跳ねる
       this.coins += reward;
       this.kills += 1;
       if (this.battle.minHpRatio < 0.12) this.despair += 1; // 瀕死を耐えた＝絶望の蓄積
@@ -1355,11 +1609,12 @@ export default class GameScene extends Phaser.Scene {
       this.flashEdge(firstKey);
       sfx.frag(C.EMOTION_ORDER.indexOf(firstKey));
       if (this.coins > 0) sfx.coin();
-      this.pushLog(this.emotionLogLine(this.battle));
+      this.pushLog(this.emotionLogLine(this.battle), colorToCss((C.EMOTIONS[firstKey] && C.EMOTIONS[firstKey].color) || 0xb8b8c8)); // 欠片ログはその感情の色で灯す
 
       // 素材＋装備ドロップ（ホームの制作・装備につながる）
       addMaterials(this.battle.emotions);
-      const drop = rollEquipmentDrop(this.distance);
+      let drop = rollEquipmentDrop(this.distance);
+      if (this.abyss && !drop && Math.random() < C.ABYSS.dropBonus) drop = rollEquipmentDrop(this.distance); // 深淵：外れたらもう一度（+10%相当）
       if (drop) {
         const rar = C.EQUIPMENT.rarities.find((r) => r.key === drop.rarity);
         this.pushLog(`🎁 装備「${drop.name}〈${rar.label}〉」を拾った`);
@@ -1665,6 +1920,24 @@ export default class GameScene extends Phaser.Scene {
             this.applyRunUpgrades();
             this.heroStats.hp = this.heroStats.maxHp;
 
+            // 覚醒の波紋：感情色のリングが広がり、12粒の光が弾ける
+            const ring = this.add.circle(this.heroX, this.heroSprite.y, 30, color, 0).setStrokeStyle(3, color, 0.9).setDepth(62).setScale(0.01);
+            this.tweens.add({ targets: ring, scale: 3, alpha: 0, duration: 620, ease: "Quad.easeOut", onComplete: () => ring.destroy() });
+            for (let i = 0; i < 12; i++) {
+              const ang = (Math.PI * 2 * i) / 12 + Math.random() * 0.4;
+              const p = this.add.circle(this.heroX, this.heroSprite.y, 3, color, 0.95).setDepth(62);
+              this.tweens.add({
+                targets: p,
+                x: this.heroX + Math.cos(ang) * (60 + Math.random() * 40),
+                y: this.heroSprite.y + Math.sin(ang) * (60 + Math.random() * 40),
+                alpha: 0,
+                scale: 0.3,
+                duration: 520,
+                ease: "Quad.easeOut",
+                onComplete: () => p.destroy(),
+              });
+            }
+
             const subText =
               form.kind === "triple"
                 ? "── 三つの感情が、ひとつに ──"
@@ -1697,8 +1970,10 @@ export default class GameScene extends Phaser.Scene {
               })
               .setOrigin(0.5)
               .setDepth(62)
-              .setAlpha(0);
+              .setAlpha(0)
+              .setScale(0.6);
             this.tweens.add({ targets: nameTxt, alpha: 1, y: this.H / 2 - 124, duration: 700 });
+            this.tweens.add({ targets: nameTxt, scale: 1, duration: 520, ease: "Back.easeOut" }); // 新しい名がスケールインで立ち上がる
             const evoTag =
               form.kind === "triple" ? "（三重混合）" : form.kind === "dark" ? "（闇堕ち）" : form.kind === "double" ? "（混合進化）" : form.stage === 3 ? "（化身）" : form.stage === 2 ? "（戦士）" : "";
             this.pushLog(`✨ あいぼうは "${dispName}"〈${species}〉に なった${evoTag}`);
@@ -1737,7 +2012,7 @@ export default class GameScene extends Phaser.Scene {
     if (this._leaving) return;
     this._leaving = true;
     this.clearQueueSilhouettes();
-    const run = { distance: this.distance, emotions: { ...this.emotions }, evolved: this.evolved, kills: this.kills };
+    const run = { distance: this.distance, emotions: { ...this.emotions }, evolved: this.evolved, kills: this.kills, abyss: !!this.abyss, bossKills: this.bossKillCount || 0 };
     const summary = transmigrate(run);
     summary.emotions = run.emotions;
     summary.died = died;
@@ -1750,7 +2025,7 @@ export default class GameScene extends Phaser.Scene {
     // 4つの感情をすべて理解した者には、一度だけ「統合」が訪れる（§17-4）
     if (empathyUnlocked()) {
       const ek = this.determineEndingKey(); // 生涯の主感情/均衡/絶望で分岐
-      if (!endingCollected(ek)) {
+      if (ek && !endingCollected(ek)) {
         if (ek === "balance") this.playEnding(summary); // 均衡=統合の真エンド
         else this.playEmotionEnding(summary, ek); // 主感情/闇堕ちの分岐エンド
         return;
@@ -1767,6 +2042,7 @@ export default class GameScene extends Phaser.Scene {
     const vals = C.EMOTION_ORDER.map((k) => em[k] || 0);
     const total = vals.reduce((a, b) => a + b, 0) || 1;
     const max = Math.max(...vals);
+    if (max <= 0) return null; // 感情ゼロの旅（即撤退など）はエンディング判定なし＝真エンドの誤付与防止
     if (max / total <= 0.34) return "balance"; // どの感情も突出しない＝統合(true)
     return C.EMOTION_ORDER[vals.indexOf(max)];
   }
@@ -2210,7 +2486,9 @@ export default class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: ring, scale: 3.4, alpha: 0, duration: 320, onComplete: () => ring.destroy() });
         this.flashWhite(0.12);
         this.cameras.main.shake(120, 0.004);
-        this.popDamage(this.enemyX, this.enemyY - 40, dmg, colorToCss(color), 1);
+        this.impactFlash(this.enemyX, this.enemyY, color);
+        this.hitTintFlash(this.enemyVictimSprite(), this.currentEnemy ? this.currentEnemy.tint : null);
+        this.popDamage(this.enemyX, this.enemyY - 40, dmg, colorToCss(color), 1, { skillGlow: colorToCss(color) });
         this.knockback(this.enemySprite, this.enemyX, 1, 1);
       },
     });
@@ -2275,16 +2553,36 @@ export default class GameScene extends Phaser.Scene {
     g.fillRect(x, y, w * ratio, h);
   }
 
-  popDamage(x, y, dmg, color, ratio = 0) {
+  // ダメージ数字。opts.crit=会心（大きく金色でポップ）、opts.skillGlow=技（感情色の残光を背負う）
+  popDamage(x, y, dmg, color, ratio = 0, opts = {}) {
     const big = Phaser.Math.Clamp(ratio, 0, 1);
-    const size = Math.round(18 + big * 22); // 大ダメージほど大きく
-    const pop = 1 + big * 0.4;
+    let size = Math.round(18 + big * 22); // 大ダメージほど大きく
+    let jitter = 10;
+    if (opts.crit) {
+      size = Math.round(size * 1.6);
+      color = "#ffd24d";
+      jitter = 14; // 会心は着弾がブレる
+    } else if (!opts.skillGlow) {
+      size = Math.round(size * (1 + big * 0.15)); // 通常ヒットもダメージ量で最大+15%の揺らぎ
+    }
+    const px = x + Phaser.Math.Between(-jitter, jitter);
+    // 技：ひと回り大きい半透明の残光を背後に（感情色のにじみ）
+    if (opts.skillGlow) {
+      const g = this.add
+        .text(px, y, "" + dmg, { fontFamily: UI_FONT, fontSize: Math.round(size * 1.2) + "px", color: opts.skillGlow, fontStyle: "bold" })
+        .setOrigin(0.5)
+        .setAlpha(0.35)
+        .setDepth(39);
+      this.tweens.add({ targets: g, y: y - 42, alpha: 0, scale: 1.15, duration: 600, onComplete: () => g.destroy() });
+    }
+    const pop = opts.crit ? 1.4 : 1 + big * 0.4;
     const t = this.add
-      .text(x + Phaser.Math.Between(-10, 10), y, "" + dmg, { fontFamily: UI_FONT, fontSize: size + "px", color, fontStyle: "bold" })
+      .text(px, y, "" + dmg, { fontFamily: UI_FONT, fontSize: size + "px", color, fontStyle: "bold" })
       .setOrigin(0.5)
       .setScale(pop)
       .setDepth(40);
-    this.tweens.add({ targets: t, y: y - 42, alpha: 0, scale: pop * 0.9, duration: 600, onComplete: () => t.destroy() });
+    if (opts.crit) this.tweens.add({ targets: t, scale: 1.0, duration: 120, ease: "Back.easeOut" }); // 1.4→1.0のスケールポップ
+    this.tweens.add({ targets: t, y: y - 42, alpha: 0, duration: 600, delay: opts.crit ? 100 : 0, onComplete: () => t.destroy() });
   }
 
   // 踏み込み（攻撃側が相手へ素早く突っ込んでクラッシュ→戻る）。"戦ってる感"の核。
@@ -2320,6 +2618,106 @@ export default class GameScene extends Phaser.Scene {
       },
     });
     sprite._impulseTween = tw;
+  }
+
+  // ============================ ジュース（打撃感）ヘルパー ============================
+  // ヒットストップ：一瞬だけ世界が止まる（会心・とどめ用）。実時間の setTimeout で必ず復帰。
+  //  すでに停止中なら重ねない（timeScaleが戻らない事故の防止）。3倍速は速度優先で無効。
+  hitStop(ms = 70) {
+    if (this._hitStopTid || this.speed >= 3) return;
+    this.time.timeScale = 0.25;
+    this.tweens.timeScale = 0.25;
+    this._hitStopTid = window.setTimeout(() => {
+      this._hitStopTid = null;
+      if (this.time) this.time.timeScale = 1;
+      if (this.tweens) this.tweens.timeScale = 1;
+    }, ms);
+  }
+
+  // 被弾地点の放射フラッシュ（小さな円が弾けて消える）
+  impactFlash(x, y, color = 0xffffff) {
+    if (this.speed >= 3) return; // 3倍速は軽量化
+    const c = this.add.circle(x, y, 20, color, 0.7).setDepth(44).setScale(0.5).setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({ targets: c, scale: 1.6, alpha: 0, duration: 140, ease: "Quad.easeOut", onComplete: () => c.destroy() });
+  }
+
+  // 会心の火花：小さな欠片が放射状に飛び散り、重力で落ちながら消える
+  critSparks(x, y, color = 0xffd24d) {
+    if (this.speed >= 3) return;
+    for (let i = 0; i < 6; i++) {
+      const p = this.add.rectangle(x, y, 2, 2, color).setDepth(44);
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 26 + Math.random() * 34;
+      this.tweens.add({
+        targets: p,
+        x: x + Math.cos(ang) * sp,
+        y: y + Math.sin(ang) * sp * 0.7 + 22, // 落下ぶんを足す＝重力っぽく
+        alpha: 0,
+        duration: 300,
+        ease: "Quad.easeOut",
+        onComplete: () => p.destroy(),
+      });
+    }
+  }
+
+  // 被弾の白フラッシュ。バイオーム等の setTint を使うスプライトは元の色に戻す（clearTintで色が飛ばないように）
+  hitTintFlash(spr, restoreTint) {
+    if (!spr || !spr.scene || typeof spr.setTintFill !== "function") return;
+    spr.setTintFill(0xffffff);
+    this.time.delayedCall(60, () => {
+      if (!spr || !spr.scene) return;
+      if (restoreTint != null && restoreTint !== 0xffffff) spr.setTint(restoreTint);
+      else spr.clearTint();
+    });
+  }
+
+  // いま見えている敵の本体（アート表示中は enemyImg、絵文字なら enemySprite）
+  enemyVictimSprite() {
+    return this.enemyImgActive && this.enemyImg ? this.enemyImg : this.enemySprite;
+  }
+
+  // 敵の死亡ディゾルブ：白く灼ける→浮き上がりつつ溶けて消える＋影の残滓が立ちのぼる。
+  //  engageEnemy 側が enemySprite の tween を kill して状態を再設定するため、群れの次戦とは競合しない。
+  playEnemyDissolve() {
+    const enemy = this.currentEnemy;
+    const spr = this.enemySprite;
+    if (!spr || !spr.scene) return;
+    this.hitTintFlash(this.enemyVictimSprite(), enemy ? enemy.tint : null);
+    // 影の残滓（敵の感情色を帯びた暗い粒）がゆらり と立ちのぼる
+    if (this.speed < 3) {
+      const base = (enemy && C.EMOTIONS[enemy.lean] && C.EMOTIONS[enemy.lean].color) || 0x8888aa;
+      for (let i = 0; i < 8; i++) {
+        const w = this.add.circle(this.enemyX + Phaser.Math.Between(-22, 22), this.enemyY + Phaser.Math.Between(-18, 14), 3 + Math.random() * 3, base, 0.5).setDepth(44);
+        this.tweens.add({
+          targets: w,
+          y: w.y - 34 - Math.random() * 26,
+          x: w.x + Phaser.Math.Between(-10, 10),
+          alpha: 0,
+          scale: 0.4,
+          duration: 380 + Math.random() * 240,
+          ease: "Sine.easeOut",
+          onComplete: () => w.destroy(),
+        });
+      }
+    }
+    // 本体：ふわりと浮きながら少し膨らみ、溶けるように消える（enemyImg は alpha/位置をミラーして追従）
+    const prevScale = spr.scale;
+    if (this._dissolveFitTween) this._dissolveFitTween.stop();
+    if (this.enemyImgActive) {
+      this._dissolveFitTween = this.tweens.add({ targets: this, enemyImgFit: this.enemyImgFit * 1.15, duration: 260, ease: "Sine.easeOut" });
+    }
+    this.tweens.add({
+      targets: spr,
+      alpha: 0,
+      scale: prevScale * 1.15,
+      y: this.enemyY - 10,
+      duration: 260,
+      ease: "Sine.easeOut",
+      onComplete: () => {
+        if (!spr || !spr.scene) return;
+        spr.setVisible(false).setScale(1).setAlpha(1).setPosition(this.enemyX, this.enemyY);
+      },
+    });
   }
 
   absorbLight(key) {
@@ -2425,10 +2823,23 @@ export default class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: this.heroAura, scale: this.heroAura.scale + 0.12, duration: 130, yoyo: true });
   }
 
-  pushLog(line) {
-    this.logLines.push(line);
+  // line=本文、color=行の色（感情の欠片ログはその感情色で灯る）
+  pushLog(line, color = "#b8b8c8") {
+    this.logLines.push({ text: line, color });
     if (this.logLines.length > 3) this.logLines.shift();
-    this.logText.setText(this.logLines.join("\n"));
+    // 1行=1テキストで作り直し、下端から積み上げる（折り返しても重ならない）
+    if (this.logTextObjs) for (const t of this.logTextObjs) t.destroy();
+    this.logTextObjs = [];
+    let y = 716;
+    for (let i = this.logLines.length - 1; i >= 0; i--) {
+      const ln = this.logLines[i];
+      const t = this.add
+        .text(this.W / 2, y, ln.text, { fontFamily: UI_FONT, fontSize: "14px", color: ln.color, align: "center", lineSpacing: 5, wordWrap: { width: this.W - 40 } })
+        .setOrigin(0.5, 1);
+      if (this._logMask) t.setMask(this._logMask);
+      this.logTextObjs.push(t);
+      y -= t.height + 5;
+    }
   }
 
   // ============================ 仲間（設計書§17）============================
@@ -2509,7 +2920,20 @@ export default class GameScene extends Phaser.Scene {
     if (!this.textures.exists(atk)) return;
     this.heroSprite.setTexture(atk);
     const fit = this.heroFit || 1;
-    if (this.speed < 3) this.tweens.add({ targets: this.heroSprite, scaleX: fit * 1.12, scaleY: fit * 0.92, duration: 90, yoyo: true, onComplete: () => this.heroSprite.setScale(fit) });
+    if (this.speed < 3) {
+      this._heroSquash = true; // スクワッシュ中は呼吸スケールを止める（tweenとの取り合い防止）
+      this.tweens.add({
+        targets: this.heroSprite,
+        scaleX: fit * 1.12,
+        scaleY: fit * 0.92,
+        duration: 90,
+        yoyo: true,
+        onComplete: () => {
+          if (this.heroSprite && this.heroSprite.scene) this.heroSprite.setScale(fit);
+          this._heroSquash = false;
+        },
+      });
+    }
     const htok = (this._heroAtkToken = (this._heroAtkToken || 0) + 1);
     this.time.delayedCall(Math.max(80, 240 / Math.max(1, this.speed)), () => {
       if (htok !== this._heroAtkToken) return; // 連撃中は古いタイマーで素の絵に戻さない

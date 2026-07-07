@@ -71,7 +71,11 @@ export const DIMINISH = {
 
 // ---- 進化（試作は初進化のみ：指示書§5）----
 export const EVOLUTION = {
-  threshold: 12, // いずれかの感情累計がこの値で初進化（取締役：早すぎ→引き上げ）
+  threshold: 4, // いずれかの感情累計がこの値で初進化。
+  // 欠片は4感情に分散するため主感情の伸びは遅い。12（旧値）だと初回の旅
+  // （初ボス100mで死亡）で一度も進化を見られず、最大の見せ場が隠れる。
+  // 4なら初回の旅の 60-100m＝初ボス前後に初進化が来て「進化して壁に挑む」流れになる。
+  // （2026-07-07 初回旅の実測2回: 100m時点の主感情 6 と 4 → どちらも4なら到達）
   statMultiplier: 1.5, // 進化時 ATK/HP ×1.5
 };
 
@@ -404,6 +408,63 @@ export const UPGRADES = {
 // 倍速（"見守る速度"の操作。戦闘の命令ではない）。進化など見せ場は速度非依存に保つ。
 export const SPEED_STEPS = [1, 2, 3];
 
+// ---- 感情スキル（ログウィズ①：バトル中のCD式アクティブスキル）----
+//  「命令」でなく「導き」：押さなくても勝てるが、押すと戦局が動く。
+//  おまかせON時は状況判断で自動発動（純・見守るも成立）。CDは戦闘ティック数。
+export const ACTIVE_SKILLS = {
+  cooldownTicks: 55, // 共通クールダウン（約20秒 @380ms/tick）
+  defs: {
+    anger: { icon: "🔥", name: "焦熱", desc: "敵に 攻撃×3 の一撃", dmgMult: 3.0 },
+    sadness: { icon: "💧", name: "鎮魂", desc: "HPを 35% 癒す", healRatio: 0.35 },
+    courage: { icon: "⚡", name: "疾風", desc: "行動ゲージが 一気に貯まる", gaugeBoost: 2.0 },
+    hope: { icon: "✨", name: "祈り", desc: "次の 3撃 が必ず会心", critHits: 3 },
+  },
+};
+
+// ---- 感情の熟練度（ログウィズ③：職業レベルの翻案）----
+//  生涯で集めた欠片の累計で感情ごとの「理解」が深まる＝永続の欠片獲得ボーナス。
+export const MASTERY = {
+  levelCurve: 3, // Lv n に必要な累計欠片 = curve × n²（3,12,27,48,75…）
+  maxLevel: 50,
+  fragBonusPerLevel: 0.03, // 1Lvごとに その感情の欠片獲得 +3%
+};
+
+// ---- あかし（ログウィズ④：実績。達成→ホームで受け取り）----
+//  stat は save.js の achievementStat() が解決するキー。
+export const ACHIEVEMENTS = [
+  { id: "d100", icon: "👣", name: "最初の百歩", desc: "100m に到達する", stat: "bestDistance", gte: 100, reward: { gold: 60 } },
+  { id: "d300", icon: "🥾", name: "遠くの空", desc: "300m に到達する", stat: "bestDistance", gte: 300, reward: { satori: 8 } },
+  { id: "d600", icon: "🌄", name: "深部への道", desc: "600m に到達する", stat: "bestDistance", gte: 600, reward: { satori: 20, gold: 300 } },
+  { id: "d1000", icon: "🌌", name: "千の彼方", desc: "1000m に到達する", stat: "bestDistance", gte: 1000, reward: { satori: 40, gold: 800 } },
+  { id: "r1", icon: "🕯", name: "はじまりの転生", desc: "1回 転生する", stat: "rebirths", gte: 1, reward: { gold: 40 } },
+  { id: "r10", icon: "🔥", name: "巡る魂", desc: "10回 転生する", stat: "rebirths", gte: 10, reward: { satori: 15 } },
+  { id: "r30", icon: "🌙", name: "終わらない旅", desc: "30回 転生する", stat: "rebirths", gte: 30, reward: { satori: 35, gold: 500 } },
+  { id: "k100", icon: "⚔", name: "百の影", desc: "累計 100体 の影を鎮める", stat: "kills", gte: 100, reward: { gold: 120 } },
+  { id: "k1000", icon: "🗡", name: "千の影", desc: "累計 1000体 の影を鎮める", stat: "kills", gte: 1000, reward: { satori: 25, gold: 600 } },
+  { id: "b3", icon: "👹", name: "主を越える者", desc: "ボスを 3体 討つ", stat: "bossKills", gte: 3, reward: { satori: 10 } },
+  { id: "b10", icon: "🏆", name: "主なき道", desc: "ボスを 10体 討つ", stat: "bossKills", gte: 10, reward: { satori: 30 } },
+  { id: "m10", icon: "🤝", name: "十の出会い", desc: "仲間と 10回 出会う", stat: "met", gte: 10, reward: { gold: 150 } },
+  { id: "f4", icon: "📖", name: "四つの姿", desc: "図鑑に 4形態 を記録する", stat: "forms", gte: 4, reward: { satori: 12 } },
+  { id: "f8", icon: "📚", name: "八つの姿", desc: "図鑑に 8形態 を記録する", stat: "forms", gte: 8, reward: { satori: 24 } },
+  { id: "ms10", icon: "🌱", name: "感情を知る者", desc: "熟練度の合計が 10 になる", stat: "masterySum", gte: 10, reward: { satori: 15 } },
+  { id: "ms40", icon: "🌳", name: "感情に通じる者", desc: "熟練度の合計が 40 になる", stat: "masterySum", gte: 40, reward: { satori: 40, gold: 600 } },
+  { id: "e1", icon: "🌟", name: "ひとつの結末", desc: "エンディングを 1つ 見る", stat: "endings", gte: 1, reward: { satori: 20 } },
+  { id: "a20", icon: "💎", name: "結晶集め", desc: "感情の結晶を 20個 集める", stat: "artifacts", gte: 20, reward: { gold: 400 } },
+  { id: "ab300", icon: "🕳", name: "深淵を歩く者", desc: "深淵で 300m に到達する", stat: "abyssBest", gte: 300, reward: { satori: 50, gold: 1000 } },
+];
+
+// ---- 深淵（ログウィズ⑥：エンディング後のエンドレス高難度モード）----
+//  いずれかのエンディング到達で解放。敵が苛烈になる代わりに報酬が跳ねる。
+export const ABYSS = {
+  enemyStatMult: 3.0, // 敵HP/ATKの基礎倍率
+  growth: 1.095, // 深淵専用の距離インフレ（通常1.072より急）
+  coinMult: 3, // コイン報酬倍率
+  fragMult: 2, // 欠片獲得倍率
+  dropBonus: 0.1, // 装備ドロップ率 +10%
+  tint: 0x140a24, // 背景の闇色（紫がかった深い闇）
+  label: "深淵",
+};
+
 // ---- 進行の可視化（設計書§5 / DR：この先に何かある感）----
 export const PROGRESS = {
   milestoneEvery: 100, // この距離ごとに節目演出
@@ -472,7 +533,8 @@ export const COMPANION = {
   // 共鳴孵化（Palworld配合の翻案：2体以上同行で絆が積もり、卵→新しい仲間）
   resonance: { threshold: 300, childStatMult: 1.3 },
   // 個体強化（お金で各仲間を永続レベルアップ＝ローグウィズ型・愛着の核）
-  upgrade: { baseCost: 30, growth: 1.5, statMult: 1.2 },
+  //  節目倍率＝ログウィズ②「超強化」：Lv5の倍数で×1.5、Lv10の倍数で×2.0（通常×1.2）
+  upgrade: { baseCost: 30, growth: 1.5, statMult: 1.2, milestone5Mult: 1.5, milestone10Mult: 2.0 },
   // 出自の一言（設計書§17-1：仲間＝誰かが捨てた感情。愛着を生む物語の欠片）
   origins: {
     anger: ["誰かが「もう怒らない」と決めて、置いていった怒り。", "守りたかった。でも守れなかった日の、行き場のない怒り。", "言えなかった「ふざけるな」が、ひとりで燻っていた。"],

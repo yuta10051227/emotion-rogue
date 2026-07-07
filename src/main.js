@@ -39,5 +39,4 @@ const config = {
   scene: [TitleScene, HomeScene, GameScene],
 };
 
-// eslint-disable-next-line no-new
-new Phaser.Game(config);
+window.game = new Phaser.Game(config); // デバッグ用にグローバル参照を残す

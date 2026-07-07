@@ -8,7 +8,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./cloudConfig.js";
-import { getSave, adoptCloudSave, setPersistHook, resetSave } from "./save.js";
+import { getSave, adoptCloudSave, setPersistHook, resetSave, mergeCloudSaves } from "./save.js";
 
 let _client = null;
 
@@ -66,17 +66,25 @@ export async function signOut() {
 }
 
 // ---------------------------- セーブ同期 ----------------------------
+//  「行が無い（初回）」と「通信エラー」を区別して返す。
+//  エラーを null（＝クラウド未作成）と混同すると、通信断のログイン時に
+//  空ローカルで本物のクラウドを上書きしてしまうため。
 export async function pullSave() {
   const c = client();
-  if (!c) return null;
+  if (!c) return { ok: false };
   const user = await getUser();
-  if (!user) return null;
-  const { data, error } = await c.from("saves").select("data").eq("user_id", user.id).maybeSingle();
-  if (error) {
-    console.warn("[cloud] pullSave:", error.message);
-    return null;
+  if (!user) return { ok: false };
+  try {
+    const { data, error } = await c.from("saves").select("data").eq("user_id", user.id).maybeSingle();
+    if (error) {
+      console.warn("[cloud] pullSave:", error.message);
+      return { ok: false };
+    }
+    return { ok: true, data: data ? data.data : null };
+  } catch (e) {
+    console.warn("[cloud] pullSave:", e);
+    return { ok: false };
   }
-  return data ? data.data : null;
 }
 
 export async function pushSave(obj) {
@@ -115,46 +123,63 @@ export function progressScore(s) {
   // 残高ではなく「累計獲得」を使う＝強化で残高が減っても進行度は下がらない（空/古い端末が本物を上書きするのを防ぐ核心）。
   const lifeEnl = Math.max(lifetime.enlightenment || 0, s.enlightenment || 0);
   const lifeGold = Math.max(lifetime.gold || 0, s.gold || 0);
-  return (
+  // 仲間への投資（個体強化レベル）も進行度に数える。
+  //  ゴールドは使うと残高が減るため、これが無いと「仲間を育てた端末」が
+  //  「貯金しただけの端末」にスコアで負けて同期消失する。
+  let compLv = 0;
+  if (Array.isArray(party.bonded)) {
+    for (const b of party.bonded) compLv += Math.max(0, ((b && b.level) || 1) - 1);
+  }
+  const score =
     (soul.rebirths || 0) * 1000 +
     (soul.level || 0) * 50 +
     (soul.bestDistance || 0) +
     lifeEnl * 30 +
     lifeGold * 0.5 +
     treeLv * 60 +
+    compLv * 40 +
     (party.paidSlots || 0) * 80 +
     (bonds.met || 0) * 20 +
     arts * 15 +
-    (s.endingSeen ? 500 : 0)
-  );
+    (s.endingSeen ? 500 : 0);
+  // NaN が混じると全比較が false になり時刻タイブレークへ落ちる（空端末が勝ち得る）。
+  return Number.isFinite(score) ? score : -1;
 }
 
 // ログイン直後：進行が多い方を採用（少ない/空の側で上書きしない）。同点なら新しい方。
+//  通信エラー時は何もせず未和解のまま返す（誤って空ローカルを初回アップロードしない）。
 export async function syncOnLogin() {
+  const pulled = await pullSave();
+  if (!pulled.ok) return { action: "error" }; // 取得失敗 → 和解しない・上書きしない
+  const remote = pulled.data;
+  const local = getSave();
   try {
-    const remote = await pullSave();
-    const local = getSave();
     if (!remote) {
       await pushSave(local); // クラウド未作成 → ローカルを初回アップロード
       return { action: "uploaded", localScore: progressScore(local) };
     }
     const rScore = progressScore(remote);
     const lScore = progressScore(local);
+    // 丸ごと置換ではなくフィールド単位マージ：勝者を土台に、敗者にしか無い
+    // 永続進行（魂/ツリー/累計/図鑑/特別な仲間 等）も取り込む＝どちらの端末の進行も消えない。
     if (rScore > lScore) {
-      adoptCloudSave(remote); // クラウドの方が進んでいる → 取り込む
-      return { action: "downloaded", remoteScore: rScore, localScore: lScore };
+      const merged = mergeCloudSaves(remote, local);
+      adoptCloudSave(merged);
+      await pushSave(merged);
+      return { action: "downloaded", remoteScore: rScore, localScore: lScore, merged: true };
     }
     if (lScore > rScore) {
-      await pushSave(local); // ローカルの方が進んでいる → 押し上げる（空が本物を消さない）
-      return { action: "uploaded", remoteScore: rScore, localScore: lScore };
+      const merged = mergeCloudSaves(local, remote);
+      adoptCloudSave(merged);
+      await pushSave(merged); // ローカル優位でも敗者(クラウド)の固有進行は拾って押し上げる
+      return { action: "uploaded", remoteScore: rScore, localScore: lScore, merged: true };
     }
-    // 同点 → 保存時刻の新しい方
-    if ((remote.stamp || 0) > (local.stamp || 0)) {
-      adoptCloudSave(remote);
-      return { action: "downloaded", tie: true };
-    }
-    await pushSave(local);
-    return { action: "insync" };
+    // 同点 → 保存時刻の新しい方を土台にマージ
+    const baseRemote = (remote.stamp || 0) > (local.stamp || 0);
+    const merged = mergeCloudSaves(baseRemote ? remote : local, baseRemote ? local : remote);
+    adoptCloudSave(merged);
+    await pushSave(merged);
+    return { action: baseRemote ? "downloaded" : "insync", tie: true, merged: true };
   } finally {
     _reconciled = true; // 以後の autosync は「和解済みのセーブ」だけを押し上げる
   }
@@ -190,6 +215,12 @@ export function stopCloudAutosync() {
 export async function logoutAndWipe() {
   const user = await getUser();
   if (!user) return { ok: false, reason: "not-signed-in" };
+  // 未和解（ログイン直後で syncOnLogin 未完了など）のまま押し上げると、
+  // 空のローカルで本物のクラウドを上書き→端末初期化＝全消失になる。必ず先に和解する。
+  if (!_reconciled) {
+    const r = await syncOnLogin();
+    if (r.action === "error") return { ok: false, reason: "offline" };
+  }
   let pushed = false;
   try {
     const r = await pushSave(getSave()); // 未同期分を最後にもう一度確実にアップ

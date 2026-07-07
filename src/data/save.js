@@ -5,7 +5,7 @@
 //    Phase 1 のこのビルドから永続セーブを導入する。
 // =====================================================================
 
-import { HERO_BASE, EMOTIONS, EMOTION_ORDER, SOUL, EQUIPMENT, CRAFT, TREE, EVOLUTION, COMPANION, DIARY, ARTIFACT, ITEMS, SHOP_COMPANIONS, SKILL } from "./config.js";
+import { HERO_BASE, EMOTIONS, EMOTION_ORDER, SOUL, EQUIPMENT, CRAFT, TREE, EVOLUTION, COMPANION, DIARY, ARTIFACT, ITEMS, SHOP_COMPANIONS, SKILL, MASTERY, ACHIEVEMENTS } from "./config.js";
 
 const KEY = "lacryma_save_v1";
 const KEY_BAK = "lacryma_save_v1_bak"; // 1世代前の正常データ（データ消失対策・DR反面教師）
@@ -68,7 +68,12 @@ function defaultSave() {
     enlightenment: 0, // 所持「悟り」
     gold: 0, // お金（永続）：仲間の個体強化に使う
     // 累計獲得（使っても減らない）＝クラウド同期の進行度スコアを単調増加に保つ核心
-    lifetime: { enlightenment: 0, gold: 0 },
+    lifetime: { enlightenment: 0, gold: 0, kills: 0, bossKills: 0 },
+    // 感情の熟練度（ログウィズ③）：生涯で集めた欠片の累計。感情ごとの「理解」が深まる
+    lifetimeFrags: { anger: 0, sadness: 0, courage: 0, hope: 0 },
+    // あかし（ログウィズ④・実績）：受け取り済みのid
+    achievementsClaimed: [],
+    abyssBest: 0, // 深淵モードでの最高到達距離
     tree: { vessel: {}, anger: {}, sadness: {}, courage: {}, hope: {}, empathy: {} }, // {ノードid: レベル}
     // 絆（設計書§17）：仲間は転生で散るが、出会った記録だけは永続に残す
     bonds: { met: 0, byEmotion: { anger: 0, sadness: 0, courage: 0, hope: 0 } },
@@ -132,6 +137,11 @@ function ensure(s) {
   s.lifetime = s.lifetime && typeof s.lifetime === "object" ? s.lifetime : {};
   s.lifetime.enlightenment = Math.max(s.lifetime.enlightenment || 0, s.enlightenment || 0);
   s.lifetime.gold = Math.max(s.lifetime.gold || 0, s.gold || 0);
+  if (typeof s.lifetime.kills !== "number") s.lifetime.kills = 0;
+  if (typeof s.lifetime.bossKills !== "number") s.lifetime.bossKills = 0;
+  s.lifetimeFrags = { ...d.lifetimeFrags, ...(s.lifetimeFrags || {}) };
+  s.achievementsClaimed = Array.isArray(s.achievementsClaimed) ? s.achievementsClaimed : [];
+  if (typeof s.abyssBest !== "number") s.abyssBest = 0;
   // 既存の仲間に 個体強化/愛着/レア度フィールドを補完
   let _activeN = 0;
   for (const b of s.party.bonded) {
@@ -139,6 +149,8 @@ function ensure(s) {
     if (typeof b.runs !== "number") b.runs = 0;
     if (typeof b.originIdx !== "number") b.originIdx = 0;
     if (typeof b.rarity !== "string") b.rarity = b.special ? "epic" : "common"; // 旧セーブの仲間は既定レア
+    if (typeof b.stage !== "number") b.stage = b.special ? 2 : 1; // 声の段階（無いと表示が壊れ、成長の書き戻しも失敗する）
+    if (typeof b.evo !== "number") b.evo = b.evo ? 1 : 0; // 進化フラグ（無いと再進化でステータスが二重に乗る）
     // 旧バグ掃除：同行(active)は maxParty まで。超過分は留守番に。
     if (b.active) {
       _activeN += 1;
@@ -247,13 +259,94 @@ export function adoptCloudSave(obj) {
   } catch (e) {
     /* ignore */
   }
+  // 放置生産の二重付与防止：lastSeen は「新しい方」を保持する。
+  //  クラウド側の古い lastSeen で巻き戻ると、回収済みの放置時間をもう一度もらえてしまう。
+  const localLastSeen = _save && typeof _save.lastSeen === "number" ? _save.lastSeen : 0;
   _save = ensure({ ...defaultSave(), ...obj });
+  _save.lastSeen = Math.max(_save.lastSeen || 0, localLastSeen);
   try {
     localStorage.setItem(KEY, JSON.stringify(_save));
   } catch (e) {
     /* ignore */
   }
   return true;
+}
+
+// ---- クラウド同期のフィールド単位マージ ----
+//  丸ごと置換だと「負けた側にしか無い進行」が消える。永続・単調増加の進行は
+//  双方向に取り込み、識別子を持たないコレクションは base（スコア勝者）優先で守る。
+//  base=進行スコアの勝者 / other=敗者。マージ結果を新しいセーブとして返す。
+function maxNum(a, b) {
+  const x = Number.isFinite(a) ? a : 0;
+  const y = Number.isFinite(b) ? b : 0;
+  return Math.max(x, y);
+}
+export function mergeCloudSaves(base, other) {
+  const m = ensure({ ...defaultSave(), ...JSON.parse(JSON.stringify(base || {})) });
+  const o = ensure({ ...defaultSave(), ...JSON.parse(JSON.stringify(other || {})) });
+
+  // 魂（すべて単調増加）
+  m.soul.level = maxNum(m.soul.level, o.soul.level);
+  m.soul.rebirths = maxNum(m.soul.rebirths, o.soul.rebirths);
+  m.soul.bestDistance = maxNum(m.soul.bestDistance, o.soul.bestDistance);
+  for (const k of EMOTION_ORDER) m.soul.memory[k] = maxNum(m.soul.memory[k], o.soul.memory[k]);
+
+  // 通貨：累計は単調増加なので max。残高も max（消失より軽微な重複を選ぶ＝1人用ゲームで実害なし）
+  m.lifetime.enlightenment = maxNum(m.lifetime.enlightenment, o.lifetime.enlightenment);
+  m.lifetime.gold = maxNum(m.lifetime.gold, o.lifetime.gold);
+  m.enlightenment = maxNum(m.enlightenment, o.enlightenment);
+  m.gold = maxNum(m.gold, o.gold);
+
+  // 導く心のツリー：ノードごとに高い方のレベル
+  for (const br of TREE_BRANCH_KEYS) {
+    for (const id in o.tree[br]) m.tree[br][id] = maxNum(m.tree[br][id], o.tree[br][id]);
+  }
+
+  // 絆・素材・アイテム・共鳴：per-key max
+  m.bonds.met = maxNum(m.bonds.met, o.bonds.met);
+  for (const k of EMOTION_ORDER) m.bonds.byEmotion[k] = maxNum(m.bonds.byEmotion[k], o.bonds.byEmotion[k]);
+  for (const k of EMOTION_ORDER) m.materials[k] = maxNum(m.materials[k], o.materials[k]);
+  for (const k in o.items) m.items[k] = maxNum(m.items[k], o.items[k]);
+  m.party.paidSlots = maxNum(m.party.paidSlots, o.party.paidSlots);
+  m.party.resonance = maxNum(m.party.resonance, o.party.resonance);
+
+  // 特別な仲間（ショップ）：購入記録は和集合。敗者側だけが迎えた個体は base に移住させる
+  for (const id of o.shopOwned) {
+    if (!m.shopOwned.includes(id)) {
+      m.shopOwned.push(id);
+      const comp = o.party.bonded.find((b) => b.special && b.shopId === id);
+      if (comp && !m.party.bonded.some((b) => b.special && b.shopId === id)) {
+        m.party.bonded.push({ ...comp, id: m.party.nextId++, active: false });
+      }
+    }
+  }
+
+  // 図鑑・エンディング：見た記録の和集合
+  for (const k in o.dex.forms) if (o.dex.forms[k]) m.dex.forms[k] = true;
+  for (const k in o.endings) if (o.endings[k]) m.endings[k] = true;
+  m.endingSeen = !!(m.endingSeen || o.endingSeen);
+  if (!m.spiritName && o.spiritName) m.spiritName = o.spiritName;
+  m.seenIntro = !!(m.seenIntro || o.seenIntro);
+  m.battleCoached = !!(m.battleCoached || o.battleCoached);
+  if (!m.player.chosen && o.player.chosen) m.player = { ...o.player };
+
+  // 識別子のないコレクション（結晶）：多い方を採用（和集合だと二重計上する）
+  if (Array.isArray(o.artifacts) && o.artifacts.length > m.artifacts.length) m.artifacts = o.artifacts;
+
+  // お知らせ既読・あかし受け取り：和集合
+  for (const n of o.noticesRead) if (!m.noticesRead.includes(n)) m.noticesRead.push(n);
+  for (const id of o.achievementsClaimed) if (!m.achievementsClaimed.includes(id)) m.achievementsClaimed.push(id);
+  // 熟練度・生涯カウント・深淵到達（すべて単調増加）
+  for (const k of EMOTION_ORDER) m.lifetimeFrags[k] = maxNum(m.lifetimeFrags[k], o.lifetimeFrags[k]);
+  m.lifetime.kills = maxNum(m.lifetime.kills, o.lifetime.kills);
+  m.lifetime.bossKills = maxNum(m.lifetime.bossKills, o.lifetime.bossKills);
+  m.abyssBest = maxNum(m.abyssBest, o.abyssBest);
+
+  // 時刻系は新しい方（lastSeen は放置生産の二重付与防止）
+  m.lastSeen = maxNum(m.lastSeen, o.lastSeen);
+  m.stamp = maxNum(m.stamp, o.stamp);
+  // ※ equipment / 通常の仲間 / diary / prefs は識別子が端末ローカルのため base 優先のまま
+  return m;
 }
 
 export function persist() {
@@ -301,7 +394,8 @@ export function makeEquipment(emotionKey, rarityKey, distance) {
   const rarity = EQUIPMENT.rarities.find((r) => r.key === rarityKey) || EQUIPMENT.rarities[0];
   const emo = EMOTIONS[emotionKey];
   const focus = EQUIPMENT.focus[emotionKey];
-  const distMult = 1 + distance / 200;
+  const safeD = Number.isFinite(distance) ? Math.max(0, distance) : 0; // NaN/Infinity が装備ステに永続化するのを防ぐ
+  const distMult = 1 + safeD / 200;
   const b = EQUIPMENT.baseStat;
   const stat = (name, base) =>
     Math.round(base * rarity.mult * distMult * (focus === name ? 1.7 : 0.55));
@@ -496,7 +590,8 @@ export function fragMultipliers() {
   const eff = getTreeEffects();
   const art = getArtifactBonuses();
   const m = {};
-  for (const k of EMOTION_ORDER) m[k] = eff.fragAll + eff.fragPct[k] + art.frag / 100;
+  // ツリー＋結晶＋熟練度（ログウィズ③：理解が深い感情ほど欠片が集まりやすい）
+  for (const k of EMOTION_ORDER) m[k] = eff.fragAll + eff.fragPct[k] + art.frag / 100 + masteryLevel(k) * MASTERY.fragBonusPerLevel;
   return m;
 }
 
@@ -540,6 +635,23 @@ export function unlockNode(branchKey, nodeId) {
   return { ok: true, node, level: cur + 1 };
 }
 
+// いま「悟り」で上げられるノードが1つでもあるか（ホームのバッジ用・購入はしない dry-run）
+export function canUnlockAnyNode() {
+  const s = getSave();
+  for (const br of TREE.branches) {
+    if (br.hidden && !empathyUnlocked()) continue;
+    const levels = s.tree[br.key] || {};
+    for (let i = 0; i < br.nodes.length; i++) {
+      const node = br.nodes[i];
+      const cur = levels[node.id] || 0;
+      if (cur >= nodeMax(node)) continue;
+      if (i > 0 && (levels[br.nodes[i - 1].id] || 0) < 1) continue;
+      if (s.enlightenment >= nodeCost(node, cur)) return true;
+    }
+  }
+  return false;
+}
+
 // 出撃時の主人公ステータス（魂レベル＋装備＋ツリーを反映）
 export function computeHeroStats() {
   const s = getSave();
@@ -574,11 +686,23 @@ export function computeHeroStats() {
 // 転生処理：今生の生き方を魂に刻む（設計書§6）＋ 導く心が「悟り」を得る（§8）
 export function transmigrate(run) {
   const s = getSave();
-  for (const k of EMOTION_ORDER) s.soul.memory[k] += run.emotions[k] || 0;
-  const levelGain = run.distance >= SOUL.minRewardDistance ? Math.max(1, Math.floor(run.distance / SOUL.levelPerDeathDistance)) : 0;
+  // 上流バグ由来の NaN/Infinity が永続セーブへ混入すると通貨・魂が復旧不能に汚染されるため、必ず有限化する
+  const runEmotions = (run && run.emotions) || {};
+  const safeDist = Number.isFinite(run && run.distance) ? Math.max(0, run.distance) : 0;
+  for (const k of EMOTION_ORDER) {
+    const v = runEmotions[k];
+    const safe = Number.isFinite(v) ? v : 0;
+    s.soul.memory[k] = (Number.isFinite(s.soul.memory[k]) ? s.soul.memory[k] : 0) + safe;
+    s.lifetimeFrags[k] = (Number.isFinite(s.lifetimeFrags[k]) ? s.lifetimeFrags[k] : 0) + safe; // 熟練度の源泉
+  }
+  // 生涯討伐数（あかし用）＋深淵の最高到達
+  s.lifetime.kills += Number.isFinite(run && run.kills) ? run.kills : 0;
+  s.lifetime.bossKills += Number.isFinite(run && run.bossKills) ? run.bossKills : 0;
+  if (run && run.abyss) s.abyssBest = Math.max(s.abyssBest, Math.floor(safeDist));
+  const levelGain = safeDist >= SOUL.minRewardDistance ? Math.max(1, Math.floor(safeDist / SOUL.levelPerDeathDistance)) : 0;
   s.soul.level += levelGain;
   s.soul.rebirths += 1;
-  const dist = Math.floor(run.distance);
+  const dist = Math.floor(safeDist);
   const newBest = dist > s.soul.bestDistance;
   if (newBest) s.soul.bestDistance = dist;
 
@@ -596,7 +720,7 @@ export function transmigrate(run) {
   s.lifetime.gold += goldGain; // 累計（使っても減らない進行度）
 
   // 旅の日記（DR③）：主感情で1行残す
-  const domRun = dominantOf(run.emotions) || "none";
+  const domRun = dominantOf(runEmotions) || "none";
   const lines = DIARY.lines[domRun] || DIARY.lines.none;
   const text = `${dist}m の旅。 ` + lines[Math.floor(Math.random() * lines.length)];
   s.diary.unshift({ n: s.soul.rebirths, distance: dist, emotion: domRun === "none" ? null : domRun, text });
@@ -645,10 +769,102 @@ export function upgradeCompanion(bondedId) {
   if (s.gold < cost) return { ok: false, reason: "お金不足" };
   s.gold -= cost;
   rec.level = (rec.level || 1) + 1;
-  rec.atk = Math.max(1, Math.round(rec.atk * COMPANION.upgrade.statMult));
-  rec.heal = Math.max(1, Math.round(rec.heal * COMPANION.upgrade.statMult));
+  // 節目の超強化（ログウィズ②）：Lv10の倍数=超激強化 ×2.0 / Lv5の倍数=超強化 ×1.5 / 通常 ×1.2
+  const up = COMPANION.upgrade;
+  let mult = up.statMult;
+  let milestone = null;
+  if (rec.level % 10 === 0) {
+    mult = up.milestone10Mult || up.statMult;
+    milestone = "hyper";
+  } else if (rec.level % 5 === 0) {
+    mult = up.milestone5Mult || up.statMult;
+    milestone = "super";
+  }
+  rec.atk = Math.max(1, Math.round(rec.atk * mult));
+  rec.heal = Math.max(1, Math.round(rec.heal * mult));
   persist();
-  return { ok: true, level: rec.level };
+  return { ok: true, level: rec.level, milestone };
+}
+
+// ---- 感情の熟練度（ログウィズ③：職業レベルの翻案）----
+//  Lv = floor(√(累計欠片 / curve))。1Lvごとに その感情の欠片獲得 +3%（fragMultipliersに合流）。
+export function masteryLevel(key) {
+  const total = getSave().lifetimeFrags[key] || 0;
+  return Math.min(MASTERY.maxLevel, Math.floor(Math.sqrt(Math.max(0, total) / MASTERY.levelCurve)));
+}
+export function masteryInfo() {
+  const s = getSave();
+  const out = {};
+  for (const k of EMOTION_ORDER) {
+    const level = masteryLevel(k);
+    const next = level >= MASTERY.maxLevel ? null : MASTERY.levelCurve * Math.pow(level + 1, 2);
+    out[k] = { level, total: s.lifetimeFrags[k] || 0, next, bonus: level * MASTERY.fragBonusPerLevel };
+  }
+  return out;
+}
+export function masterySum() {
+  return EMOTION_ORDER.reduce((a, k) => a + masteryLevel(k), 0);
+}
+
+// ---- あかし（ログウィズ④：実績。達成 → ホームで受け取り）----
+function achievementStat(s, key) {
+  switch (key) {
+    case "bestDistance": return s.soul.bestDistance || 0;
+    case "rebirths": return s.soul.rebirths || 0;
+    case "kills": return s.lifetime.kills || 0;
+    case "bossKills": return s.lifetime.bossKills || 0;
+    case "met": return (s.bonds && s.bonds.met) || 0;
+    case "forms": return Object.keys(s.dex.forms || {}).length;
+    case "endings": return Object.keys(s.endings || {}).filter((k) => s.endings[k]).length;
+    case "artifacts": return (s.artifacts || []).length;
+    case "masterySum": return masterySum();
+    case "abyssBest": return s.abyssBest || 0;
+    default: return 0;
+  }
+}
+export function achievementList() {
+  const s = getSave();
+  return ACHIEVEMENTS.map((def) => ({
+    def,
+    value: achievementStat(s, def.stat),
+    done: achievementStat(s, def.stat) >= def.gte,
+    claimed: s.achievementsClaimed.includes(def.id),
+  }));
+}
+export function unclaimedAchievementCount() {
+  return achievementList().filter((a) => a.done && !a.claimed).length;
+}
+export function claimAchievement(id) {
+  const s = getSave();
+  const def = ACHIEVEMENTS.find((a) => a.id === id);
+  if (!def) return { ok: false };
+  if (s.achievementsClaimed.includes(id)) return { ok: false, reason: "受け取り済み" };
+  if (achievementStat(s, def.stat) < def.gte) return { ok: false, reason: "まだ達していない" };
+  s.achievementsClaimed.push(id);
+  const r = def.reward || {};
+  if (r.satori) {
+    s.enlightenment += r.satori;
+    s.lifetime.enlightenment += r.satori;
+  }
+  if (r.gold) {
+    s.gold += r.gold;
+    s.lifetime.gold += r.gold;
+  }
+  persist();
+  return { ok: true, reward: r, def };
+}
+
+// ---- 深淵（ログウィズ⑥：エンディング後のエンドレス高難度）----
+export function abyssUnlocked() {
+  const s = getSave();
+  return !!s.endingSeen || Object.keys(s.endings || {}).some((k) => s.endings[k]);
+}
+export function setAbyss(on) {
+  getSave().prefs.abyss = !!on;
+  persist();
+}
+export function abyssActive() {
+  return !!getSave().prefs.abyss && abyssUnlocked();
 }
 
 export function markIntroSeen() {
@@ -820,6 +1036,7 @@ export function isShopOwned(id) {
 export function buyShopCompanion(id) {
   const s = getSave();
   if (s.shopOwned.includes(id)) return { ok: false, reason: "入手済" };
+  if (s.party.bonded.length >= carryoverSlots()) return { ok: false, reason: "魂の器がいっぱい" }; // 器の上限を超えて迎えない
   const def = SHOP_COMPANIONS.find((x) => x.id === id);
   if (!def) return { ok: false };
   const roleInfo = COMPANION.roles[def.emotion];
@@ -881,6 +1098,7 @@ function makeChild(emotion) {
 //  - 共鳴孵化：2体以上同行で絆が積もり、卵→次の旅で孵る（runDistance を加算）
 export function commitRunCompanions(runComps, runDistance = 0) {
   const s = getSave();
+  if (!Number.isFinite(runDistance)) runDistance = 0; // 共鳴蓄積の NaN 汚染防止
   const cap = carryoverSlots();
   const newlyBonded = [];
   const dispersed = [];

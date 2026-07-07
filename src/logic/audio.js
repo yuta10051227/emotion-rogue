@@ -107,6 +107,84 @@ function startAmbient() {
   ambient = { g, oscA, oscB, lfo };
 }
 
+// ---- 生成的BGM（夜のピアノ）----
+//  スケールからまばらに一音ずつ爪弾く。ループ素材が無くても"曲"に聞こえる密度が狙い。
+//  mood: "title"/"home"＝安らぎ（Aマイナー・ペンタ） / "journey"＝少し陰る（Gマイナー寄り）
+const MUSIC_SCALES = {
+  title: [220, 261.6, 293.7, 329.6, 392, 440, 523.3],
+  home: [220, 261.6, 293.7, 329.6, 392, 440],
+  journey: [196, 233.1, 261.6, 311.1, 349.2, 392],
+};
+let music = { mood: null, timer: null, lastFreq: 0 };
+
+// ピアノ風の一音：基音＋倍音2つ、速いアタック・長い減衰・ローパスで柔らかく
+function pluck(freq, vol = 0.1, dur = 2.4) {
+  const c = ensure();
+  if (!c) return;
+  const t0 = c.currentTime;
+  const lp = c.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 2200;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(vol, t0 + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  lp.connect(g);
+  g.connect(master);
+  [
+    [1, 1],
+    [2, 0.4],
+    [3, 0.14],
+  ].forEach(([m, a]) => {
+    const o = c.createOscillator();
+    o.type = "sine";
+    o.frequency.value = freq * m + (m > 1 ? Math.random() * 1.4 : 0); // 倍音をわずかに揺らす＝生っぽさ
+    const og = c.createGain();
+    og.gain.value = a;
+    o.connect(og);
+    og.connect(lp);
+    o.start(t0);
+    o.stop(t0 + dur + 0.05);
+  });
+}
+
+function playMusicNote() {
+  if (!ctx || ctx.state !== "running" || muted) return;
+  const scale = MUSIC_SCALES[music.mood] || MUSIC_SCALES.home;
+  let f = scale[Math.floor(Math.random() * scale.length)];
+  if (f === music.lastFreq) f = scale[(scale.indexOf(f) + 1) % scale.length]; // 同音連打を避ける
+  music.lastFreq = f;
+  pluck(f, 0.085 + Math.random() * 0.03);
+  if (Math.random() < 0.22) pluck(f * 2, 0.045, 1.8); // ときどき1オクターブ上が淡く重なる
+}
+
+function scheduleNextNote() {
+  if (!music.mood) return;
+  const wait = music.mood === "journey" ? 1800 + Math.random() * 2600 : 2600 + Math.random() * 3600;
+  music.timer = setTimeout(() => {
+    playMusicNote();
+    scheduleNextNote();
+  }, wait);
+}
+
+// シーンから呼ぶ：気分を切り替える（"off" で停止）。ミュートは master 側で一括制御。
+export function setMusicMood(mood) {
+  if (music.timer) {
+    clearTimeout(music.timer);
+    music.timer = null;
+  }
+  music.mood = mood && mood !== "off" ? mood : null;
+  if (!music.mood) return;
+  // ドローンの土台も気分に合わせて滑らかに移調（旅は少し低く・陰る）
+  if (ambient && ctx) {
+    const base = music.mood === "journey" ? 98 : 110; // G2 / A2
+    const t = ctx.currentTime;
+    ambient.oscA.frequency.exponentialRampToValueAtTime(base, t + 2.5);
+    ambient.oscB.frequency.exponentialRampToValueAtTime(base * 1.5 + 0.4, t + 2.5);
+  }
+  scheduleNextNote();
+}
+
 // ---- 名前付きSE（このゲームの出来事に対応）----
 export const sfx = {
   tap: () => tone({ freq: 520, dur: 0.04, type: "sine", vol: 0.07 }),
