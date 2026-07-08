@@ -56,6 +56,7 @@ import {
 } from "../data/save.js";
 import { cloudConfigured, getUser } from "../data/cloud.js";
 import { openAccountOverlay } from "../ui/authOverlay.js";
+import { preloadIcons, makeIcon, iconTexFor } from "../data/icons.js";
 
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const UI_FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
@@ -87,6 +88,7 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   preload() {
+    preloadIcons(this); // 絵文字→自作SVGアイコンを読込
     // 仲間の相棒アート＋主人公スライム＋pixel遠景（Gemini生成）。無ければ絵文字にフォールバック。
     for (const k of C.EMOTION_ORDER) {
       if (!this.textures.exists("char_" + k)) this.load.image("char_" + k, "chars/comp_" + k + ".png");
@@ -295,6 +297,7 @@ export default class HomeScene extends Phaser.Scene {
               hatch.txt.destroy();
               hatch.badge.destroy();
               hatch.gfx.destroy();
+              if (hatch.icon) hatch.icon.destroy(); // 🥚アイコン画像も片付ける
               const hasSlime = this.textures.exists("hero_slime");
               const slime = hasSlime ? this.add.image(cx, 296, "hero_slime").setScale(0.1) : emoji("🟢", cx, 296, "12px");
               layer.add(slime);
@@ -310,6 +313,7 @@ export default class HomeScene extends Phaser.Scene {
           });
         }, { stroke: 0xffd24d, textColor: "#ffe9b0", fontSize: "19px" });
         layer.add([hatch.rect, hatch.txt, hatch.badge, hatch.gfx]);
+        if (hatch.icon) layer.add(hatch.icon); // 🥚アイコンもレイヤーへ（片付け対象に）
       });
 
     step1();
@@ -382,6 +386,11 @@ export default class HomeScene extends Phaser.Scene {
       textColor: "#e6c2ff",
       fontSize: "16px",
     });
+    // 導く心=🌳／仲間=🤝 のアイコンをボタン左に固定配置し、文字は右へ左寄せに（ラベルは動的更新）
+    this.treeBtn.txt.setOrigin(0, 0.5).setX(this.W / 2 - 96 - 186 / 2 + 34);
+    this.treeBtn.icon = makeIcon(this, this.W / 2 - 96 - 186 / 2 + 16, 374, "🌳", 20, EMOJI_FONT);
+    this.partyBtn.txt.setOrigin(0, 0.5).setX(this.W / 2 + 96 - 186 / 2 + 34);
+    this.partyBtn.icon = makeIcon(this, this.W / 2 + 96 - 186 / 2 + 16, 374, "🤝", 20, EMOJI_FONT);
     this.refreshTreeBtn();
     this.refreshPartyBtn();
 
@@ -603,7 +612,8 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   refreshTreeBtn() {
-    if (this.treeBtn) this.treeBtn.txt.setText(`🌳 導く心 悟り${getSave().enlightenment}`);
+    // アイコンは別配置（🌳）。文字は絵文字を省いて左寄せ。
+    if (this.treeBtn) this.treeBtn.txt.setText(`導く心 悟り${getSave().enlightenment}`);
     this.refreshTreeBadge(); // 悟りが動いたらバッジも更新
   }
 
@@ -613,7 +623,8 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   refreshPartyBtn() {
-    if (this.partyBtn) this.partyBtn.txt.setText(`🤝 仲間 ${getSave().party.bonded.length}/${carryoverSlots()}`);
+    // アイコンは別配置（🤝）。文字は絵文字を省いて左寄せ。
+    if (this.partyBtn) this.partyBtn.txt.setText(`仲間 ${getSave().party.bonded.length}/${carryoverSlots()}`);
   }
 
   unreadNotices() {
@@ -765,9 +776,23 @@ export default class HomeScene extends Phaser.Scene {
     const rect = this.add
       .rectangle(x, y, w, h, fill, 0.001)
       .setInteractive({ useHandCursor: true });
-    const txt = this.add
-      .text(x, y, label, { fontFamily: opts.font ?? UI_FONT, fontSize: opts.fontSize ?? "18px", color: opts.textColor ?? "#e8e8ef" })
-      .setOrigin(0.5);
+    // 先頭が既知の絵文字なら、その字だけ自作アイコン画像に置き換え、残りの文字を右へ寄せる
+    const lead = label ? label.split(" ")[0] : "";
+    const iconTex = lead ? iconTexFor(lead) : null;
+    let icon = null;
+    let txt;
+    if (iconTex) {
+      const ix = x - w / 2 + 22; // ボタン左端の少し内側
+      icon = makeIcon(this, ix, y, lead, 22, EMOJI_FONT);
+      const rest = label.slice(lead.length).replace(/^\s+/, ""); // 先頭絵文字と続く空白を除去
+      txt = this.add
+        .text(ix + 16, y, rest, { fontFamily: opts.font ?? UI_FONT, fontSize: opts.fontSize ?? "18px", color: opts.textColor ?? "#e8e8ef" })
+        .setOrigin(0, 0.5); // アイコンの右に左寄せ
+    } else {
+      txt = this.add
+        .text(x, y, label, { fontFamily: opts.font ?? UI_FONT, fontSize: opts.fontSize ?? "18px", color: opts.textColor ?? "#e8e8ef" })
+        .setOrigin(0.5);
+    }
     const badge = this.add
       .text(x + w / 2 - 14, y - h / 2 + 14, "", { fontFamily: UI_FONT, fontSize: "16px", color: "#ff5a5a" })
       .setOrigin(0.5);
@@ -777,7 +802,7 @@ export default class HomeScene extends Phaser.Scene {
       this.tweens.add({ targets: [rect, txt], scale: 0.96, duration: 60, yoyo: true });
       onClick();
     });
-    return { rect, txt, badge, gfx };
+    return { rect, txt, badge, gfx, icon };
   }
 
   // ---- パネル枠 ----
@@ -1491,17 +1516,16 @@ export default class HomeScene extends Phaser.Scene {
     C.EMOTION_ORDER.forEach((k) => C.EVOLUTION_STAGES.forms[k].forEach((f, s) => single.push({ tex: "hero_" + k + "_" + (s + 1), name: f.name })));
     const mixed = Object.values(C.MIXED_EVOLUTION.forms).map((f) => ({ icon: f.icon, name: f.name }));
     const triple = Object.values(C.TRIPLE_EVOLUTION.forms).map((f) => ({ icon: f.icon, name: f.name }));
-    const dark = Object.values(C.DARK_EVOLUTION.forms).map((f) => ({ icon: f.icon, name: f.name }));
+    // 闇堕ちは明るい方針で封印中（到達不可）→ 図鑑からは非表示。永遠に埋まらない❓枠を見せない。
     const spirit = [{ icon: "🌈", name: "感情の精霊" }];
     const cats = [
       { label: "はじまり", forms: [{ tex: "hero_slime", name: "スライム", always: true }] },
       { label: "基本進化", forms: single },
       { label: "混合進化", forms: mixed },
       { label: "三重混合", forms: triple },
-      { label: "闇堕ち", forms: dark },
       { label: "頂点", forms: spirit },
     ];
-    const flat = [...single, ...mixed, ...triple, ...dark, ...spirit];
+    const flat = [...single, ...mixed, ...triple, ...spirit];
     const seenAll = flat.filter((f) => formSeen(f.name)).length;
     c.add(this.add.text(this.W / 2, 150, `感情図鑑　${seenAll} / ${flat.length}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#e8e8ef" }).setOrigin(0.5));
 

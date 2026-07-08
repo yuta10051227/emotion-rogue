@@ -6,6 +6,7 @@
 
 import Phaser from "phaser";
 import * as C from "../data/config.js";
+import { preloadIcons, makeIcon } from "../data/icons.js";
 import { createBattle, stepBattle, forceFinish, commandAttack, commandSkill, heroSkillReady } from "../logic/combat.js";
 import { createEmotionState, gainEmotions, checkEvolution, leadingEmotion, secondEmotion } from "../logic/evolution.js";
 import { makeCompanion, voiceStage, pickVoiceLine } from "../logic/companion.js";
@@ -217,7 +218,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   refreshCoinUi() {
-    if (this.coinText) this.coinText.setText("💰 " + this.coins);
+    if (this.coinText) this.coinText.setText("" + this.coins); // 数字のみ（コインアイコンは左に別配置）
     if (this.upgradeBtn) this.upgradeBtn.txt.setText(`⚙ 強化 💰${this.coins}`);
   }
 
@@ -251,6 +252,7 @@ export default class GameScene extends Phaser.Scene {
       { text: "まえの てきを、あいぼうが\nやっつけて くれる。おうえん しよう！", arrow: { x: this.enemyX, y: this.heroY - 30 } },
       { text: "うえの 🔥💧⚡✨ は いま そだってる キモチ。\nはやくたおす=🔥 / たえる=💧 / さきに=⚡ / ぎゃくてん=✨", arrow: { x: this.W / 2, y: 92 } },
       { text: "キモチが たまると、あいぼうは\n「しんか」できる。すがたを えらべるよ！", arrow: { x: this.heroX, y: this.heroY - 62 } },
+      { text: "せんとうちゅうの 4つの アイコンは『感情スキル』。\nたまると タップで 発動できる（おまかせ中は 自動で 使う）", arrow: { x: this.W / 2, y: this.H - 244 } },
       { text: "したの ボタンで ⚙つよく・はやさ・↩かえる。\nつかれたら おうちに かえろう。", arrow: { x: this.W / 2, y: this.H - 90 } },
       { text: "じゃあ ──\nいってらっしゃい！" },
     ];
@@ -403,10 +405,12 @@ export default class GameScene extends Phaser.Scene {
       if (this.autoInvest) this.autoInvestSpend();
       this.buildUpgradePanel();
     });
-    c.add([tg, tgt]);
+    // おまかせの中身を明示（autoInvestSpend は "いちばん安い強化" から順に買う）
+    const hint = this.add.text(cx, cy + 165, "≫ おまかせは 安い強化から 自動で 投資", { fontFamily: UI_FONT, fontSize: "11px", color: "#8a8aa0" }).setOrigin(0.5);
+    c.add([tg, tgt, hint]);
 
-    const close = this.add.rectangle(cx, cy + 188, 160, 40, 0x1c1c2a).setStrokeStyle(1, 0x4a4a66).setInteractive({ useHandCursor: true });
-    const ct = this.add.text(cx, cy + 188, "閉じる", { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }).setOrigin(0.5);
+    const close = this.add.rectangle(cx, cy + 194, 160, 38, 0x1c1c2a).setStrokeStyle(1, 0x4a4a66).setInteractive({ useHandCursor: true });
+    const ct = this.add.text(cx, cy + 194, "閉じる", { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }).setOrigin(0.5);
     close.on("pointerdown", () => this.closeUpgradePanel());
     c.add([close, ct]);
   }
@@ -519,7 +523,8 @@ export default class GameScene extends Phaser.Scene {
     this.add.rectangle(this.W / 2, 108, this.W, 1, 0x4a5c80).setDepth(-1);
 
     this.distanceText = this.add.text(18, 12, "距離 0m", { fontFamily: UI_FONT, fontSize: "20px", color: "#e8e8ef" });
-    this.coinText = this.add.text(this.W - 18, 12, "💰 0", { fontFamily: UI_FONT, fontSize: "20px", color: "#ffd24d" }).setOrigin(1, 0);
+    this.coinText = this.add.text(this.W - 18, 12, "0", { fontFamily: UI_FONT, fontSize: "20px", color: "#ffd24d" }).setOrigin(1, 0); // 数字のみ
+    this.coinIcon = makeIcon(this, this.W - 58, 20, "💰", 20, EMOJI_FONT); // コインアイコン（数字の左に固定配置）
     // 深淵モードのタグ（距離ラベルの隣・紫）
     if (this.abyss) this.add.text(this.W / 2, 22, `🕳 ${C.ABYSS.label}`, { fontFamily: UI_FONT, fontSize: "14px", color: "#c9a0e0", fontStyle: "bold" }).setOrigin(0.5);
 
@@ -553,7 +558,7 @@ export default class GameScene extends Phaser.Scene {
       const info = C.EMOTIONS[key];
       // 戦闘中に「その戦いで兆している感情」を光らせるグロー（アイコン背後・加算合成）
       const formGlow = this.add.circle(cx - 10, y, 19, info.color, 0).setBlendMode(Phaser.BlendModes.ADD);
-      const icon = this.add.text(cx - 10, y, info.icon, { fontFamily: EMOJI_FONT, fontSize: "26px" }).setOrigin(0.5);
+      const icon = makeIcon(this, cx - 10, y, info.icon, 30, EMOJI_FONT); // 感情アイコン（自作SVG）
       const count = this.add.text(cx + 18, y, "0", { fontFamily: UI_FONT, fontSize: "18px", color: "#cfcfe0" }).setOrigin(0, 0.5);
       this.add.rectangle(cx, y + 24, 56, 6, 0x2a2a3a).setOrigin(0.5);
       const bar = this.add.rectangle(cx - 28, y + 24, 1, 6, info.color).setOrigin(0, 0.5);
@@ -569,6 +574,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   preload() {
+    preloadIcons(this); // 絵文字→自作SVGアイコンを読込
     // 仲間・ボス・主人公進化アート（Gemini生成）。無ければ絵文字にフォールバック。
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png"); // ピクセル遠景
     for (let i = 1; i <= 3; i++) if (!this.textures.exists("bg_far" + i)) this.load.image("bg_far" + i, "chars/bg_far" + i + ".png"); // バイオーム
@@ -1213,8 +1219,11 @@ export default class GameScene extends Phaser.Scene {
     const factor = Math.pow(this.abyss ? C.ABYSS.growth : C.ENEMY_BASE.growth, distance / 10);
     const emotion = C.EMOTION_ORDER[this.bossCount % C.EMOTION_ORDER.length];
     const t = C.BOSS.types[emotion];
+    // 初ボス(100m)が硬すぎて初回の旅が1.5〜2分の殴り合いになる問題。距離で段階化し、
+    // 序盤ボスは挑みやすく・深部ボスは今まで通り硬い壁に（大器晩成）。
+    const distanceScale = distance <= 120 ? 0.6 : distance <= 250 ? 0.8 : 1.0; // ≈3.3 / ≈4.4 / 5.5
     // 距離ベースHP と 「主人公攻撃力×最低撃破回数」の大きい方 → 強い育成でも即溶けしない
-    const distHp = C.ENEMY_BASE.hp * factor * C.BOSS.hpMult;
+    const distHp = C.ENEMY_BASE.hp * factor * C.BOSS.hpMult * distanceScale;
     const powerHp = (this.heroStats ? this.heroStats.atk : 20) * (C.BOSS.minHitsToKill || 30);
     const hp = Math.round(Math.max(distHp, powerHp) * abyssMult);
     const atk = Math.max(1, Math.round(C.ENEMY_BASE.atk * factor * C.BOSS.atkMult * abyssMult));
@@ -1398,7 +1407,7 @@ export default class GameScene extends Phaser.Scene {
       if (!def || !info) return;
       const x = this.W / 2 + (i - (keys.length - 1) / 2) * 80;
       const rect = this.add.rectangle(x, y, w, h, 0x14141f, 0.96).setStrokeStyle(1, info.color).setDepth(6).setInteractive({ useHandCursor: true });
-      const icon = this.add.text(x, y - 11, def.icon, { fontFamily: EMOJI_FONT, fontSize: "18px" }).setOrigin(0.5).setDepth(6);
+      const icon = makeIcon(this, x, y - 11, def.icon, 22, EMOJI_FONT).setDepth(6); // スキルアイコン（自作SVG）
       const name = this.add.text(x, y + 14, def.name, { fontFamily: UI_FONT, fontSize: "11px", color: colorToCss(info.color) }).setOrigin(0.5).setDepth(6);
       // クールダウン表示：下から積まれた暗い幕（残りに比例して縮む）＋残りティック数
       const cdRect = this.add.rectangle(x, y + h / 2, w, h, 0x05050c, 0.74).setOrigin(0.5, 1).setDepth(7).setVisible(false);
@@ -1678,10 +1687,19 @@ export default class GameScene extends Phaser.Scene {
 
   // ---- 感情のケア（DR：溢れる前にそっと受け止める。任意・見守るだけでもOK）----
   maybeTriggerCare() {
-    if (this.careBtn || this.evolved && Math.random() < 0.5) return; // 進化後は控えめ
-    if (Math.random() >= C.CARE.chance) return;
+    if (this.careBtn) return;
     const lead = leadingEmotion(this.emotions);
     if (!lead.key || lead.value <= 0) return;
+    // 初回だけは確定で出し、意味を1度だけ説明する（30%抽選だと初見で理解されないため）。
+    // 永続prefで一度きり：距離60m未満・初ケア機会でのみ発火。
+    if (!getPref("careSeen") && this.distance < 60) {
+      setPref("careSeen", true);
+      this.pushLog("気持ちが あふれた…『受けとめる』を タップすると 心が 軽くなる");
+      this.triggerCare(lead.key);
+      return;
+    }
+    if (this.evolved && Math.random() < 0.5) return; // 進化後は控えめ
+    if (Math.random() >= C.CARE.chance) return;
     this.triggerCare(lead.key);
   }
 
@@ -1864,12 +1882,15 @@ export default class GameScene extends Phaser.Scene {
       const icon = this.add.text(x, cardY - 64, form.icon, { fontFamily: EMOJI_FONT, fontSize: "44px" }).setOrigin(0.5);
       const title = this.add.text(x, cardY - 6, form.name, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(form.color || 0xffffff), align: "center", wordWrap: { width: cardW - 12 } }).setOrigin(0.5);
       const kindLabel = form.kind === "triple" ? "三重しんか" : form.kind === "double" ? "こんごうしんか" : "しんか";
-      const desc = this.add.text(x, cardY + 48, `〈${form.label}〉\n${kindLabel}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#b8b8c8", align: "center", lineSpacing: 4, wordWrap: { width: cardW - 14 } }).setOrigin(0.5);
+      const desc = this.add.text(x, cardY + 42, `〈${form.label}〉\n${kindLabel}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#b8b8c8", align: "center", lineSpacing: 4, wordWrap: { width: cardW - 14 } }).setOrigin(0.5);
+      // どの姿でも初進化はステータス強化される、を明示（何が起きるか分からない不安をなくす）
+      const gainTxt = `こうげき・HP ×${C.EVOLUTION.statMultiplier}`;
+      const gain = this.add.text(x, cardY + 84, gainTxt, { fontFamily: UI_FONT, fontSize: "11px", color: "#bfffbf", align: "center", wordWrap: { width: cardW - 14 } }).setOrigin(0.5);
       const picked = form;
       card.on("pointerover", () => card.setFillStyle(0x1e1e2c, 0.98));
       card.on("pointerout", () => card.setFillStyle(0x14141f, 0.98));
       card.on("pointerdown", () => this.chooseEvolution(c, picked));
-      c.add([card, icon, title, desc]);
+      c.add([card, icon, title, desc, gain]);
       x += cardW + gap;
     }
     const skip = this.add.text(this.W / 2, this.H - 92, "まだ しんかしない", { fontFamily: UI_FONT, fontSize: "14px", color: "#8a8aa0" }).setOrigin(0.5).setInteractive({ useHandCursor: true });

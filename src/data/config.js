@@ -113,7 +113,10 @@ export const EVOLUTION_STAGES = {
 // ---- 混合進化（設計書§11：2系統が拮抗→混ざった姿へ・全6種）----
 //  キーは EMOTION_ORDER 順にソートした2感情を "+"。個体名＝カタカナ／種族＝漢字。
 export const MIXED_EVOLUTION = {
-  ratio: 0.7, // 2位が1位のこの割合以上なら"拮抗"とみなし混合進化
+  // 2位が1位のこの割合以上なら"拮抗"とみなし混合進化を「選べる」。
+  //  0.7だと1感情に少し偏るだけで混合が出ず「分岐できない」体感になっていた。
+  //  0.5に緩和＝2位が1位の半分あれば混合が候補に出る＝分岐が現実的に楽しめる。
+  ratio: 0.5,
   forms: {
     "anger+sadness": { name: "ドウコク", label: "慟哭の鬼", icon: "👹", color: 0xc0506a },
     "anger+courage": { name: "フンジン", label: "疾る焔", icon: "☄️", color: 0xff7a3b },
