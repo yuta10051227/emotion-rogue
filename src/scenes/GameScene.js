@@ -368,11 +368,11 @@ export default class GameScene extends Phaser.Scene {
     c.removeAll(true);
     const cx = this.W / 2;
     const cy = this.H / 2;
-    const bg = this.add.rectangle(cx, cy, this.W, this.H, 0x05050c, 0.92).setInteractive();
-    const card = this.add.rectangle(cx, cy, this.W - 30, 430, 0x12121c).setStrokeStyle(1, 0x33334a);
+    const bg = this.add.rectangle(cx, cy, this.W, this.H, 0x1a2a3e, 0.55).setInteractive();
+    const card = this.add.rectangle(cx, cy, this.W - 30, 430, 0xf3f8ff, 0.98).setStrokeStyle(1, 0xaecbe8);
     c.add([bg, card]);
-    c.add(this.add.text(cx, cy - 192, "強化（この旅だけ・倒れたら1から）", { fontFamily: UI_FONT, fontSize: "18px", color: "#e8e8ef" }).setOrigin(0.5));
-    c.add(this.add.text(cx, cy - 164, `💰 ${this.coins}`, { fontFamily: UI_FONT, fontSize: "20px", color: "#ffd24d" }).setOrigin(0.5));
+    c.add(this.add.text(cx, cy - 192, "強化（この旅だけ・倒れたら1から）", { fontFamily: UI_FONT, fontSize: "18px", color: "#22344a" }).setOrigin(0.5));
+    c.add(this.add.text(cx, cy - 164, `💰 ${this.coins}`, { fontFamily: UI_FONT, fontSize: "20px", color: "#b8860b" }).setOrigin(0.5));
 
     let y = cy - 120;
     for (const it of C.UPGRADES.items) {
@@ -380,12 +380,12 @@ export default class GameScene extends Phaser.Scene {
       const cost = this.upgradeCost(it.key);
       const can = this.coins >= cost;
       const bonus = it.kind === "pct" ? `+${Math.round(it.per * lv * 100)}%` : `+${it.per * lv}`;
-      const row = this.add.rectangle(cx, y, this.W - 60, 54, 0x191926).setStrokeStyle(1, 0x33334a);
+      const row = this.add.rectangle(cx, y, this.W - 60, 54, 0xffffff).setStrokeStyle(1, 0xd6e2f0);
       const icon = this.add.text(54, y, it.icon, { fontFamily: EMOJI_FONT, fontSize: "22px" }).setOrigin(0.5);
-      const nm = this.add.text(80, y - 10, `${it.label}　Lv${lv}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#e8e8ef" }).setOrigin(0, 0.5);
-      const ds = this.add.text(80, y + 11, `現在 ${bonus}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0, 0.5);
-      const btn = this.add.rectangle(this.W - 86, y, 96, 38, can ? 0x2a3a2a : 0x202028).setStrokeStyle(1, can ? 0x4caf50 : 0x33334a).setInteractive({ useHandCursor: can });
-      const bt = this.add.text(this.W - 86, y, `💰${cost}`, { fontFamily: UI_FONT, fontSize: "14px", color: can ? "#bfffbf" : "#777" }).setOrigin(0.5);
+      const nm = this.add.text(80, y - 10, `${it.label}　Lv${lv}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#22344a" }).setOrigin(0, 0.5);
+      const ds = this.add.text(80, y + 11, `現在 ${bonus}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#4c5e76" }).setOrigin(0, 0.5);
+      const btn = this.add.rectangle(this.W - 86, y, 96, 38, can ? 0x4caf50 : 0xe6ebf2).setStrokeStyle(1, can ? 0x2e7d32 : 0xc2ccd8).setInteractive({ useHandCursor: can });
+      const bt = this.add.text(this.W - 86, y, `💰${cost}`, { fontFamily: UI_FONT, fontSize: "14px", color: can ? "#ffffff" : "#9aa5b3" }).setOrigin(0.5);
       if (can) {
         btn.on("pointerdown", () => {
           if (this.buyUpgrade(it.key)) this.buildUpgradePanel();
@@ -397,8 +397,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // おまかせ（自動投資）トグル
-    const tg = this.add.rectangle(cx, cy + 142, this.W - 60, 38, this.autoInvest ? 0x1c2c1c : 0x191926).setStrokeStyle(1, this.autoInvest ? 0x4caf50 : 0x33334a).setInteractive({ useHandCursor: true });
-    const tgt = this.add.text(cx, cy + 142, this.autoInvest ? "おまかせ強化：ON（自動で投資・見守るだけでOK）" : "おまかせ強化：OFF（自分で配分する）", { fontFamily: UI_FONT, fontSize: "13px", color: this.autoInvest ? "#bfffbf" : "#cfcfe0" }).setOrigin(0.5);
+    const tg = this.add.rectangle(cx, cy + 142, this.W - 60, 38, this.autoInvest ? 0xeef7e4 : 0xffffff).setStrokeStyle(1, this.autoInvest ? 0x4caf50 : 0xd6e2f0).setInteractive({ useHandCursor: true });
+    const tgt = this.add.text(cx, cy + 142, this.autoInvest ? "おまかせ強化：ON（自動で投資・見守るだけでOK）" : "おまかせ強化：OFF（自分で配分する）", { fontFamily: UI_FONT, fontSize: "13px", color: this.autoInvest ? "#2e7d32" : "#4c5e76" }).setOrigin(0.5);
     tg.on("pointerdown", () => {
       this.autoInvest = !this.autoInvest;
       setPref("autoInvest", this.autoInvest);
@@ -406,11 +406,11 @@ export default class GameScene extends Phaser.Scene {
       this.buildUpgradePanel();
     });
     // おまかせの中身を明示（autoInvestSpend は "いちばん安い強化" から順に買う）
-    const hint = this.add.text(cx, cy + 165, "≫ おまかせは 安い強化から 自動で 投資", { fontFamily: UI_FONT, fontSize: "11px", color: "#8a8aa0" }).setOrigin(0.5);
+    const hint = this.add.text(cx, cy + 165, "≫ おまかせは 安い強化から 自動で 投資", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0.5);
     c.add([tg, tgt, hint]);
 
-    const close = this.add.rectangle(cx, cy + 194, 160, 38, 0x1c1c2a).setStrokeStyle(1, 0x4a4a66).setInteractive({ useHandCursor: true });
-    const ct = this.add.text(cx, cy + 194, "閉じる", { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }).setOrigin(0.5);
+    const close = this.add.rectangle(cx, cy + 194, 160, 38, 0xe9f1fb).setStrokeStyle(1, 0xaecbe8).setInteractive({ useHandCursor: true });
+    const ct = this.add.text(cx, cy + 194, "閉じる", { fontFamily: UI_FONT, fontSize: "16px", color: "#22344a" }).setOrigin(0.5);
     close.on("pointerdown", () => this.closeUpgradePanel());
     c.add([close, ct]);
   }

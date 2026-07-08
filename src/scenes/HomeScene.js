@@ -355,7 +355,7 @@ export default class HomeScene extends Phaser.Scene {
     // 魂パネル
     const px = this.W / 2;
     const py = 286;
-    this.add.rectangle(px, py, this.W - 40, 112, 0x14141f).setStrokeStyle(1, 0x2e2e44);
+    this.add.rectangle(px, py, this.W - 40, 112, 0xf3f8ff, 0.98).setStrokeStyle(1, 0xaecbe8);
     let domKey = null;
     let domVal = 0;
     for (const k of C.EMOTION_ORDER) {
@@ -365,25 +365,25 @@ export default class HomeScene extends Phaser.Scene {
       }
     }
     const domStr = domKey ? `${C.EMOTIONS[domKey].icon}${C.EMOTIONS[domKey].label}（共鳴）` : "まだ、無い";
-    this.add.text(px, py - 38, `魂レベル ${s.soul.level}　／　転生 ${s.soul.rebirths} 回`, { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }).setOrigin(0.5);
-    this.add.text(px, py - 14, `最高到達 ${s.soul.bestDistance}m`, { fontFamily: UI_FONT, fontSize: "14px", color: "#9a9aac" }).setOrigin(0.5);
-    this.add.text(px, py + 10, `記憶の傾向： ${domStr}`, { fontFamily: UI_FONT, fontSize: "14px", color: "#9a9aac" }).setOrigin(0.5);
+    this.add.text(px, py - 38, `魂レベル ${s.soul.level}　／　転生 ${s.soul.rebirths} 回`, { fontFamily: UI_FONT, fontSize: "16px", color: "#22344a" }).setOrigin(0.5);
+    this.add.text(px, py - 14, `最高到達 ${s.soul.bestDistance}m`, { fontFamily: UI_FONT, fontSize: "14px", color: "#4c5e76" }).setOrigin(0.5);
+    this.add.text(px, py + 10, `記憶の傾向： ${domStr}`, { fontFamily: UI_FONT, fontSize: "14px", color: "#4c5e76" }).setOrigin(0.5);
     const bondStr = s.bonds.met > 0 ? `これまでに出会った仲間　${s.bonds.met}　（みんな、光に還った）` : "まだ、誰とも出会っていない";
-    this.add.text(px, py + 34, bondStr, { fontFamily: UI_FONT, fontSize: "13px", color: "#c79ad0" }).setOrigin(0.5);
+    this.add.text(px, py + 34, bondStr, { fontFamily: UI_FONT, fontSize: "13px", color: "#9a5aa8" }).setOrigin(0.5);
 
     // 導く心のツリー（左）と 仲間の編成（右）
     this.treeBtn = this.makeButton(this.W / 2 - 96, 374, 186, 46, "", () => this.openTreePanel(), {
-      color: 0x1a2230,
-      stroke: 0x5a7aa0,
-      hover: 0x243246,
-      textColor: "#bfe0ff",
+      color: 0xe9f1fb,
+      stroke: 0x5a9ad0,
+      hover: 0xdbe8f7,
+      textColor: "#1f6aa8",
       fontSize: "16px",
     });
     this.partyBtn = this.makeButton(this.W / 2 + 96, 374, 186, 46, "", () => this.openPartyPanel(), {
-      color: 0x261a30,
+      color: 0xf1e9fb,
       stroke: 0xa06ac0,
-      hover: 0x33224a,
-      textColor: "#e6c2ff",
+      hover: 0xe7dbf7,
+      textColor: "#7a3ba8",
       fontSize: "16px",
     });
     // 導く心=🌳／仲間=🤝 のアイコンをボタン左に固定配置し、文字は右へ左寄せに（ラベルは動的更新）
@@ -402,13 +402,13 @@ export default class HomeScene extends Phaser.Scene {
     const ty = 426;
     const by = 478;
     // 感情色のネオンを縁に一滴ずつ（勇気=装備／怒り=制作／悲しみ=結晶／希望=お知らせ）
-    this.makeButton(lx, ty, bw, bh, "🛡 装備変更", () => this.openEquipPanel(), { stroke: 0xffd24d, textColor: "#ffe9b0" });
-    this.makeButton(rx, ty, bw, bh, "🔨 制作", () => this.openCraftPanel(), { stroke: 0xff4d4d, textColor: "#ffc2c2" });
-    this.makeButton(lx, by, bw, bh, "💎 結晶", () => this.openItemPanel(), { stroke: 0x4d9fff, textColor: "#c2ddff" });
-    this.noticeBtn = this.makeButton(rx, by, bw, bh, "📜 お知らせ", () => this.openNoticePanel("ops"), { stroke: 0xf0f0f0, textColor: "#f0f0f0" });
+    this.makeButton(lx, ty, bw, bh, "🛡 装備変更", () => this.openEquipPanel(), { stroke: 0xd4a017, textColor: "#b8860b" });
+    this.makeButton(rx, ty, bw, bh, "🔨 制作", () => this.openCraftPanel(), { stroke: 0xff4d4d, textColor: "#c23b3b" });
+    this.makeButton(lx, by, bw, bh, "💎 結晶", () => this.openItemPanel(), { stroke: 0x4d9fff, textColor: "#1f6aa8" });
+    this.noticeBtn = this.makeButton(rx, by, bw, bh, "📜 お知らせ", () => this.openNoticePanel("ops"), { stroke: 0x9fb4cc, textColor: "#4c5e76" });
     this.refreshNoticeBadge();
     // あかし（実績）：横長で1段追加
-    this.achieveBtn = this.makeButton(this.W / 2, 524, bw * 2 + 8, 36, "🏅 あかし", () => this.openAchievementsPanel(), { stroke: 0xd0a840, textColor: "#ffe9b0", fontSize: "15px" });
+    this.achieveBtn = this.makeButton(this.W / 2, 524, bw * 2 + 8, 36, "🏅 あかし", () => this.openAchievementsPanel(), { stroke: 0xd0a840, textColor: "#b8860b", fontSize: "15px" });
     this.refreshAchieveBadge();
     this.refreshTreeBadge(); // 上げられるツリーがあれば赤ドット
 
@@ -419,10 +419,10 @@ export default class HomeScene extends Phaser.Scene {
     // 出発（深淵トグルがある時は少し下げてスペースを作る）
     const departY = abyss ? 604 : 576;
     this.departBtn = this.makeButton(this.W / 2, departY, 300, abyss ? 52 : 64, "▶ 出発する", () => this.openLoadoutPanel(), {
-      color: 0x2a3a2a,
-      stroke: 0x4caf50,
-      hover: 0x354a35,
-      textColor: "#bfffbf",
+      color: 0x4caf50,
+      stroke: 0x2e7d32,
+      hover: 0x43a047,
+      textColor: "#ffffff",
       fontSize: "22px",
     });
     this.departY = departY;
@@ -526,8 +526,8 @@ export default class HomeScene extends Phaser.Scene {
       const lv = townLevel();
       const bonus = Math.round(C.COMPANION.idle.townBonusPerLevel * (lv - 1) * 100);
       const stay = s.party.bonded.filter((b) => !b.active);
-      c.add(this.add.text(this.W / 2, 116, `街レベル ${lv}　（生産 +${bonus}%）`, { fontFamily: UI_FONT, fontSize: "17px", color: "#bfe0ff" }).setOrigin(0.5));
-      c.add(this.add.text(this.W / 2, 140, `留守番 ${stay.length} 体　／　次のLvまで 転生 ${C.COMPANION.idle.townRebirthsPerLevel - (s.soul.rebirths % C.COMPANION.idle.townRebirthsPerLevel)} 回`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 116, `街レベル ${lv}　（生産 +${bonus}%）`, { fontFamily: UI_FONT, fontSize: "17px", color: "#1f6aa8" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 140, `留守番 ${stay.length} 体　／　次のLvまで 転生 ${C.COMPANION.idle.townRebirthsPerLevel - (s.soul.rebirths % C.COMPANION.idle.townRebirthsPerLevel)} 回`, { fontFamily: UI_FONT, fontSize: "12px", color: "#4c5e76" }).setOrigin(0.5));
 
       // 街の空気（pixel遠景を薄く敷く）
       if (this.textures.exists("bg_far")) c.add(this.add.image(this.W / 2, 250, "bg_far").setDisplaySize(this.W - 24, 130).setAlpha(0.25));
@@ -547,7 +547,7 @@ export default class HomeScene extends Phaser.Scene {
         else c.add(this.add.text(cx, cy - 42, info.icon, { fontFamily: EMOJI_FONT, fontSize: "40px" }).setOrigin(0.5));
         c.add(this.add.text(cx, cy + 8, C.COMPANION.spots[k], { fontFamily: UI_FONT, fontSize: "13px", color: colorToCss(info.color) }).setOrigin(0.5));
         if (!here.length) {
-          c.add(this.add.text(cx, cy + 34, "（誰もいない）", { fontFamily: UI_FONT, fontSize: "11px", color: "#55556a" }).setOrigin(0.5));
+          c.add(this.add.text(cx, cy + 34, "（誰もいない）", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0.5));
         } else {
           here.slice(0, 3).forEach((b, j) => {
             const x = cx - 30 + j * 30;
@@ -556,7 +556,7 @@ export default class HomeScene extends Phaser.Scene {
             this.tweens.add({ targets: spr, y: yy - 3, duration: 480 + j * 70, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
             c.add(spr);
           });
-          c.add(this.add.text(cx, cy + 58, `${here.length}体が採取中`, { fontFamily: UI_FONT, fontSize: "10px", color: "#9a9aac" }).setOrigin(0.5));
+          c.add(this.add.text(cx, cy + 58, `${here.length}体が採取中`, { fontFamily: UI_FONT, fontSize: "10px", color: "#4c5e76" }).setOrigin(0.5));
         }
       });
 
@@ -565,10 +565,10 @@ export default class HomeScene extends Phaser.Scene {
       const ny = 512;
       if (this.textures.exists("town_nest")) c.add(this.add.image(this.W / 2 - 70, ny, "town_nest").setDisplaySize(66, 66));
       else c.add(this.add.text(this.W / 2 - 70, ny, "🥚", { fontFamily: EMOJI_FONT, fontSize: "34px" }).setOrigin(0.5));
-      c.add(this.add.text(this.W / 2 - 28, ny - 10, eggs > 0 ? `感情の卵 ×${eggs}` : "卵はまだない", { fontFamily: UI_FONT, fontSize: "14px", color: eggs > 0 ? "#ffe0a0" : "#7a7a90" }).setOrigin(0, 0.5));
-      c.add(this.add.text(this.W / 2 - 28, ny + 12, eggs > 0 ? "次の旅で孵る" : "2体以上を同行させると生まれる", { fontFamily: UI_FONT, fontSize: "10px", color: "#8a8aa0" }).setOrigin(0, 0.5));
+      c.add(this.add.text(this.W / 2 - 28, ny - 10, eggs > 0 ? `感情の卵 ×${eggs}` : "卵はまだない", { fontFamily: UI_FONT, fontSize: "14px", color: eggs > 0 ? "#b8860b" : "#74839a" }).setOrigin(0, 0.5));
+      c.add(this.add.text(this.W / 2 - 28, ny + 12, eggs > 0 ? "次の旅で孵る" : "2体以上を同行させると生まれる", { fontFamily: UI_FONT, fontSize: "10px", color: "#74839a" }).setOrigin(0, 0.5));
 
-      c.add(this.add.text(this.W / 2, 566, "留守番の仲間が、合う場所で素材を集める。街は転生で育つ。", { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80", align: "center", wordWrap: { width: this.W - 60 } }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 566, "留守番の仲間が、合う場所で素材を集める。街は転生で育つ。", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a", align: "center", wordWrap: { width: this.W - 60 } }).setOrigin(0.5));
     });
   }
 
@@ -585,17 +585,17 @@ export default class HomeScene extends Phaser.Scene {
     const cardH = 168 + entries.length * 30;
     const cy = this.H / 2 - 40;
     const c = this.add.container(0, 0).setDepth(300).setAlpha(0);
-    const bg = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x000008, 0.72).setInteractive();
+    const bg = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x1a2a3e, 0.55).setInteractive();
     const card = this.add.graphics();
-    card.fillStyle(0x101018, 0.97);
+    card.fillStyle(0xf3f8ff, 0.98);
     card.fillRoundedRect(this.W / 2 - cardW / 2, cy - cardH / 2, cardW, cardH, 14);
-    card.lineStyle(1, 0x3a3a55, 1);
+    card.lineStyle(1, 0xaecbe8, 1);
     card.strokeRoundedRect(this.W / 2 - cardW / 2, cy - cardH / 2, cardW, cardH, 14);
     let y = cy - cardH / 2 + 34;
-    const title = this.add.text(this.W / 2, y, "─ おかえりなさい ─", { fontFamily: DISPLAY_FONT, fontSize: "20px", color: "#e8ecf8" }).setOrigin(0.5);
+    const title = this.add.text(this.W / 2, y, "─ おかえりなさい ─", { fontFamily: DISPLAY_FONT, fontSize: "20px", color: "#1c3a5a" }).setOrigin(0.5);
     y += 28;
     const hoursDisp = Math.round((idle.hours || 0) * 10) / 10;
-    const sub = this.add.text(this.W / 2, y, `留守番の ${idle.workers}体が ${hoursDisp}時間 働いてくれた`, { fontFamily: UI_FONT, fontSize: "12px", color: "#8a8aa0" }).setOrigin(0.5);
+    const sub = this.add.text(this.W / 2, y, `留守番の ${idle.workers}体が ${hoursDisp}時間 働いてくれた`, { fontFamily: UI_FONT, fontSize: "12px", color: "#4c5e76" }).setOrigin(0.5);
     y += 30;
     c.add([bg, card, title, sub]);
     for (const [k, v] of entries) {
@@ -606,7 +606,7 @@ export default class HomeScene extends Phaser.Scene {
     const ok = this.makeButton(this.W / 2, cy + cardH / 2 - 40, 180, 44, "受け取る", () => {
       sfx.coin();
       this.tweens.add({ targets: c, alpha: 0, duration: 180, onComplete: () => c.destroy(true) });
-    }, { stroke: 0x4caf50, textColor: "#bfffbf" });
+    }, { color: 0x4caf50, stroke: 0x2e7d32, textColor: "#ffffff" });
     c.add([ok.gfx, ok.rect, ok.txt, ok.badge]);
     this.tweens.add({ targets: c, alpha: 1, duration: 240 });
   }
@@ -647,7 +647,7 @@ export default class HomeScene extends Phaser.Scene {
   buildAbyssToggle(unlocked) {
     if (!unlocked) return;
     const y = 552;
-    this.add.text(this.W / 2 - 60, y, "🕳 深淵に挑む", { fontFamily: UI_FONT, fontSize: "13px", color: "#c0a8e0" }).setOrigin(0.5);
+    this.add.text(this.W / 2 - 60, y, "🕳 深淵に挑む", { fontFamily: UI_FONT, fontSize: "13px", color: "#7a3ba8" }).setOrigin(0.5);
     const pill = this.add.graphics();
     const px = this.W / 2 + 78;
     const pw = 92;
@@ -655,13 +655,13 @@ export default class HomeScene extends Phaser.Scene {
     const drawPill = () => {
       const on = abyssActive();
       pill.clear();
-      pill.fillStyle(on ? 0x2a1050 : 0x1a1a24, 1);
+      pill.fillStyle(on ? 0x7a3ba8 : 0xe9f1fb, on ? 1 : 0.98);
       pill.fillRoundedRect(px - pw / 2, y - ph / 2, pw, ph, 13);
-      pill.lineStyle(1, on ? 0x8a5adf : 0x44445a, 1);
+      pill.lineStyle(1, on ? 0x5a1a88 : 0xaecbe8, 1);
       pill.strokeRoundedRect(px - pw / 2, y - ph / 2, pw, ph, 13);
-      pillT.setText(on ? "深淵ON" : "OFF").setColor(on ? "#c9a5ff" : "#8a8aa0");
+      pillT.setText(on ? "深淵ON" : "OFF").setColor(on ? "#ffffff" : "#74839a");
     };
-    const pillT = this.add.text(px, y, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#8a8aa0" }).setOrigin(0.5);
+    const pillT = this.add.text(px, y, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#74839a" }).setOrigin(0.5);
     const hit = this.add.rectangle(px, y, pw, ph, 0x000000, 0.001).setInteractive({ useHandCursor: true });
     hit.on("pointerdown", () => {
       setAbyss(!abyssActive());
@@ -670,7 +670,7 @@ export default class HomeScene extends Phaser.Scene {
       this.toast(abyssActive() ? "🕳 深淵に踏み込む。心して" : "深淵から離れた");
     });
     drawPill();
-    this.add.text(this.W / 2, y + 17, "敵×3の苛烈な旅。報酬も跳ねる（コイン×3・欠片×2）", { fontFamily: UI_FONT, fontSize: "10px", color: "#7a7a90" }).setOrigin(0.5);
+    this.add.text(this.W / 2, y + 17, "敵×3の苛烈な旅。報酬も跳ねる（コイン×3・欠片×2）", { fontFamily: UI_FONT, fontSize: "10px", color: "#74839a" }).setOrigin(0.5);
   }
 
   // 深淵ONのとき、出発ボタンの縁を紫に灯して思い出させる
@@ -690,11 +690,11 @@ export default class HomeScene extends Phaser.Scene {
       c.add(list);
       const items = achievementList();
       const unclaimed = items.filter((a) => a.done && !a.claimed).length;
-      c.add(this.add.text(unclaimed >= 2 ? 30 : this.W / 2, 118, unclaimed > 0 ? `受け取れる あかし　${unclaimed} 件` : "歩んだ道のりが、ここに残る", { fontFamily: UI_FONT, fontSize: "13px", color: unclaimed > 0 ? "#ffe08a" : "#8a8aa0" }).setOrigin(unclaimed >= 2 ? 0 : 0.5, 0.5));
+      c.add(this.add.text(unclaimed >= 2 ? 30 : this.W / 2, 118, unclaimed > 0 ? `受け取れる あかし　${unclaimed} 件` : "歩んだ道のりが、ここに残る", { fontFamily: UI_FONT, fontSize: "13px", color: unclaimed > 0 ? "#b8860b" : "#4c5e76" }).setOrigin(unclaimed >= 2 ? 0 : 0.5, 0.5));
       // ログウィズ流：まとめてワンタップ受け取り
       if (unclaimed >= 2) {
-        const all = this.add.rectangle(this.W - 84, 118, 118, 30, 0x3a3218).setStrokeStyle(1, 0xd0a840).setInteractive({ useHandCursor: true });
-        const allT = this.add.text(this.W - 84, 118, "まとめて受取", { fontFamily: UI_FONT, fontSize: "12px", color: "#ffe9b0" }).setOrigin(0.5);
+        const all = this.add.rectangle(this.W - 84, 118, 118, 30, 0xfbf3d8).setStrokeStyle(1, 0xd0a840).setInteractive({ useHandCursor: true });
+        const allT = this.add.text(this.W - 84, 118, "まとめて受取", { fontFamily: UI_FONT, fontSize: "12px", color: "#b8860b" }).setOrigin(0.5);
         all.on("pointerdown", () => {
           let satori = 0;
           let gold = 0;
@@ -724,25 +724,25 @@ export default class HomeScene extends Phaser.Scene {
       items.forEach((a) => {
         const d = a.def;
         const shown = Math.min(a.value, d.gte);
-        const row = this.add.rectangle(this.W / 2, y, this.W - 50, rowH, a.claimed ? 0x14141c : a.done ? 0x1e2416 : 0x181822).setStrokeStyle(1, a.claimed ? 0x2c2c3c : a.done ? 0x8a7a30 : 0x33334a);
+        const row = this.add.rectangle(this.W / 2, y, this.W - 50, rowH, a.claimed ? 0xe6ebf2 : a.done ? 0xeef7e4 : 0xffffff).setStrokeStyle(1, a.claimed ? 0xc2ccd8 : a.done ? 0xb5c96a : 0xd6e2f0);
         const ic = this.add.text(36, y, d.icon, { fontFamily: EMOJI_FONT, fontSize: "22px" }).setOrigin(0.5);
-        const nm = this.add.text(58, y - 16, d.name, { fontFamily: UI_FONT, fontSize: "14px", color: a.done ? "#ffd970" : "#e8e8ef" }).setOrigin(0, 0.5);
-        const ds = this.add.text(58, y + 1, d.desc, { fontFamily: UI_FONT, fontSize: "10px", color: "#8a8aa0" }).setOrigin(0, 0.5);
+        const nm = this.add.text(58, y - 16, d.name, { fontFamily: UI_FONT, fontSize: "14px", color: a.done ? "#b8860b" : "#22344a" }).setOrigin(0, 0.5);
+        const ds = this.add.text(58, y + 1, d.desc, { fontFamily: UI_FONT, fontSize: "10px", color: "#74839a" }).setOrigin(0, 0.5);
         const rw = [];
         if (d.reward && d.reward.satori) rw.push(`🧠悟り+${d.reward.satori}`);
         if (d.reward && d.reward.gold) rw.push(`💰+${d.reward.gold}`);
-        const pr = this.add.text(58, y + 17, `${shown}/${d.gte}　${rw.join(" ")}`, { fontFamily: UI_FONT, fontSize: "10px", color: a.done ? "#bfe0a0" : "#6a6a80" }).setOrigin(0, 0.5);
+        const pr = this.add.text(58, y + 17, `${shown}/${d.gte}　${rw.join(" ")}`, { fontFamily: UI_FONT, fontSize: "10px", color: a.done ? "#2e7d32" : "#74839a" }).setOrigin(0, 0.5);
         list.add([row, ic, nm, ds, pr]);
         // 右側：受領状態
         if (a.claimed) {
-          list.add(this.add.text(this.W - 40, y, "受領✓", { fontFamily: UI_FONT, fontSize: "13px", color: "#66667a" }).setOrigin(1, 0.5));
+          list.add(this.add.text(this.W - 40, y, "受領✓", { fontFamily: UI_FONT, fontSize: "13px", color: "#8a97a8" }).setOrigin(1, 0.5));
         } else if (a.done) {
-          const btn = this.add.rectangle(this.W - 66, y, 74, 32, 0x3a3218).setStrokeStyle(1, 0xd0a840);
-          const bt = this.add.text(this.W - 66, y, "受け取る", { fontFamily: UI_FONT, fontSize: "12px", color: "#ffe9b0" }).setOrigin(0.5);
+          const btn = this.add.rectangle(this.W - 66, y, 74, 32, 0xfbf3d8).setStrokeStyle(1, 0xd0a840);
+          const bt = this.add.text(this.W - 66, y, "受け取る", { fontFamily: UI_FONT, fontSize: "12px", color: "#b8860b" }).setOrigin(0.5);
           list.add([btn, bt]);
           rows.push({ id: d.id, y });
         } else {
-          list.add(this.add.text(this.W - 40, y, `${Math.floor((shown / d.gte) * 100)}%`, { fontFamily: UI_FONT, fontSize: "12px", color: "#55556a" }).setOrigin(1, 0.5));
+          list.add(this.add.text(this.W - 40, y, `${Math.floor((shown / d.gte) * 100)}%`, { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a" }).setOrigin(1, 0.5));
         }
         y += rowH + 8;
       });
@@ -759,14 +759,14 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   makeButton(x, y, w, h, label, onClick, opts = {}) {
-    // 角丸のガラス質ボタン（暗い盤面にネオンの縁だけが灯る）
-    const fill = opts.color ?? 0x14141f;
-    const border = opts.stroke ?? 0x3a3a52;
-    const hover = opts.hover ?? Phaser.Display.Color.IntegerToColor(fill).lighten(18).color;
+    // 角丸のカード風ボタン（明るい面に感情色の縁が灯る・ポケモン/デジモン級の快活さ）
+    const fill = opts.color ?? 0xf3f8ff;
+    const border = opts.stroke ?? 0xaecbe8;
+    const hover = opts.hover ?? Phaser.Display.Color.IntegerToColor(fill).darken(6).color;
     const gfx = this.add.graphics();
     const drawBg = (col) => {
       gfx.clear();
-      gfx.fillStyle(col, 0.92);
+      gfx.fillStyle(col, 0.98);
       gfx.fillRoundedRect(x - w / 2, y - h / 2, w, h, 10);
       gfx.lineStyle(1, border, 1);
       gfx.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 10);
@@ -786,11 +786,11 @@ export default class HomeScene extends Phaser.Scene {
       icon = makeIcon(this, ix, y, lead, 22, EMOJI_FONT);
       const rest = label.slice(lead.length).replace(/^\s+/, ""); // 先頭絵文字と続く空白を除去
       txt = this.add
-        .text(ix + 16, y, rest, { fontFamily: opts.font ?? UI_FONT, fontSize: opts.fontSize ?? "18px", color: opts.textColor ?? "#e8e8ef" })
+        .text(ix + 16, y, rest, { fontFamily: opts.font ?? UI_FONT, fontSize: opts.fontSize ?? "18px", color: opts.textColor ?? "#22344a" })
         .setOrigin(0, 0.5); // アイコンの右に左寄せ
     } else {
       txt = this.add
-        .text(x, y, label, { fontFamily: opts.font ?? UI_FONT, fontSize: opts.fontSize ?? "18px", color: opts.textColor ?? "#e8e8ef" })
+        .text(x, y, label, { fontFamily: opts.font ?? UI_FONT, fontSize: opts.fontSize ?? "18px", color: opts.textColor ?? "#22344a" })
         .setOrigin(0.5);
     }
     const badge = this.add
@@ -809,20 +809,20 @@ export default class HomeScene extends Phaser.Scene {
   openPanel(title, builder) {
     if (this.panel) this.panel.destroy(true);
     const c = this.add.container(0, 0).setDepth(200);
-    const bg = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x05050c, 0.96).setInteractive();
-    // 角丸カード（暗い紙に細い罫線 ── 文庫の扉のように）
+    const bg = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x1a2a3e, 0.55).setInteractive();
+    // 角丸カード（明るい紙に細い罫線 ── 図鑑の扉のように）
     const card = this.add.graphics();
     const cw = this.W - 24;
     const ch = this.H - 110;
-    card.fillStyle(0x101018, 0.97);
+    card.fillStyle(0xf3f8ff, 0.98);
     card.fillRoundedRect(this.W / 2 - cw / 2, this.H / 2 - ch / 2, cw, ch, 14);
-    card.lineStyle(1, 0x3a3a55, 1);
+    card.lineStyle(1, 0xaecbe8, 1);
     card.strokeRoundedRect(this.W / 2 - cw / 2, this.H / 2 - ch / 2, cw, ch, 14);
-    const titleT = this.add.text(this.W / 2, 80, title, { fontFamily: DISPLAY_FONT, fontSize: "24px", color: "#e8e8ef" }).setOrigin(0.5);
+    const titleT = this.add.text(this.W / 2, 80, title, { fontFamily: DISPLAY_FONT, fontSize: "24px", color: "#1c3a5a" }).setOrigin(0.5);
     // 題字の下に細い罫線
-    const rule = this.add.rectangle(this.W / 2, 100, cw - 60, 1, 0x33334a);
+    const rule = this.add.rectangle(this.W / 2, 100, cw - 60, 1, 0xaecbe8);
     const close = this.add
-      .text(this.W - 30, 66, "✕", { fontFamily: UI_FONT, fontSize: "26px", color: "#9a9aac" })
+      .text(this.W - 30, 66, "✕", { fontFamily: UI_FONT, fontSize: "26px", color: "#74839a" })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
     close.on("pointerdown", () => {
@@ -850,14 +850,14 @@ export default class HomeScene extends Phaser.Scene {
           .text(this.W / 2, 220, "魂・仲間・図鑑・悟り・装備など\nすべての進行が完全に消え、元に戻せません。", {
             fontFamily: UI_FONT,
             fontSize: "15px",
-            color: "#e0b0b0",
+            color: "#b03030",
             align: "center",
             lineSpacing: 8,
           })
           .setOrigin(0.5),
       );
-      const yes = this.makeButton(this.W / 2, 340, 280, 54, "すべて消す", () => { resetSave(); this.scene.restart(); }, { color: 0x3a1414, stroke: 0x8a3a3a, textColor: "#ff9a9a" });
-      const no = this.makeButton(this.W / 2, 410, 280, 54, "やめる", () => this.closeActivePanel(), { color: 0x1c2c1c, stroke: 0x4caf50, textColor: "#bfffbf" });
+      const yes = this.makeButton(this.W / 2, 340, 280, 54, "すべて消す", () => { resetSave(); this.scene.restart(); }, { color: 0xfbe6e6, stroke: 0xc23b3b, textColor: "#c23b3b" });
+      const no = this.makeButton(this.W / 2, 410, 280, 54, "やめる", () => this.closeActivePanel(), { color: 0x4caf50, stroke: 0x2e7d32, textColor: "#ffffff" });
       c.add([yes.rect, yes.txt, yes.badge, yes.gfx, no.rect, no.txt, no.badge, no.gfx]);
     });
   }
@@ -870,18 +870,18 @@ export default class HomeScene extends Phaser.Scene {
       const active = s.party.bonded.filter((b) => b.active).slice(0, C.COMPANION.maxParty);
       const rar = C.EQUIPMENT.rarities;
       let y = 132;
-      c.add(this.add.text(this.W / 2, y, "この編成で旅立ちますか？", { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, y, "この編成で旅立ちますか？", { fontFamily: UI_FONT, fontSize: "16px", color: "#22344a" }).setOrigin(0.5));
       y += 34;
-      c.add(this.add.text(this.W / 2, y, `キミ　❤${st.maxHp}　⚔${st.atk}　⚡${st.spd}　🛡${st.def}　🍀${st.luk}`, { fontFamily: UI_FONT, fontSize: "14px", color: "#cfcfe0" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, y, `キミ　❤${st.maxHp}　⚔${st.atk}　⚡${st.spd}　🛡${st.def}　🍀${st.luk}`, { fontFamily: UI_FONT, fontSize: "14px", color: "#4c5e76" }).setOrigin(0.5));
       y += 30;
       const eq = s.equipment.equipped.map((id) => s.equipment.owned.find((o) => o.id === id)).filter(Boolean);
       const eqTxt = eq.length ? eq.map((it) => it.name).join("・") : "装備なし";
-      c.add(this.add.text(this.W / 2, y, `🛡 ${eqTxt}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac", align: "center", wordWrap: { width: this.W - 70 } }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, y, `🛡 ${eqTxt}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#4c5e76", align: "center", wordWrap: { width: this.W - 70 } }).setOrigin(0.5));
       y += 32;
-      c.add(this.add.text(this.W / 2, y, `― 同行する仲間 (${active.length}/${C.COMPANION.maxParty}) ―`, { fontFamily: UI_FONT, fontSize: "12px", color: "#8a8aa0" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, y, `― 同行する仲間 (${active.length}/${C.COMPANION.maxParty}) ―`, { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a" }).setOrigin(0.5));
       y += 26;
       if (!active.length) {
-        c.add(this.add.text(this.W / 2, y, "（まだ仲間がいません。旅で出会えます）", { fontFamily: UI_FONT, fontSize: "12px", color: "#6a6a80" }).setOrigin(0.5));
+        c.add(this.add.text(this.W / 2, y, "（まだ仲間がいません。旅で出会えます）", { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a" }).setOrigin(0.5));
         y += 26;
       } else {
         active.forEach((b) => {
@@ -896,7 +896,7 @@ export default class HomeScene extends Phaser.Scene {
         if (departing) return;
         departing = true;
         this.scene.start("GameScene");
-      }, { color: 0x1a2a1a, stroke: 0x4caf50, hover: 0x254a2a, textColor: "#bfffbf", fontSize: "20px", font: DISPLAY_FONT });
+      }, { color: 0x4caf50, stroke: 0x2e7d32, hover: 0x43a047, textColor: "#ffffff", fontSize: "20px", font: DISPLAY_FONT });
       // 灯がゆっくり脈打つ（旅立ちの重み）
       this.tweens.add({ targets: [go.gfx, go.txt], alpha: 0.75, duration: 1000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
       c.add([go.rect, go.txt, go.badge, go.gfx]);
@@ -908,12 +908,12 @@ export default class HomeScene extends Phaser.Scene {
     this.openPanel("装備変更", (c) => {
       const s = getSave();
       const st = computeHeroStats();
-      c.add(this.add.text(this.W / 2, 122, `❤ ${st.maxHp}　⚔ ${st.atk}　⚡ ${st.spd}　🛡 ${st.def}　🍀 ${st.luk}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#e8e8ef" }).setOrigin(0.5));
-      c.add(this.add.text(this.W / 2, 146, `装備スロット ${s.equipment.equipped.length} / ${effectiveEquipSlots()}`, { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 122, `❤ ${st.maxHp}　⚔ ${st.atk}　⚡ ${st.spd}　🛡 ${st.def}　🍀 ${st.luk}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#22344a" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 146, `装備スロット ${s.equipment.equipped.length} / ${effectiveEquipSlots()}`, { fontFamily: UI_FONT, fontSize: "13px", color: "#4c5e76" }).setOrigin(0.5));
 
       const owned = s.equipment.owned;
       if (!owned.length) {
-        c.add(this.add.text(this.W / 2, 260, "装備がありません。\n冒険で拾うか、制作で作りましょう。", { fontFamily: UI_FONT, fontSize: "16px", color: "#9a9aac", align: "center", lineSpacing: 8 }).setOrigin(0.5));
+        c.add(this.add.text(this.W / 2, 260, "装備がありません。\n冒険で拾うか、制作で作りましょう。", { fontFamily: UI_FONT, fontSize: "16px", color: "#4c5e76", align: "center", lineSpacing: 8 }).setOrigin(0.5));
         return;
       }
       // 装備中を上に、その次に新しい順（作った装備・拾った装備が必ず見える）
@@ -923,7 +923,7 @@ export default class HomeScene extends Phaser.Scene {
         if (ea !== eb) return eb - ea;
         return b.id - a.id;
       });
-      c.add(this.add.text(this.W / 2, 168, `所持 ${owned.length} 件（装備中・新しい順／スクロール可）`, { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 168, `所持 ${owned.length} 件（装備中・新しい順／スクロール可）`, { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0.5));
       // 全件をスクロールリストに（11個目以降が装備できないバグ修正）
       const list = this.add.container(0, 0);
       const rows = [];
@@ -932,11 +932,11 @@ export default class HomeScene extends Phaser.Scene {
         const equipped = isEquipped(it.id);
         const rar = C.EQUIPMENT.rarities.find((r) => r.key === it.rarity) || C.EQUIPMENT.rarities[0];
         const row = this.add
-          .rectangle(this.W / 2, y, this.W - 50, 42, equipped ? 0x1c2c1c : 0x191926)
-          .setStrokeStyle(1, equipped ? 0x4caf50 : 0x33334a);
+          .rectangle(this.W / 2, y, this.W - 50, 42, equipped ? 0xeef7e4 : 0xffffff)
+          .setStrokeStyle(1, equipped ? 0x4caf50 : 0xd6e2f0);
         const nm = this.add.text(40, y - 10, `${it.name}〈${rar.label}〉`, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(rar.color) }).setOrigin(0, 0.5);
-        const stt = this.add.text(40, y + 9, `❤${it.hp}  ⚔${it.atk}  ⚡${it.spd}${it.def ? `  🛡${it.def}` : ""}${it.luk ? `  🍀${it.luk}` : ""}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0, 0.5);
-        const tag = this.add.text(this.W - 42, y, equipped ? "装備中" : "装備する", { fontFamily: UI_FONT, fontSize: "13px", color: equipped ? "#7fff9f" : "#cfcfe0" }).setOrigin(1, 0.5);
+        const stt = this.add.text(40, y + 9, `❤${it.hp}  ⚔${it.atk}  ⚡${it.spd}${it.def ? `  🛡${it.def}` : ""}${it.luk ? `  🍀${it.luk}` : ""}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#4c5e76" }).setOrigin(0, 0.5);
+        const tag = this.add.text(this.W - 42, y, equipped ? "装備中" : "装備する", { fontFamily: UI_FONT, fontSize: "13px", color: equipped ? "#2e7d32" : "#1f6aa8" }).setOrigin(1, 0.5);
         list.add([row, nm, stt, tag]);
         rows.push({ id: it.id, y });
         y += 48;
@@ -958,8 +958,8 @@ export default class HomeScene extends Phaser.Scene {
       // 上段タブ：装備 / アイテム
       const topTab = (x, key, label) => {
         const active = tab === key;
-        const r = this.add.rectangle(x, 104, 96, 32, active ? 0x2a2a40 : 0x16161f).setStrokeStyle(1, active ? 0x6a6aa0 : 0x33334a).setInteractive({ useHandCursor: true });
-        const t = this.add.text(x, 104, label, { fontFamily: UI_FONT, fontSize: "14px", color: active ? "#e8e8ef" : "#8a8aa0" }).setOrigin(0.5);
+        const r = this.add.rectangle(x, 104, 96, 32, active ? 0xdbe8f7 : 0xffffff).setStrokeStyle(1, active ? 0x5a9ad0 : 0xd6e2f0).setInteractive({ useHandCursor: true });
+        const t = this.add.text(x, 104, label, { fontFamily: UI_FONT, fontSize: "14px", color: active ? "#1f6aa8" : "#74839a" }).setOrigin(0.5);
         r.on("pointerdown", () => this.openCraftPanel(key, emotion));
         c.add([r, t]);
       };
@@ -969,20 +969,20 @@ export default class HomeScene extends Phaser.Scene {
       // ── アイテム制作 ──
       if (tab === "item") {
         const matStr = C.EMOTION_ORDER.map((k) => `${C.EMOTIONS[k].icon}${s.materials[k] || 0}`).join("　");
-        c.add(this.add.text(this.W / 2, 142, matStr, { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5));
+        c.add(this.add.text(this.W / 2, 142, matStr, { fontFamily: UI_FONT, fontSize: "13px", color: "#4c5e76" }).setOrigin(0.5));
         let y = 188;
         C.ITEM_ORDER.forEach((key) => {
           const def = C.ITEMS[key];
           const have = itemCount(key);
           const can = Object.entries(def.cost).every(([emo, n]) => (s.materials[emo] || 0) >= n);
           const costStr = Object.entries(def.cost).map(([emo, n]) => `${C.EMOTIONS[emo].icon}${n}`).join(" ");
-          const row = this.add.rectangle(this.W / 2, y, this.W - 50, 58, 0x191926).setStrokeStyle(1, 0x33334a);
+          const row = this.add.rectangle(this.W / 2, y, this.W - 50, 58, 0xffffff).setStrokeStyle(1, 0xd6e2f0);
           c.add(row);
-          c.add(this.add.text(36, y - 14, `${def.icon} ${def.label}　×${have}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#e8e8ef" }).setOrigin(0, 0.5));
-          c.add(this.add.text(36, y + 5, def.desc, { fontFamily: UI_FONT, fontSize: "11px", color: "#9a9aac" }).setOrigin(0, 0.5));
-          c.add(this.add.text(36, y + 21, `素材 ${costStr}`, { fontFamily: UI_FONT, fontSize: "11px", color: can ? "#8a8aa0" : "#6a5a5a" }).setOrigin(0, 0.5));
-          const btn = this.add.rectangle(this.W - 68, y, 80, 36, can ? 0x2a3a2a : 0x202028).setStrokeStyle(1, can ? 0x4caf50 : 0x33334a).setInteractive({ useHandCursor: can });
-          const btnT = this.add.text(this.W - 68, y, can ? "作る" : "不足", { fontFamily: UI_FONT, fontSize: "13px", color: can ? "#bfffbf" : "#777" }).setOrigin(0.5);
+          c.add(this.add.text(36, y - 14, `${def.icon} ${def.label}　×${have}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#22344a" }).setOrigin(0, 0.5));
+          c.add(this.add.text(36, y + 5, def.desc, { fontFamily: UI_FONT, fontSize: "11px", color: "#4c5e76" }).setOrigin(0, 0.5));
+          c.add(this.add.text(36, y + 21, `素材 ${costStr}`, { fontFamily: UI_FONT, fontSize: "11px", color: can ? "#74839a" : "#c07a7a" }).setOrigin(0, 0.5));
+          const btn = this.add.rectangle(this.W - 68, y, 80, 36, can ? 0x4caf50 : 0xe6ebf2).setStrokeStyle(1, can ? 0x2e7d32 : 0xc2ccd8).setInteractive({ useHandCursor: can });
+          const btnT = this.add.text(this.W - 68, y, can ? "作る" : "不足", { fontFamily: UI_FONT, fontSize: "13px", color: can ? "#ffffff" : "#9aa5b3" }).setOrigin(0.5);
           if (can) {
             btn.on("pointerdown", () => {
               const res = craftItem(key);
@@ -995,7 +995,7 @@ export default class HomeScene extends Phaser.Scene {
           c.add([btn, btnT]);
           y += 68;
         });
-        c.add(this.add.text(this.W / 2, y + 2, "アイテムは出撃時に自動で使われる", { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80" }).setOrigin(0.5));
+        c.add(this.add.text(this.W / 2, y + 2, "アイテムは出撃時に自動で使われる", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0.5));
         return;
       }
 
@@ -1006,8 +1006,8 @@ export default class HomeScene extends Phaser.Scene {
         const x = startX + tabW * i;
         const active = k === emotion;
         const r = this.add
-          .rectangle(x, 142, 54, 38, active ? 0x2a2a40 : 0x16161f)
-          .setStrokeStyle(1, active ? C.EMOTIONS[k].color : 0x33334a)
+          .rectangle(x, 142, 54, 38, active ? 0xe9f1fb : 0xffffff)
+          .setStrokeStyle(1, active ? C.EMOTIONS[k].color : 0xd6e2f0)
           .setInteractive({ useHandCursor: true });
         const t = this.add.text(x, 142, C.EMOTIONS[k].icon, { fontFamily: EMOJI_FONT, fontSize: "22px" }).setOrigin(0.5);
         r.on("pointerdown", () => this.openCraftPanel("equip", k));
@@ -1016,20 +1016,20 @@ export default class HomeScene extends Phaser.Scene {
 
       const emo = C.EMOTIONS[emotion];
       const have = s.materials[emotion] || 0;
-      c.add(this.add.text(this.W / 2, 188, `${emo.icon}${emo.label}の素材： ${have}`, { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 188, `${emo.icon}${emo.label}の素材： ${have}`, { fontFamily: UI_FONT, fontSize: "16px", color: "#22344a" }).setOrigin(0.5));
 
       let y = 230;
       C.EQUIPMENT.rarities.forEach((rar) => {
         const cost = C.CRAFT.costs[rar.key];
         const can = have >= cost;
-        const row = this.add.rectangle(this.W / 2, y, this.W - 50, 50, 0x191926).setStrokeStyle(1, 0x33334a);
+        const row = this.add.rectangle(this.W / 2, y, this.W - 50, 50, 0xffffff).setStrokeStyle(1, 0xd6e2f0);
         const label = this.add.text(38, y - 9, `${emo.label}の残響〈${rar.label}〉`, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(rar.color) }).setOrigin(0, 0.5);
-        const costT = this.add.text(38, y + 12, `素材 ${cost}`, { fontFamily: UI_FONT, fontSize: "12px", color: can ? "#9a9aac" : "#6a5a5a" }).setOrigin(0, 0.5);
+        const costT = this.add.text(38, y + 12, `素材 ${cost}`, { fontFamily: UI_FONT, fontSize: "12px", color: can ? "#4c5e76" : "#c07a7a" }).setOrigin(0, 0.5);
         const btn = this.add
-          .rectangle(this.W - 72, y, 84, 34, can ? 0x2a3a2a : 0x202028)
-          .setStrokeStyle(1, can ? 0x4caf50 : 0x33334a)
+          .rectangle(this.W - 72, y, 84, 34, can ? 0x4caf50 : 0xe6ebf2)
+          .setStrokeStyle(1, can ? 0x2e7d32 : 0xc2ccd8)
           .setInteractive({ useHandCursor: can });
-        const btnT = this.add.text(this.W - 72, y, can ? "作る" : "素材不足", { fontFamily: UI_FONT, fontSize: "13px", color: can ? "#bfffbf" : "#777" }).setOrigin(0.5);
+        const btnT = this.add.text(this.W - 72, y, can ? "作る" : "素材不足", { fontFamily: UI_FONT, fontSize: "13px", color: can ? "#ffffff" : "#9aa5b3" }).setOrigin(0.5);
         if (can) {
           btn.on("pointerdown", () => {
             const res = craftEquipment(emotion, rar.key);
@@ -1043,7 +1043,7 @@ export default class HomeScene extends Phaser.Scene {
         y += 60;
       });
 
-      c.add(this.add.text(this.W / 2, y + 8, "作った装備は「装備変更」から装備できます", { fontFamily: UI_FONT, fontSize: "12px", color: "#6a6a80" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, y + 8, "作った装備は「装備変更」から装備できます", { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a" }).setOrigin(0.5));
     });
   }
 
@@ -1062,24 +1062,24 @@ export default class HomeScene extends Phaser.Scene {
       c.add(this.add.text(this.W / 2, 176, `${rar.star}【${rar.label}】`, { fontFamily: UI_FONT, fontSize: "13px", color: colorToCss(rar.color) }).setOrigin(0.5));
       c.add(this.add.text(this.W / 2, 197, `〈${info.label}・${b.roleLabel}〉${b.evo ? "  ✦進化" : ""}　Lv${b.level || 1}`, { fontFamily: UI_FONT, fontSize: "13px", color: col }).setOrigin(0.5));
       const statStr = b.role === "healer" ? `✚ 癒し ${b.heal}　⚡ 速さ ${b.spd}` : `⚔ 攻撃 ${b.atk}　⚡ 速さ ${b.spd}`;
-      c.add(this.add.text(this.W / 2, 212, statStr, { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 212, statStr, { fontFamily: UI_FONT, fontSize: "16px", color: "#22344a" }).setOrigin(0.5));
       const voice = "●".repeat(b.stage) + "○".repeat(4 - b.stage);
-      c.add(this.add.text(this.W / 2, 238, `声 ${voice}　／　ともに歩んだ旅 ${b.runs || 0} 回`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 238, `声 ${voice}　／　ともに歩んだ旅 ${b.runs || 0} 回`, { fontFamily: UI_FONT, fontSize: "12px", color: "#4c5e76" }).setOrigin(0.5));
 
       // 出自の一言（この子は、誰かが捨てた感情）
       const origins = C.COMPANION.origins[b.emotion] || [""];
       const origin = origins[(b.originIdx || 0) % origins.length] || "";
-      c.add(this.add.rectangle(this.W / 2, 298, this.W - 60, 56, 0x14141f).setStrokeStyle(1, 0x33334a));
-      c.add(this.add.text(this.W / 2, 282, "── 出自 ──", { fontFamily: UI_FONT, fontSize: "11px", color: "#55556a" }).setOrigin(0.5));
-      c.add(this.add.text(this.W / 2, 303, origin, { fontFamily: UI_FONT, fontSize: "13px", color: "#cfc6ba", align: "center", wordWrap: { width: this.W - 84 } }).setOrigin(0.5));
+      c.add(this.add.rectangle(this.W / 2, 298, this.W - 60, 56, 0xe9f1fb, 0.98).setStrokeStyle(1, 0xaecbe8));
+      c.add(this.add.text(this.W / 2, 282, "── 出自 ──", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 303, origin, { fontFamily: UI_FONT, fontSize: "13px", color: "#6a5e4c", align: "center", wordWrap: { width: this.W - 84 } }).setOrigin(0.5));
 
       // お金で個体強化
       const cost = companionUpgradeCost(b);
       const gold = getSave().gold;
       const can = gold >= cost;
-      c.add(this.add.text(this.W / 2, 356, `🪙 ${gold}`, { fontFamily: UI_FONT, fontSize: "14px", color: "#ffe08a" }).setOrigin(0.5));
-      const up = this.add.rectangle(this.W / 2, 394, 250, 46, can ? 0x2a3a2a : 0x202028).setStrokeStyle(1, can ? 0x4caf50 : 0x33334a).setInteractive({ useHandCursor: can });
-      const upT = this.add.text(this.W / 2, 394, can ? `育てる（🪙 ${cost}）` : `お金不足（🪙 ${cost}）`, { fontFamily: UI_FONT, fontSize: "16px", color: can ? "#bfffbf" : "#777" }).setOrigin(0.5);
+      c.add(this.add.text(this.W / 2, 356, `🪙 ${gold}`, { fontFamily: UI_FONT, fontSize: "14px", color: "#b8860b" }).setOrigin(0.5));
+      const up = this.add.rectangle(this.W / 2, 394, 250, 46, can ? 0x4caf50 : 0xe6ebf2).setStrokeStyle(1, can ? 0x2e7d32 : 0xc2ccd8).setInteractive({ useHandCursor: can });
+      const upT = this.add.text(this.W / 2, 394, can ? `育てる（🪙 ${cost}）` : `お金不足（🪙 ${cost}）`, { fontFamily: UI_FONT, fontSize: "16px", color: can ? "#ffffff" : "#9aa5b3" }).setOrigin(0.5);
       if (can) {
         // ログウィズ流QoL：長押しで連続強化（トントン連打しなくていい）。離した時に画面を更新。
         let holdDelay = null;
@@ -1132,16 +1132,16 @@ export default class HomeScene extends Phaser.Scene {
       c.add([up, upT]);
 
       // 編成・見送る
-      const tog = this.add.rectangle(this.W / 2 - 70, 456, 124, 40, b.active ? 0x1c3a1c : 0x202028).setStrokeStyle(1, b.active ? 0x4caf50 : 0x33334a).setInteractive({ useHandCursor: true });
-      const togT = this.add.text(this.W / 2 - 70, 456, b.active ? "同行中" : "留守番", { fontFamily: UI_FONT, fontSize: "14px", color: b.active ? "#9fff9f" : "#cfcfe0" }).setOrigin(0.5);
+      const tog = this.add.rectangle(this.W / 2 - 70, 456, 124, 40, b.active ? 0xeef7e4 : 0xffffff).setStrokeStyle(1, b.active ? 0x4caf50 : 0xd6e2f0).setInteractive({ useHandCursor: true });
+      const togT = this.add.text(this.W / 2 - 70, 456, b.active ? "同行中" : "留守番", { fontFamily: UI_FONT, fontSize: "14px", color: b.active ? "#2e7d32" : "#4c5e76" }).setOrigin(0.5);
       tog.on("pointerdown", () => {
         const r = toggleCompanionActive(b.id);
         if (!r.ok && r.reason) this.toast(r.reason);
         this.refreshPartyBtn();
         this.openCompanionPanel(b.id);
       });
-      const rel = this.add.rectangle(this.W / 2 + 70, 456, 124, 40, 0x2a1a26).setStrokeStyle(1, 0x6a4a5a).setInteractive({ useHandCursor: true });
-      const relT = this.add.text(this.W / 2 + 70, 456, "見送る", { fontFamily: UI_FONT, fontSize: "14px", color: "#c79ad0" }).setOrigin(0.5);
+      const rel = this.add.rectangle(this.W / 2 + 70, 456, 124, 40, 0xf7ecf3).setStrokeStyle(1, 0xc79ad0).setInteractive({ useHandCursor: true });
+      const relT = this.add.text(this.W / 2 + 70, 456, "見送る", { fontFamily: UI_FONT, fontSize: "14px", color: "#9a5aa8" }).setOrigin(0.5);
       rel.on("pointerdown", () => {
         releaseCompanion(b.id);
         this.toast(`${b.name}を 見送った（光に還した）`);
@@ -1150,32 +1150,32 @@ export default class HomeScene extends Phaser.Scene {
       });
       c.add([tog, togT, rel, relT]);
 
-      c.add(this.add.text(this.W / 2, 500, "お金は旅の終わりに貯まる。この子に注げば、ずっと強くなる。", { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80", align: "center", wordWrap: { width: this.W - 80 } }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 500, "お金は旅の終わりに貯まる。この子に注げば、ずっと強くなる。", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a", align: "center", wordWrap: { width: this.W - 80 } }).setOrigin(0.5));
     });
   }
 
   // ---- 特別な仲間（直接購入：ガチャでなく"見て選んで迎える"）----
   openShopPanel() {
     this.openPanel("特別な仲間", (c) => {
-      c.add(this.add.text(this.W / 2, 116, "見て、選んで迎える（ガチャではありません）", { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 116, "見て、選んで迎える（ガチャではありません）", { fontFamily: UI_FONT, fontSize: "13px", color: "#4c5e76" }).setOrigin(0.5));
       let y = 164;
       C.SHOP_COMPANIONS.forEach((def) => {
         const owned = isShopOwned(def.id);
         const info = C.EMOTIONS[def.emotion];
-        c.add(this.add.rectangle(this.W / 2, y, this.W - 50, 88, owned ? 0x1c2c1c : 0x191926).setStrokeStyle(1, owned ? 0x4caf50 : info.color));
+        c.add(this.add.rectangle(this.W / 2, y, this.W - 50, 88, owned ? 0xeef7e4 : 0xffffff).setStrokeStyle(1, owned ? 0x4caf50 : info.color));
         if (this.textures.exists("shop_" + def.id)) c.add(this.add.image(46, y, "shop_" + def.id).setDisplaySize(58, 58));
         else c.add(this.add.text(46, y, def.icon, { fontFamily: EMOJI_FONT, fontSize: "34px" }).setOrigin(0.5));
         c.add(this.add.text(74, y - 26, `${def.name}　〈${def.label}〉`, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(info.color) }).setOrigin(0, 0.5));
-        c.add(this.add.text(74, y - 6, def.desc, { fontFamily: UI_FONT, fontSize: "11px", color: "#9a9aac", wordWrap: { width: this.W - 150 } }).setOrigin(0, 0.5));
+        c.add(this.add.text(74, y - 6, def.desc, { fontFamily: UI_FONT, fontSize: "11px", color: "#4c5e76", wordWrap: { width: this.W - 150 } }).setOrigin(0, 0.5));
         const statStr = def.role === "healer" ? `✚${def.heal}  ⚡${def.spd}` : `⚔${def.atk}  ⚡${def.spd}`;
-        c.add(this.add.text(74, y + 24, `${statStr}　永続（散らない）`, { fontFamily: UI_FONT, fontSize: "11px", color: "#8a8aa0" }).setOrigin(0, 0.5));
+        c.add(this.add.text(74, y + 24, `${statStr}　永続（散らない）`, { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0, 0.5));
 
         if (owned) {
-          c.add(this.add.text(this.W - 40, y, "入手済 ✓", { fontFamily: UI_FONT, fontSize: "13px", color: "#7fff9f" }).setOrigin(1, 0.5));
+          c.add(this.add.text(this.W - 40, y, "入手済 ✓", { fontFamily: UI_FONT, fontSize: "13px", color: "#2e7d32" }).setOrigin(1, 0.5));
         } else {
-          const btn = this.add.rectangle(this.W - 64, y, 84, 40, 0x2a2438).setStrokeStyle(1, 0xa06ac0).setInteractive({ useHandCursor: true });
-          const bt = this.add.text(this.W - 64, y - 8, `¥${def.price}`, { fontFamily: UI_FONT, fontSize: "13px", color: "#e6c2ff" }).setOrigin(0.5);
-          const bt2 = this.add.text(this.W - 64, y + 10, "迎える", { fontFamily: UI_FONT, fontSize: "12px", color: "#bfffbf" }).setOrigin(0.5);
+          const btn = this.add.rectangle(this.W - 64, y, 84, 40, 0xf1e9fb).setStrokeStyle(1, 0xa06ac0).setInteractive({ useHandCursor: true });
+          const bt = this.add.text(this.W - 64, y - 8, `¥${def.price}`, { fontFamily: UI_FONT, fontSize: "13px", color: "#7a3ba8" }).setOrigin(0.5);
+          const bt2 = this.add.text(this.W - 64, y + 10, "迎える", { fontFamily: UI_FONT, fontSize: "12px", color: "#7a3ba8" }).setOrigin(0.5);
           btn.on("pointerdown", () => {
             const res = buyShopCompanion(def.id);
             if (res.ok) {
@@ -1190,7 +1190,7 @@ export default class HomeScene extends Phaser.Scene {
         }
         y += 100;
       });
-      c.add(this.add.text(this.W / 2, y + 6, "※試作では確認用に入手できます（実際は直接購入）", { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, y + 6, "※試作では確認用に入手できます（実際は直接購入）", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0.5));
     });
   }
 
@@ -1200,10 +1200,10 @@ export default class HomeScene extends Phaser.Scene {
       const s = getSave();
       const empUnlocked = empathyUnlocked();
 
-      c.add(this.add.text(this.W / 2, 116, `悟り ${s.enlightenment}`, { fontFamily: UI_FONT, fontSize: "18px", color: "#bfe0ff" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 116, `悟り ${s.enlightenment}`, { fontFamily: UI_FONT, fontSize: "18px", color: "#1f6aa8" }).setOrigin(0.5));
 
       // 感情の熟練度（欠片の累計で育つ恒久ボーナス）を4列で
-      c.add(this.add.text(this.W / 2, 140, "― 感情の熟練度（欠片の累計で育つ） ―", { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 140, "― 感情の熟練度（欠片の累計で育つ） ―", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0.5));
       const mi = masteryInfo();
       const colW = 92;
       const mStartX = this.W / 2 - (colW * (C.EMOTION_ORDER.length - 1)) / 2;
@@ -1213,12 +1213,12 @@ export default class HomeScene extends Phaser.Scene {
         const info = C.EMOTIONS[k];
         c.add(this.add.text(x - 26, 162, info.icon, { fontFamily: EMOJI_FONT, fontSize: "16px" }).setOrigin(0.5));
         c.add(this.add.text(x + 8, 162, `Lv.${m.level}`, { fontFamily: UI_FONT, fontSize: "13px", color: colorToCss(info.color) }).setOrigin(0.5));
-        c.add(this.add.text(x, 180, `+${Math.round(m.bonus * 100)}%`, { fontFamily: UI_FONT, fontSize: "10px", color: "#8a8aa0" }).setOrigin(0.5));
+        c.add(this.add.text(x, 180, `+${Math.round(m.bonus * 100)}%`, { fontFamily: UI_FONT, fontSize: "10px", color: "#74839a" }).setOrigin(0.5));
         // 進捗バー：現Lvの床→次Lvまで。next==null（MAX）は満タン
         const base = C.MASTERY.levelCurve * m.level * m.level;
         const frac = m.next == null ? 1 : Phaser.Math.Clamp((m.total - base) / (m.next - base), 0, 1);
         const bw2 = colW - 22;
-        c.add(this.add.rectangle(x, 194, bw2, 4, 0x26263a).setOrigin(0.5));
+        c.add(this.add.rectangle(x, 194, bw2, 4, 0xd0dceb).setOrigin(0.5));
         if (frac > 0) c.add(this.add.rectangle(x - bw2 / 2, 194, bw2 * frac, 4, info.color).setOrigin(0, 0.5));
       });
 
@@ -1231,8 +1231,8 @@ export default class HomeScene extends Phaser.Scene {
         const locked = br.hidden && !empUnlocked;
         const active = br.key === branchKey && !locked;
         const r = this.add
-          .rectangle(x, 226, 48, 44, active ? 0x2a2a40 : 0x16161f)
-          .setStrokeStyle(1, active ? br.color : locked ? 0x2a2a3a : 0x33334a)
+          .rectangle(x, 226, 48, 44, active ? 0xe9f1fb : 0xffffff)
+          .setStrokeStyle(1, active ? br.color : locked ? 0xc7d2de : 0xd6e2f0)
           .setInteractive({ useHandCursor: true });
         const t = this.add.text(x, 224, locked ? "🔒" : br.icon, { fontFamily: EMOJI_FONT, fontSize: "22px" }).setOrigin(0.5).setAlpha(locked ? 0.5 : 1);
         r.on("pointerdown", () => {
@@ -1249,7 +1249,7 @@ export default class HomeScene extends Phaser.Scene {
       let br = branches.find((b) => b.key === branchKey);
       if (br.hidden && !empUnlocked) br = branches[0];
       c.add(this.add.text(this.W / 2, 264, `${br.icon} ${br.label}`, { fontFamily: UI_FONT, fontSize: "19px", color: colorToCss(br.color) }).setOrigin(0.5));
-      c.add(this.add.text(this.W / 2, 288, br.desc, { fontFamily: UI_FONT, fontSize: "12px", color: "#8a8aa0", align: "center", wordWrap: { width: this.W - 80 } }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 288, br.desc, { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a", align: "center", wordWrap: { width: this.W - 80 } }).setOrigin(0.5));
 
       // ノード一覧（線形：前ノードを1Lv以上が前提。繰り返しレベルアップできる）
       let y = 322;
@@ -1264,23 +1264,23 @@ export default class HomeScene extends Phaser.Scene {
         const owned = lv > 0;
 
         const row = this.add
-          .rectangle(this.W / 2, y, this.W - 50, 50, owned ? 0x1c2c1c : prevOk ? 0x191926 : 0x121219)
-          .setStrokeStyle(1, owned ? 0x4caf50 : prevOk ? 0x33334a : 0x222230);
-        const dim = !owned && !prevOk ? 0.45 : 1;
-        const nm = this.add.text(36, y - 12, `${node.label}　Lv${lv}/${max}`, { fontFamily: UI_FONT, fontSize: "15px", color: owned ? "#bfffbf" : "#e8e8ef" }).setOrigin(0, 0.5).setAlpha(dim);
-        const ds = this.add.text(36, y + 9, node.desc, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0, 0.5).setAlpha(dim);
+          .rectangle(this.W / 2, y, this.W - 50, 50, owned ? 0xeef7e4 : prevOk ? 0xffffff : 0xeef2f7)
+          .setStrokeStyle(1, owned ? 0x4caf50 : prevOk ? 0xd6e2f0 : 0xdbe2ea);
+        const dim = !owned && !prevOk ? 0.55 : 1;
+        const nm = this.add.text(36, y - 12, `${node.label}　Lv${lv}/${max}`, { fontFamily: UI_FONT, fontSize: "15px", color: owned ? "#2e7d32" : "#22344a" }).setOrigin(0, 0.5).setAlpha(dim);
+        const ds = this.add.text(36, y + 9, node.desc, { fontFamily: UI_FONT, fontSize: "12px", color: "#4c5e76" }).setOrigin(0, 0.5).setAlpha(dim);
         c.add([row, nm, ds]);
 
         if (atMax) {
-          c.add(this.add.text(this.W - 40, y, "MAX", { fontFamily: UI_FONT, fontSize: "13px", color: "#7fff9f" }).setOrigin(1, 0.5));
+          c.add(this.add.text(this.W - 40, y, "MAX", { fontFamily: UI_FONT, fontSize: "13px", color: "#2e7d32" }).setOrigin(1, 0.5));
         } else if (!prevOk) {
-          c.add(this.add.text(this.W - 40, y, "前提が必要", { fontFamily: UI_FONT, fontSize: "12px", color: "#6a6a80" }).setOrigin(1, 0.5));
+          c.add(this.add.text(this.W - 40, y, "前提が必要", { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a" }).setOrigin(1, 0.5));
         } else {
           const btn = this.add
-            .rectangle(this.W - 72, y, 92, 38, purchasable ? 0x24304a : 0x202028)
-            .setStrokeStyle(1, purchasable ? 0x5a7aa0 : 0x33334a)
+            .rectangle(this.W - 72, y, 92, 38, purchasable ? 0xdbe8f7 : 0xe6ebf2)
+            .setStrokeStyle(1, purchasable ? 0x5a9ad0 : 0xc2ccd8)
             .setInteractive({ useHandCursor: purchasable });
-          const btnT = this.add.text(this.W - 72, y, `悟り ${cost}`, { fontFamily: UI_FONT, fontSize: "13px", color: purchasable ? "#bfe0ff" : "#777" }).setOrigin(0.5);
+          const btnT = this.add.text(this.W - 72, y, `悟り ${cost}`, { fontFamily: UI_FONT, fontSize: "13px", color: purchasable ? "#1f6aa8" : "#9aa5b3" }).setOrigin(0.5);
           if (purchasable) {
             btn.on("pointerdown", () => {
               const res = unlockNode(br.key, node.id);
@@ -1307,22 +1307,22 @@ export default class HomeScene extends Phaser.Scene {
       const bonded = s.party.bonded;
       const activeCount = bonded.filter((b) => b.active).length;
 
-      c.add(this.add.text(36, 116, `🪙 ${s.gold}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#ffe08a" }).setOrigin(0, 0.5));
-      c.add(this.add.text(this.W / 2 - 6, 116, `魂の器　${bonded.length} / ${cap}`, { fontFamily: UI_FONT, fontSize: "16px", color: "#e6c2ff" }).setOrigin(0.5));
-      c.add(this.add.text(this.W / 2, 138, `同行 ${activeCount} / ${C.COMPANION.maxParty}（出撃に連れて行く）`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0.5));
+      c.add(this.add.text(36, 116, `🪙 ${s.gold}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#b8860b" }).setOrigin(0, 0.5));
+      c.add(this.add.text(this.W / 2 - 6, 116, `魂の器　${bonded.length} / ${cap}`, { fontFamily: UI_FONT, fontSize: "16px", color: "#7a3ba8" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 138, `同行 ${activeCount} / ${C.COMPANION.maxParty}（出撃に連れて行く）`, { fontFamily: UI_FONT, fontSize: "12px", color: "#4c5e76" }).setOrigin(0.5));
       // 共鳴孵化（卵）の状況
       const eggs = s.party.eggs.length;
       const reson = Math.floor((s.party.resonance / C.COMPANION.resonance.threshold) * 100);
       const resStr = eggs > 0 ? `🥚 卵 ×${eggs}（次の旅で孵る）` : activeCount >= 2 ? `共鳴 ${reson}%（2体以上の同行で 卵が生まれる）` : "2体以上を同行させると、共鳴で卵が生まれる";
-      c.add(this.add.text(this.W / 2, 158, resStr, { fontFamily: UI_FONT, fontSize: "11px", color: "#c79ad0" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 158, resStr, { fontFamily: UI_FONT, fontSize: "11px", color: "#9a5aa8" }).setOrigin(0.5));
       // 特別な仲間（直接購入）への入口
-      const shopBtn = this.add.rectangle(this.W - 58, 116, 96, 28, 0x2a2438).setStrokeStyle(1, 0xa06ac0).setInteractive({ useHandCursor: true });
-      const shopT = this.add.text(this.W - 58, 116, "✦ 迎える", { fontFamily: UI_FONT, fontSize: "12px", color: "#e6c2ff" }).setOrigin(0.5);
+      const shopBtn = this.add.rectangle(this.W - 58, 116, 96, 28, 0xf1e9fb).setStrokeStyle(1, 0xa06ac0).setInteractive({ useHandCursor: true });
+      const shopT = this.add.text(this.W - 58, 116, "✦ 迎える", { fontFamily: UI_FONT, fontSize: "12px", color: "#7a3ba8" }).setOrigin(0.5);
       shopBtn.on("pointerdown", () => this.openShopPanel());
       c.add([shopBtn, shopT]);
 
       if (!bonded.length) {
-        c.add(this.add.text(this.W / 2, 280, "まだ、誰も連れ越していない。\n\n旅で出会い、倒れて還る時に\n空きがあれば 魂の絆で繋がる。", { fontFamily: UI_FONT, fontSize: "16px", color: "#9a9aac", align: "center", lineSpacing: 8 }).setOrigin(0.5));
+        c.add(this.add.text(this.W / 2, 280, "まだ、誰も連れ越していない。\n\n旅で出会い、倒れて還る時に\n空きがあれば 魂の絆で繋がる。", { fontFamily: UI_FONT, fontSize: "16px", color: "#4c5e76", align: "center", lineSpacing: 8 }).setOrigin(0.5));
         return;
       }
 
@@ -1340,14 +1340,14 @@ export default class HomeScene extends Phaser.Scene {
         const y = firstY + idx * rowStep;
         const emoColor = C.EMOTIONS[b.emotion] ? C.EMOTIONS[b.emotion].color : 0xb0b0c0;
         const rar = C.COMPANION.rarities.find((r) => r.key === b.rarity) || C.COMPANION.rarities[0];
-        const row = this.add.rectangle(this.W / 2, y, this.W - 50, rowH, b.active ? 0x1d1726 : 0x17161d).setStrokeStyle(1, b.active ? emoColor : 0x33334a);
+        const row = this.add.rectangle(this.W / 2, y, this.W - 50, rowH, b.active ? 0xf3eefa : 0xffffff).setStrokeStyle(1, b.active ? emoColor : 0xd6e2f0);
         const icon = this.charPortrait(40, y, b.emotion, 50, b.icon, false, b);
         const nm = this.add.text(72, y - 15, `${b.name}〈${b.roleLabel}〉 Lv${b.level || 1}`, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(emoColor) }).setOrigin(0, 0.5);
         const statStr = b.role === "healer" ? `✚${b.heal}  ⚡${b.spd}` : `⚔${b.atk}  ⚡${b.spd}`;
         const voice = "●".repeat(b.stage) + "○".repeat(4 - b.stage);
         const st = this.add.text(72, y + 8, `${rar.star}【${rar.label}】${statStr}　声 ${voice}`, { fontFamily: UI_FONT, fontSize: "12px", color: colorToCss(rar.color) }).setOrigin(0, 0.5);
         // 状態バッジ（表示のみ。切替は行タップ→詳細で）
-        const badge = this.add.text(this.W - 40, y, b.active ? "同行" : "留守番", { fontFamily: UI_FONT, fontSize: "12px", color: b.active ? "#9fff9f" : "#8a8aa0" }).setOrigin(1, 0.5);
+        const badge = this.add.text(this.W - 40, y, b.active ? "同行" : "留守番", { fontFamily: UI_FONT, fontSize: "12px", color: b.active ? "#2e7d32" : "#74839a" }).setOrigin(1, 0.5);
         list.add([row, icon, nm, st, badge]);
       });
 
@@ -1358,15 +1358,15 @@ export default class HomeScene extends Phaser.Scene {
       let buyBottom = null;
       if (info.canBuyMore) {
         const by = y + 30;
-        const br = this.add.rectangle(this.W / 2, by, 300, 48, 0x2a2438).setStrokeStyle(1, 0xa06ac0);
-        const bl = this.add.text(this.W / 2, by, `魂の器を広げる  🪙${info.cost}  (+1枠 / 最大${info.max})`, { fontFamily: UI_FONT, fontSize: "14px", color: "#e6c2ff" }).setOrigin(0.5);
-        const note = this.add.text(this.W / 2, by + 34, `無料 ${info.free}枠＋拡張 ${info.paid + info.tree}枠。同行は最大${C.COMPANION.maxParty}、残りは街で働く。`, { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80", align: "center" }).setOrigin(0.5);
+        const br = this.add.rectangle(this.W / 2, by, 300, 48, 0xf1e9fb).setStrokeStyle(1, 0xa06ac0);
+        const bl = this.add.text(this.W / 2, by, `魂の器を広げる  🪙${info.cost}  (+1枠 / 最大${info.max})`, { fontFamily: UI_FONT, fontSize: "14px", color: "#7a3ba8" }).setOrigin(0.5);
+        const note = this.add.text(this.W / 2, by + 34, `無料 ${info.free}枠＋拡張 ${info.paid + info.tree}枠。同行は最大${C.COMPANION.maxParty}、残りは街で働く。`, { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a", align: "center" }).setOrigin(0.5);
         list.add([br, bl, note]);
         buyTop = by - 24;
         buyBottom = by + 24;
         y = by + 44;
       } else {
-        const note = this.add.text(this.W / 2, y + 26, `魂の器は最大（${info.max}）に達している。\n同行は最大${C.COMPANION.maxParty}、残りは街で働いてもらおう。`, { fontFamily: UI_FONT, fontSize: "12px", color: "#6a6a80", align: "center", lineSpacing: 5 }).setOrigin(0.5);
+        const note = this.add.text(this.W / 2, y + 26, `魂の器は最大（${info.max}）に達している。\n同行は最大${C.COMPANION.maxParty}、残りは街で働いてもらおう。`, { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a", align: "center", lineSpacing: 5 }).setOrigin(0.5);
         list.add(note);
         y += 50;
       }
@@ -1391,12 +1391,12 @@ export default class HomeScene extends Phaser.Scene {
         thumb.y = viewTop + 4 + t * (viewH - 8 - thumb.height);
       };
       if (maxScroll > 0) {
-        c.add(this.add.rectangle(this.W - 16, (viewTop + viewBottom) / 2, 4, viewH, 0xffffff, 0.06));
+        c.add(this.add.rectangle(this.W - 16, (viewTop + viewBottom) / 2, 4, viewH, 0x1c3a5a, 0.1));
         const thumbH = Math.max(28, (viewH * viewH) / (contentBottom - viewTop));
-        thumb = this.add.rectangle(this.W - 16, viewTop + 4 + thumbH / 2, 4, thumbH, 0xc0a0e0, 0.5);
+        thumb = this.add.rectangle(this.W - 16, viewTop + 4 + thumbH / 2, 4, thumbH, 0x7a3ba8, 0.55);
         thumb.height = thumbH;
         c.add(thumb);
-        c.add(this.add.text(this.W / 2, this.H - 50, "▲▼ ドラッグ／ホイールでスクロール", { fontFamily: UI_FONT, fontSize: "11px", color: "#55556a" }).setOrigin(0.5));
+        c.add(this.add.text(this.W / 2, this.H - 50, "▲▼ ドラッグ／ホイールでスクロール", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0.5));
       }
 
       // 入力ゾーン：ドラッグでスクロール、軽いタップで行/ボタンを選択
@@ -1443,13 +1443,13 @@ export default class HomeScene extends Phaser.Scene {
   openSavePanel() {
     this.openPanel("セーブ", (c) => {
       const failing = isSaveFailing();
-      c.add(this.add.text(this.W / 2, 124, failing ? "⚠ このブラウザは保存が無効です" : "✓ 自動保存は有効です", { fontFamily: UI_FONT, fontSize: "16px", color: failing ? "#ff8a8a" : "#7fff9f" }).setOrigin(0.5));
-      c.add(this.add.text(this.W / 2, 158, failing ? "プライベートモードや制限が原因かも。\n下の「バックアップを表示」でコードを保管し、\n別の端末/ブラウザで「復元」できます。" : "念のため、ときどきバックアップを取ると安心です。", { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac", align: "center", lineSpacing: 6, wordWrap: { width: this.W - 70 } }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 124, failing ? "⚠ このブラウザは保存が無効です" : "✓ 自動保存は有効です", { fontFamily: UI_FONT, fontSize: "16px", color: failing ? "#c23b3b" : "#2e7d32" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 158, failing ? "プライベートモードや制限が原因かも。\n下の「バックアップを表示」でコードを保管し、\n別の端末/ブラウザで「復元」できます。" : "念のため、ときどきバックアップを取ると安心です。", { fontFamily: UI_FONT, fontSize: "13px", color: "#4c5e76", align: "center", lineSpacing: 6, wordWrap: { width: this.W - 70 } }).setOrigin(0.5));
 
       const b1 = this.makeButton(this.W / 2, 250, 280, 52, "📋 バックアップを表示", () => {
         const code = exportSave();
         if (typeof window !== "undefined" && window.prompt) window.prompt("このコードを長押しでコピーして保管してください", code);
-      }, { color: 0x1c2c3a, stroke: 0x5a7aa0, textColor: "#bfe0ff", fontSize: "16px" });
+      }, { color: 0xe9f1fb, stroke: 0x5a9ad0, textColor: "#1f6aa8", fontSize: "16px" });
       c.add([b1.rect, b1.txt, b1.badge, b1.gfx]);
 
       const b2 = this.makeButton(this.W / 2, 318, 280, 52, "♻ 復元する（コードを貼り付け）", () => {
@@ -1462,10 +1462,10 @@ export default class HomeScene extends Phaser.Scene {
         } else {
           this.toast("コードが正しくありません");
         }
-      }, { color: 0x2a2438, stroke: 0xa06ac0, textColor: "#e6c2ff", fontSize: "15px" });
+      }, { color: 0xf1e9fb, stroke: 0xa06ac0, textColor: "#7a3ba8", fontSize: "15px" });
       c.add([b2.rect, b2.txt, b2.badge, b2.gfx]);
 
-      c.add(this.add.text(this.W / 2, 400, "※スマホで保存が消える時は、ブラウザの『プライベート/シークレット』を解除するか、\nこのコードを保管してください。", { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80", align: "center", lineSpacing: 5, wordWrap: { width: this.W - 70 } }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 400, "※スマホで保存が消える時は、ブラウザの『プライベート/シークレット』を解除するか、\nこのコードを保管してください。", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a", align: "center", lineSpacing: 5, wordWrap: { width: this.W - 70 } }).setOrigin(0.5));
     });
   }
 
@@ -1488,23 +1488,23 @@ export default class HomeScene extends Phaser.Scene {
     this.openPanel("感情の結晶", (c) => {
       const arts = getSave().artifacts;
       const b = getArtifactBonuses();
-      c.add(this.add.text(this.W / 2, 116, `集めた結晶　${arts.length} 個`, { fontFamily: UI_FONT, fontSize: "17px", color: "#ffd9a0" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 116, `集めた結晶　${arts.length} 個`, { fontFamily: UI_FONT, fontSize: "17px", color: "#b8860b" }).setOrigin(0.5));
 
       if (!arts.length) {
-        c.add(this.add.text(this.W / 2, 270, "まだ、結晶はない。\n\n旅を終えるたびに ときどき宿る。\n持っているだけで、力になる。", { fontFamily: UI_FONT, fontSize: "16px", color: "#9a9aac", align: "center", lineSpacing: 8 }).setOrigin(0.5));
+        c.add(this.add.text(this.W / 2, 270, "まだ、結晶はない。\n\n旅を終えるたびに ときどき宿る。\n持っているだけで、力になる。", { fontFamily: UI_FONT, fontSize: "16px", color: "#4c5e76", align: "center", lineSpacing: 8 }).setOrigin(0.5));
         return;
       }
 
-      c.add(this.add.text(this.W / 2, 150, "── いま積み上げた力 ──", { fontFamily: UI_FONT, fontSize: "13px", color: "#55556a" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 150, "── いま積み上げた力 ──", { fontFamily: UI_FONT, fontSize: "13px", color: "#74839a" }).setOrigin(0.5));
       let y = 184;
       C.ARTIFACT.stats.forEach((st) => {
         const v = b[st.key] || 0;
         const has = v > 0;
-        c.add(this.add.text(this.W / 2 - 120, y, `${st.icon} ${st.label}`, { fontFamily: UI_FONT, fontSize: "16px", color: has ? "#e8e8ef" : "#55556a" }).setOrigin(0, 0.5));
-        c.add(this.add.text(this.W / 2 + 120, y, has ? `+${v}%` : "—", { fontFamily: UI_FONT, fontSize: "16px", color: has ? "#ffd9a0" : "#55556a" }).setOrigin(1, 0.5));
+        c.add(this.add.text(this.W / 2 - 120, y, `${st.icon} ${st.label}`, { fontFamily: UI_FONT, fontSize: "16px", color: has ? "#22344a" : "#9aa5b3" }).setOrigin(0, 0.5));
+        c.add(this.add.text(this.W / 2 + 120, y, has ? `+${v}%` : "—", { fontFamily: UI_FONT, fontSize: "16px", color: has ? "#b8860b" : "#9aa5b3" }).setOrigin(1, 0.5));
         y += 34;
       });
-      c.add(this.add.text(this.W / 2, y + 16, "結晶は転生でも消えない。集めるほど、強くなる。", { fontFamily: UI_FONT, fontSize: "12px", color: "#6a6a80" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, y + 16, "結晶は転生でも消えない。集めるほど、強くなる。", { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a" }).setOrigin(0.5));
     });
   }
 
@@ -1527,7 +1527,7 @@ export default class HomeScene extends Phaser.Scene {
     ];
     const flat = [...single, ...mixed, ...triple, ...spirit];
     const seenAll = flat.filter((f) => formSeen(f.name)).length;
-    c.add(this.add.text(this.W / 2, 150, `感情図鑑　${seenAll} / ${flat.length}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#e8e8ef" }).setOrigin(0.5));
+    c.add(this.add.text(this.W / 2, 150, `感情図鑑　${seenAll} / ${flat.length}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#22344a" }).setOrigin(0.5));
 
     const list = this.add.container(0, 0);
     c.add(list);
@@ -1537,7 +1537,7 @@ export default class HomeScene extends Phaser.Scene {
     let y = 180;
     cats.forEach((cat) => {
       const got = cat.forms.filter((f) => f.always || formSeen(f.name)).length;
-      list.add(this.add.text(24, y, `${cat.label}  ${got}/${cat.forms.length}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#8a8aa0" }).setOrigin(0, 0.5));
+      list.add(this.add.text(24, y, `${cat.label}  ${got}/${cat.forms.length}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#4c5e76" }).setOrigin(0, 0.5));
       y += 22;
       cat.forms.forEach((f, i) => {
         const cx = 24 + cellW * (i % cols) + cellW / 2;
@@ -1548,9 +1548,9 @@ export default class HomeScene extends Phaser.Scene {
         } else if (seen && f.icon) {
           list.add(this.add.text(cx, cy, f.icon, { fontFamily: EMOJI_FONT, fontSize: "26px" }).setOrigin(0.5));
         } else {
-          list.add(this.add.text(cx, cy, "❓", { fontFamily: UI_FONT, fontSize: "22px", color: "#44445a" }).setOrigin(0.5));
+          list.add(this.add.text(cx, cy, "❓", { fontFamily: UI_FONT, fontSize: "22px", color: "#9aa5b3" }).setOrigin(0.5));
         }
-        list.add(this.add.text(cx, cy + 24, seen ? f.name : "？？？", { fontFamily: UI_FONT, fontSize: "9px", color: seen ? "#cfcfe0" : "#55556a", align: "center", wordWrap: { width: cellW - 4 } }).setOrigin(0.5, 0));
+        list.add(this.add.text(cx, cy + 24, seen ? f.name : "？？？", { fontFamily: UI_FONT, fontSize: "9px", color: seen ? "#4c5e76" : "#9aa5b3", align: "center", wordWrap: { width: cellW - 4 } }).setOrigin(0.5, 0));
       });
       y += Math.ceil(cat.forms.length / cols) * cellH + 10;
     });
@@ -1565,10 +1565,10 @@ export default class HomeScene extends Phaser.Scene {
       const mkTab = (x, key, label) => {
         const active = tab === key;
         const r = this.add
-          .rectangle(x, 128, 84, 34, active ? 0x2a2a40 : 0x16161f)
-          .setStrokeStyle(1, active ? 0x6a6aa0 : 0x33334a)
+          .rectangle(x, 128, 84, 34, active ? 0xdbe8f7 : 0xffffff)
+          .setStrokeStyle(1, active ? 0x5a9ad0 : 0xd6e2f0)
           .setInteractive({ useHandCursor: true });
-        const t = this.add.text(x, 128, label, { fontFamily: UI_FONT, fontSize: "14px", color: active ? "#e8e8ef" : "#8a8aa0" }).setOrigin(0.5);
+        const t = this.add.text(x, 128, label, { fontFamily: UI_FONT, fontSize: "14px", color: active ? "#1f6aa8" : "#74839a" }).setOrigin(0.5);
         r.on("pointerdown", () => this.openNoticePanel(key));
         c.add([r, t]);
       };
@@ -1590,20 +1590,20 @@ export default class HomeScene extends Phaser.Scene {
       if (tab === "diary") {
         const diary = getSave().diary;
         if (!diary.length) {
-          list.add(this.add.text(this.W / 2, 240, "まだ、日記はない。\n旅を終えるたびに、一行ずつ綴られる。", { fontFamily: UI_FONT, fontSize: "15px", color: "#9a9aac", align: "center", lineSpacing: 8 }).setOrigin(0.5));
+          list.add(this.add.text(this.W / 2, 240, "まだ、日記はない。\n旅を終えるたびに、一行ずつ綴られる。", { fontFamily: UI_FONT, fontSize: "15px", color: "#4c5e76", align: "center", lineSpacing: 8 }).setOrigin(0.5));
         } else {
           diary.slice(0, 30).forEach((e) => {
             const icon = e.emotion ? C.EMOTIONS[e.emotion].icon : "·";
             list.add(this.add.text(30, y, `${icon}`, { fontFamily: EMOJI_FONT, fontSize: "16px" }).setOrigin(0, 0));
-            const body = this.add.text(56, y, e.text, { fontFamily: UI_FONT, fontSize: "14px", color: "#cfcfe0", wordWrap: { width: this.W - 92 }, lineSpacing: 4 });
+            const body = this.add.text(56, y, e.text, { fontFamily: UI_FONT, fontSize: "14px", color: "#4c5e76", wordWrap: { width: this.W - 92 }, lineSpacing: 4 });
             list.add(body);
             y += Math.max(26, body.height) + 14;
           });
         }
       } else {
         NOTICES[tab].forEach((n) => {
-          list.add(this.add.text(34, y, "▸ " + n.title, { fontFamily: UI_FONT, fontSize: "16px", color: "#e8e8ef" }));
-          const body = this.add.text(34, y + 26, n.body, { fontFamily: UI_FONT, fontSize: "14px", color: "#9a9aac", wordWrap: { width: this.W - 70 }, lineSpacing: 4 });
+          list.add(this.add.text(34, y, "▸ " + n.title, { fontFamily: UI_FONT, fontSize: "16px", color: "#22344a" }));
+          const body = this.add.text(34, y + 26, n.body, { fontFamily: UI_FONT, fontSize: "14px", color: "#4c5e76", wordWrap: { width: this.W - 70 }, lineSpacing: 4 });
           list.add(body);
           y += 30 + body.height + 18;
         });
@@ -1631,9 +1631,9 @@ export default class HomeScene extends Phaser.Scene {
       }
     };
     if (maxScroll > 0) {
-      c.add(this.add.rectangle(this.W - 16, (viewTop + viewBottom) / 2, 4, viewH, 0xffffff, 0.06));
+      c.add(this.add.rectangle(this.W - 16, (viewTop + viewBottom) / 2, 4, viewH, 0x1c3a5a, 0.1));
       const th = Math.max(28, (viewH * viewH) / (contentBottom - viewTop));
-      thumb = this.add.rectangle(this.W - 16, viewTop + 4 + th / 2, 4, th, 0xc0a0e0, 0.5);
+      thumb = this.add.rectangle(this.W - 16, viewTop + 4 + th / 2, 4, th, 0x7a3ba8, 0.55);
       thumb.height = th;
       c.add(thumb);
     }
@@ -1690,50 +1690,50 @@ export default class HomeScene extends Phaser.Scene {
   // ---- おかえり（帰還サマリー）----
   showReturnSummary(sum) {
     const c = this.add.container(0, 0).setDepth(240);
-    const bg = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x04040a, 0.92).setInteractive();
-    const card = this.add.rectangle(this.W / 2, this.H / 2, this.W - 50, 460, 0x14141f).setStrokeStyle(1, 0x3a3a52);
+    const bg = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x1a2a3e, 0.6).setInteractive();
+    const card = this.add.rectangle(this.W / 2, this.H / 2, this.W - 50, 460, 0xf3f8ff, 0.98).setStrokeStyle(1, 0xaecbe8);
     c.add([bg, card]);
 
     const cx = this.W / 2;
     let y = this.H / 2 - 150;
-    c.add(this.add.text(cx, y, sum.died ? "── 今日の旅は、ここまで ──" : "── 帰ってきた ──", { fontFamily: DISPLAY_FONT, fontSize: "20px", color: "#e8e8ef" }).setOrigin(0.5));
+    c.add(this.add.text(cx, y, sum.died ? "── 今日の旅は、ここまで ──" : "── 帰ってきた ──", { fontFamily: DISPLAY_FONT, fontSize: "20px", color: "#1c3a5a" }).setOrigin(0.5));
     y += 46;
-    c.add(this.add.text(cx, y, `今回の旅　${sum.distance}m${sum.newBest ? "　★最高更新!" : ""}`, { fontFamily: UI_FONT, fontSize: "17px", color: sum.newBest ? "#ffd24d" : "#cfcfe0" }).setOrigin(0.5));
+    c.add(this.add.text(cx, y, `今回の旅　${sum.distance}m${sum.newBest ? "　★最高更新!" : ""}`, { fontFamily: UI_FONT, fontSize: "17px", color: sum.newBest ? "#b8860b" : "#22344a" }).setOrigin(0.5));
     y += 40;
-    c.add(this.add.text(cx, y, "集めた想いは、ちゃんと残っている。\n次は、もう少し遠くへ。", { fontFamily: UI_FONT, fontSize: "15px", color: "#bfe0d0", align: "center", lineSpacing: 6 }).setOrigin(0.5));
+    c.add(this.add.text(cx, y, "集めた想いは、ちゃんと残っている。\n次は、もう少し遠くへ。", { fontFamily: UI_FONT, fontSize: "15px", color: "#2e7d6a", align: "center", lineSpacing: 6 }).setOrigin(0.5));
     y += 62;
-    c.add(this.add.text(cx, y, `魂レベル +${sum.levelGain}　→　Lv.${sum.newLevel}`, { fontFamily: UI_FONT, fontSize: "18px", color: "#bfffbf" }).setOrigin(0.5));
+    c.add(this.add.text(cx, y, `魂レベル +${sum.levelGain}　→　Lv.${sum.newLevel}`, { fontFamily: UI_FONT, fontSize: "18px", color: "#2e7d32" }).setOrigin(0.5));
     y += 30;
     if (sum.satoriGain > 0) {
-      c.add(this.add.text(cx, y, `導く心は 旅から学んだ　悟り +${sum.satoriGain}`, { fontFamily: UI_FONT, fontSize: "16px", color: "#bfe0ff" }).setOrigin(0.5));
+      c.add(this.add.text(cx, y, `導く心は 旅から学んだ　悟り +${sum.satoriGain}`, { fontFamily: UI_FONT, fontSize: "16px", color: "#1f6aa8" }).setOrigin(0.5));
     }
     y += 28;
     if (sum.resonanceKey) {
-      c.add(this.add.text(cx, y, `記憶の傾向　${C.EMOTIONS[sum.resonanceKey].icon}${C.EMOTIONS[sum.resonanceKey].label}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#9a9aac" }).setOrigin(0.5));
+      c.add(this.add.text(cx, y, `記憶の傾向　${C.EMOTIONS[sum.resonanceKey].icon}${C.EMOTIONS[sum.resonanceKey].label}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#4c5e76" }).setOrigin(0.5));
     }
     // 仲間の去就（魂の絆で繋がる／光に還る ── §17の核）
     if (sum.companionsBonded && sum.companionsBonded.length) {
       y += 28;
       const names = sum.companionsBonded.map((cp) => `${cp.icon}${cp.name}`).join("　");
-      c.add(this.add.text(cx, y, names, { fontFamily: UI_FONT, fontSize: "15px", color: "#e6c2ff", align: "center", wordWrap: { width: this.W - 110 } }).setOrigin(0.5));
+      c.add(this.add.text(cx, y, names, { fontFamily: UI_FONT, fontSize: "15px", color: "#7a3ba8", align: "center", wordWrap: { width: this.W - 110 } }).setOrigin(0.5));
       y += 22;
-      c.add(this.add.text(cx, y, "魂の絆で 繋がった（連れて還った）", { fontFamily: UI_FONT, fontSize: "13px", color: "#c79ad0" }).setOrigin(0.5));
+      c.add(this.add.text(cx, y, "魂の絆で 繋がった（連れて還った）", { fontFamily: UI_FONT, fontSize: "13px", color: "#9a5aa8" }).setOrigin(0.5));
     }
     if (sum.companionsDispersed && sum.companionsDispersed.length) {
       y += 28;
       const names = sum.companionsDispersed.map((cp) => `${cp.icon}${cp.name}`).join("　");
-      c.add(this.add.text(cx, y, names, { fontFamily: UI_FONT, fontSize: "15px", color: "#9a9aac", align: "center", wordWrap: { width: this.W - 110 } }).setOrigin(0.5));
+      c.add(this.add.text(cx, y, names, { fontFamily: UI_FONT, fontSize: "15px", color: "#4c5e76", align: "center", wordWrap: { width: this.W - 110 } }).setOrigin(0.5));
       y += 22;
-      c.add(this.add.text(cx, y, "光になって還っていった", { fontFamily: UI_FONT, fontSize: "13px", color: "#8a7a90" }).setOrigin(0.5));
+      c.add(this.add.text(cx, y, "光になって還っていった", { fontFamily: UI_FONT, fontSize: "13px", color: "#7a6a80" }).setOrigin(0.5));
     }
 
     // 次の一手（帰宅後に迷子にさせない＝方向を1つ提示）
     const rec = this.recommendNextAction();
-    if (rec) c.add(this.add.text(cx, this.H / 2 + 146, "▸ " + rec, { fontFamily: UI_FONT, fontSize: "15px", color: "#ffe0a0", align: "center", wordWrap: { width: this.W - 100 } }).setOrigin(0.5));
+    if (rec) c.add(this.add.text(cx, this.H / 2 + 146, "▸ " + rec, { fontFamily: UI_FONT, fontSize: "15px", color: "#b8860b", align: "center", wordWrap: { width: this.W - 100 } }).setOrigin(0.5));
 
     const btnY = this.H / 2 + 190;
-    const r = this.add.rectangle(cx, btnY, 200, 50, 0x2a3a2a).setStrokeStyle(1, 0x4caf50).setInteractive({ useHandCursor: true });
-    const t = this.add.text(cx, btnY, "ホームへ", { fontFamily: UI_FONT, fontSize: "18px", color: "#bfffbf" }).setOrigin(0.5);
+    const r = this.add.rectangle(cx, btnY, 200, 50, 0x4caf50).setStrokeStyle(1, 0x2e7d32).setInteractive({ useHandCursor: true });
+    const t = this.add.text(cx, btnY, "ホームへ", { fontFamily: UI_FONT, fontSize: "18px", color: "#ffffff" }).setOrigin(0.5);
     r.on("pointerdown", () => {
       c.destroy(true);
       this.refreshHomeStats();
