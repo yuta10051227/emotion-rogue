@@ -558,13 +558,16 @@ export default class GameScene extends Phaser.Scene {
       const info = C.EMOTIONS[key];
       // 戦闘中に「その戦いで兆している感情」を光らせるグロー（アイコン背後・加算合成）
       const formGlow = this.add.circle(cx - 10, y, 19, info.color, 0).setBlendMode(Phaser.BlendModes.ADD);
-      const icon = makeIcon(this, cx - 10, y, info.icon, 30, EMOJI_FONT); // 感情アイコン（自作SVG）
-      const count = this.add.text(cx + 18, y, "0", { fontFamily: UI_FONT, fontSize: "18px", color: "#cfcfe0" }).setOrigin(0, 0.5);
+      const icon = makeIcon(this, cx - 10, y, info.icon, 26, EMOJI_FONT); // 感情アイコン（自作SVG）
+      // makeIcon(画像)は setDisplaySize でスケールを決める。強調時に setScale で上書きすると
+      // 128pxテクスチャの絶対倍率になり巨大化する不具合があったため、基準スケールを保持しておく。
+      const iconBase = icon.scaleX || 1;
+      const count = this.add.text(cx + 16, y, "0", { fontFamily: UI_FONT, fontSize: "16px", color: "#cfcfe0" }).setOrigin(0, 0.5);
       this.add.rectangle(cx, y + 24, 56, 6, 0x2a2a3a).setOrigin(0.5);
       const bar = this.add.rectangle(cx - 28, y + 24, 1, 6, info.color).setOrigin(0, 0.5);
       // 「今の戦い」での形成度バー（記憶バーの少し上に薄く重ねる）
       const formBar = this.add.rectangle(cx - 28, y + 19, 1, 3, info.color, 0.95).setOrigin(0, 0.5).setVisible(false);
-      this.gauges[key] = { icon, count, bar, formGlow, formBar };
+      this.gauges[key] = { icon, iconBase, count, bar, formGlow, formBar };
     });
     // 兆している主感情のラベル（戦闘中のみ・目標バナー位置を借りる）
     this.formLabel = this.add.text(this.W / 2, 58, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#d8cfc0" }).setOrigin(0.5).setDepth(6).setVisible(false);
@@ -824,12 +827,12 @@ export default class GameScene extends Phaser.Scene {
   }
 
   buildLog() {
-    this.add.text(this.W / 2, 596, "─ 旅のしるし ─", { fontFamily: UI_FONT, fontSize: "13px", color: "#55556a" }).setOrigin(0.5);
+    this.add.text(this.W / 2, 588, "─ 旅のしるし ─", { fontFamily: UI_FONT, fontSize: "12px", color: "#5a6a86" }).setOrigin(0.5);
     // 行ごとに色を持てるよう、1行=1テキストで積む（感情の欠片ログをその感情色に）
     this.logTextObjs = [];
-    // 溢れた古い行は上側でクリップ（操作バーの裏に隠れない）
+    // 手動ボタン(661〜715)と重ならないよう、ログ帯を 598〜652 にクリップ。
     const mk = this.make.graphics({ x: 0, y: 0, add: false });
-    mk.fillRect(0, 612, this.W, 108); // y612〜720（操作バー上端）
+    mk.fillRect(0, 598, this.W, 56);
     this._logMask = mk.createGeometryMask();
   }
 
@@ -837,8 +840,19 @@ export default class GameScene extends Phaser.Scene {
   buildControls() {
     this.input.keyboard.on("keydown-H", () => this.retreatToHome());
 
+    // 操作デッキ：道テクスチャの雑然さを隠し、スキル/ログ/操作を1枚の面にまとめる（清潔感）。
+    //  depth -0.5：道(-5)・ビネット(-1)より前、ボタン(6)・バー(0)より後。
+    const deckTop = 524;
+    const deck = this.add.graphics().setDepth(-0.5);
+    deck.fillStyle(0x0e1830, 0.96);
+    deck.fillRoundedRect(-10, deckTop, this.W + 20, this.H - deckTop + 12, 20);
+    deck.lineStyle(2, 0x2c4064, 1);
+    deck.strokeRoundedRect(-10, deckTop, this.W + 20, this.H - deckTop + 12, 20);
+    deck.fillStyle(0x4a6ea0, 0.6); // 上辺のアクセント
+    deck.fillRect(0, deckTop, this.W, 2);
+
     const barY = 752;
-    this.add.rectangle(this.W / 2, barY, this.W, 64, 0x101018).setStrokeStyle(1, 0x23233a);
+    this.add.rectangle(this.W / 2, barY, this.W, 64, 0x101a30, 0.6);
 
     // 倍速セグメント（"見守る速度"の操作。命令ではない）
     this.add.text(14, barY - 22, "速さ", { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80" }).setOrigin(0, 0.5);
@@ -2792,7 +2806,9 @@ export default class GameScene extends Phaser.Scene {
     }
     const lead = leadingEmotion(this.emotions);
     for (const key of C.EMOTION_ORDER) {
-      this.gauges[key].icon.setScale(key === lead.key && lead.value > 0 ? 1.25 : 1);
+      const g = this.gauges[key];
+      const emphasis = key === lead.key && lead.value > 0 ? 1.22 : 1;
+      g.icon.setScale((g.iconBase || 1) * emphasis); // 基準スケール×強調（巨大化を防ぐ）
     }
     this.updateHeroAura(lead);
     this.refreshEvoHint();
@@ -2853,11 +2869,11 @@ export default class GameScene extends Phaser.Scene {
   // line=本文、color=行の色（感情の欠片ログはその感情色で灯る）
   pushLog(line, color = "#b8b8c8") {
     this.logLines.push({ text: line, color });
-    if (this.logLines.length > 3) this.logLines.shift();
+    if (this.logLines.length > 2) this.logLines.shift(); // 帯を狭めたので2行に
     // 1行=1テキストで作り直し、下端から積み上げる（折り返しても重ならない）
     if (this.logTextObjs) for (const t of this.logTextObjs) t.destroy();
     this.logTextObjs = [];
-    let y = 716;
+    let y = 650; // 手動ボタンの上でクリップ（被り解消）
     for (let i = this.logLines.length - 1; i >= 0; i--) {
       const ln = this.logLines[i];
       const t = this.add
