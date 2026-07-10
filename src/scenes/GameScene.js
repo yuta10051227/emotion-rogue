@@ -635,7 +635,8 @@ export default class GameScene extends Phaser.Scene {
     // 主人公：進化アートがあれば画像（段で姿とサイズが変わる）、無ければ絵文字。
     if (this.textures.exists("hero_slime")) {
       // 元絵は右向き（攻撃フレームが右へ踏み込む＝敵 enemyX=330 の方向）。反転しないのが正しい。
-      this.heroSprite = this.add.image(this.heroX, this.heroY, "hero_slime").setDepth(2).setFlipX(false);
+      // 元絵は正面〜左向き。敵は右(enemyX=330)なので反転して敵を向く（flipXはテクスチャ差替を跨いで保持）。
+      this.heroSprite = this.add.image(this.heroX, this.heroY, "hero_slime").setDepth(2).setFlipX(true);
       this.heroIsImage = true;
       this.heroBaseW = this.heroSprite.width;
       this.heroFit = this.heroFitFor(0);
@@ -655,7 +656,7 @@ export default class GameScene extends Phaser.Scene {
     this.kidFormKey = "kid_" + (pg.gender === "girl" ? "girl" : "boy");
     this.kidX = this.heroX - 52;
     if (this.textures.exists(this.kidFormKey)) {
-      this.kidSprite = this.add.image(this.kidX, this.heroY + 6, this.kidFormKey).setDepth(2).setScale(0.72).setFlipX(false); // 元絵が右(敵)向き
+      this.kidSprite = this.add.image(this.kidX, this.heroY + 6, this.kidFormKey).setDepth(2).setScale(0.72).setFlipX(true); // 敵(右)を向く
       this.kidIsImage = true;
     } else {
       this.kidSprite = this.add.text(this.kidX, this.heroY, pg.gender === "girl" ? "👧" : "👦", { fontFamily: EMOJI_FONT, fontSize: "40px" }).setOrigin(0.5).setDepth(2);
@@ -3046,7 +3047,7 @@ export default class GameScene extends Phaser.Scene {
     const cKey = comp.shopId && this.textures.exists("shop_" + comp.shopId) ? "shop_" + comp.shopId : "char_" + comp.emotion;
     let spr, fitScale;
     if (this.textures.exists(cKey)) {
-      spr = this.add.image(bx, by, cKey).setDepth(2).setFlipX(false); // 元絵が右(敵)向き
+      spr = this.add.image(bx, by, cKey).setDepth(2).setFlipX(true); // 仲間も味方側＝敵(右)を向く
       fitScale = (comp.shopId ? 58 : 54) / spr.width; // 特別な子は少し大きく
     } else {
       spr = this.add.text(bx, by, comp.icon, { fontFamily: EMOJI_FONT, fontSize: "32px" }).setOrigin(0.5).setDepth(2);
