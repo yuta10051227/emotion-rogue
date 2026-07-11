@@ -7,6 +7,7 @@
 import Phaser from "phaser";
 import * as C from "../data/config.js";
 import { preloadIcons, makeIcon } from "../data/icons.js";
+import { ornateFrame } from "../ui/ornate.js";
 import { createBattle, stepBattle, forceFinish, commandAttack, commandSkill, heroSkillReady } from "../logic/combat.js";
 import { createEmotionState, gainEmotions, checkEvolution, leadingEmotion, secondEmotion } from "../logic/evolution.js";
 import { makeCompanion, voiceStage, pickVoiceLine } from "../logic/companion.js";
@@ -690,7 +691,9 @@ export default class GameScene extends Phaser.Scene {
     // 上部HUDフレーム（情報ゾーン：DRの2ゾーン指針）
     // 上部HUD帯：明るい空の上でも文字が読めるよう、やわらかい紺の半透明バナー
     this.add.rectangle(this.W / 2, 54, this.W, 108, 0x102138, 0.46).setDepth(-1);
-    this.add.rectangle(this.W / 2, 108, this.W, 1, 0x4a5c80).setDepth(-1);
+    // 帯の下端を金の二重ヘアラインで縁取る（額縁の統一感）
+    this.add.rectangle(this.W / 2, 107, this.W, 2, 0xc9a23a, 0.9).setDepth(-1);
+    this.add.rectangle(this.W / 2, 109, this.W, 1, 0x7d611a, 0.8).setDepth(-1);
 
     this.distanceText = this.add.text(18, 12, "距離 0m", { fontFamily: UI_FONT, fontSize: "20px", color: "#e8e8ef" });
     this.coinText = this.add.text(this.W - 18, 12, "0", { fontFamily: UI_FONT, fontSize: "20px", color: "#ffd24d" }).setOrigin(1, 0); // 数字のみ
@@ -1038,10 +1041,9 @@ export default class GameScene extends Phaser.Scene {
     const deck = this.add.graphics().setDepth(-0.5);
     deck.fillStyle(0x0e1830, 0.96);
     deck.fillRoundedRect(-10, deckTop, this.W + 20, this.H - deckTop + 12, 20);
-    deck.lineStyle(2, 0x2c4064, 1);
-    deck.strokeRoundedRect(-10, deckTop, this.W + 20, this.H - deckTop + 12, 20);
-    deck.fillStyle(0x4a6ea0, 0.6); // 上辺のアクセント
-    deck.fillRect(0, deckTop, this.W, 2);
+    // 金の彫刻フレーム（左右は画面外に逃がし、上辺だけが金の額縁として見える）
+    const dw = this.W + 20, dh = this.H - deckTop + 12;
+    ornateFrame(deck, -10 + dw / 2, deckTop + dh / 2, dw, dh, 20, { thick: 3, inset: 5, corners: false });
 
     const barY = 752;
     this.add.rectangle(this.W / 2, barY, this.W, 64, 0x101a30, 0.6);
@@ -1085,6 +1087,7 @@ export default class GameScene extends Phaser.Scene {
     for (const b of [this.modeBtn, this.attackBtn, this.skillBtn]) {
       b.rect.setDepth(6);
       b.txt.setDepth(6);
+      if (b.gfx) b.gfx.setDepth(6);
     }
 
     // ---- 感情スキル（CD式アクティブ）。操作バーの上・戦闘中のみ表示 ----
@@ -1096,13 +1099,16 @@ export default class GameScene extends Phaser.Scene {
   }
 
   makeBarButton(x, y, w, h, label, onClick, opts = {}) {
-    const rect = this.add.rectangle(x, y, w, h, opts.color ?? 0x1c1c2a).setStrokeStyle(1, opts.stroke ?? 0x3a3a52).setInteractive({ useHandCursor: true });
+    const rect = this.add.rectangle(x, y, w, h, opts.color ?? 0x1c1c2a).setInteractive({ useHandCursor: true });
+    // 金の彫刻枠（元の stroke色は内側のアクセント罫に残す＝ボタンの色分けを維持）
+    const gfx = this.add.graphics();
+    ornateFrame(gfx, x, y, w, h, 8, { thick: 2, inset: 4, accent: opts.stroke ?? 0x3a3a52 });
     const txt = this.add.text(x, y, label, { fontFamily: UI_FONT, fontSize: opts.fontSize ?? "15px", color: opts.textColor ?? "#e8e8ef" }).setOrigin(0.5);
     rect.on("pointerdown", () => {
       this.tweens.add({ targets: [rect, txt], scale: 0.95, duration: 60, yoyo: true });
       onClick();
     });
-    return { rect, txt };
+    return { rect, txt, gfx };
   }
 
   // 倍速の解放条件：×2は第1のボス撃破、×3は第5のボス撃破（累計）。今回の旅の撃破もその場で数える。
@@ -1144,8 +1150,9 @@ export default class GameScene extends Phaser.Scene {
         b.txt.setColor("#55556a").setAlpha(0.5);
         if (b.lock) b.lock.setVisible(true);
       } else {
-        b.rect.setFillStyle(on ? 0x2a3a2a : 0x1c1c2a).setStrokeStyle(1, on ? 0x4caf50 : 0x3a3a52);
-        b.txt.setColor(on ? "#bfffbf" : "#cfcfe0").setAlpha(1);
+        // 選択中＝金の枠＋金の文字（ログウィズ調）。非選択は控えめな鉄色。
+        b.rect.setFillStyle(on ? 0x2a2416 : 0x1c1c2a).setStrokeStyle(on ? 2 : 1, on ? 0xc9a23a : 0x3a3a52);
+        b.txt.setColor(on ? "#f4dc86" : "#cfcfe0").setAlpha(1);
         if (b.lock) b.lock.setVisible(false);
       }
     }
@@ -1635,9 +1642,11 @@ export default class GameScene extends Phaser.Scene {
     const showActions = inBattle && this.manualMode;
     this.modeBtn.rect.setVisible(inBattle);
     this.modeBtn.txt.setVisible(inBattle);
+    if (this.modeBtn.gfx) this.modeBtn.gfx.setVisible(inBattle);
     for (const b of [this.attackBtn, this.skillBtn]) {
       b.rect.setVisible(showActions);
       b.txt.setVisible(showActions);
+      if (b.gfx) b.gfx.setVisible(showActions);
     }
     if (showActions) this.refreshBattleButtons();
     // 感情スキルの列も戦闘中のみ
@@ -1809,10 +1818,11 @@ export default class GameScene extends Phaser.Scene {
 
   refreshBattleButtons() {
     if (!this.attackBtn || !this.battle || !this.manualMode || this.mode !== "battle") return;
+    // ready の合図はボタン全体（地・金枠・文字）の明滅で（rectへの直strokeは金枠と喧嘩するため廃止）
     const ready = !!this.battle.heroReady && !this.battle.finished;
-    this.attackBtn.rect.setAlpha(ready ? 1 : 0.5).setStrokeStyle(2, ready ? 0x7dff7d : 0x3a5a3a);
-    const sready = heroSkillReady(this.battle);
-    this.skillBtn.rect.setAlpha(sready ? 1 : 0.5).setStrokeStyle(2, sready ? 0xd090ff : 0x50406a);
+    const setDim = (b, on) => { b.rect.setAlpha(on ? 1 : 0.5); b.txt.setAlpha(on ? 1 : 0.6); if (b.gfx) b.gfx.setAlpha(on ? 1 : 0.45); };
+    setDim(this.attackBtn, ready);
+    setDim(this.skillBtn, heroSkillReady(this.battle));
   }
 
   toggleManual() {
