@@ -599,18 +599,46 @@ export default class GameScene extends Phaser.Scene {
       this.midLayer.setVisible(false);
       // バイオーム（距離で移り変わる世界観）。空を明るい昼の色に（ポケモン/デジモン級の明るさ）。
       //  art＝生成アート背景キー（あれば優先。無ければ従来のピクセル遠景texへフォールバック）
+      //  art＝専用の生成アート（あれば最優先）。無い間は sub＝山アートにこの色を掛けて流用（暗いピクセル夜景を出さない）。
       this.biomes = [
-        { tex: "bg_far", art: "bg_biome_mountain", top: 0x7ec8ff, bot: 0xe8f6ff, name: "山鳴りの道" }, // 晴れた青空
-        { tex: "bg_far1", art: "bg_biome_forest", top: 0x9be0b4, bot: 0xf0fff4, name: "囁きの森" }, // 新緑の明るさ
-        { tex: "bg_far2", art: "bg_biome_ruins", top: 0xffc98f, bot: 0xfff2e0, name: "忘れられた廃墟" }, // 暖かな砂・夕陽
-        { tex: "bg_far3", art: "bg_biome_void", top: 0xcfa8ff, bot: 0xf4eaff, name: "幽玄の境" }, // やわらかな薄紫
+        { tex: "bg_far", art: "bg_biome_mountain", top: 0x7ec8ff, bot: 0xe8f6ff, name: "山鳴りの道", sub: 0xffffff }, // 晴れた青空（本物）
+        { tex: "bg_far1", art: "bg_biome_forest", top: 0x9be0b4, bot: 0xf0fff4, name: "囁きの森", sub: 0x86c98f }, // 新緑がかった
+        { tex: "bg_far2", art: "bg_biome_ruins", top: 0xffc98f, bot: 0xfff2e0, name: "忘れられた廃墟", sub: 0xe6b877 }, // 夕陽の琥珀
+        { tex: "bg_far3", art: "bg_biome_void", top: 0xcfa8ff, bot: 0xf4eaff, name: "幽玄の境", sub: 0xb69ae6 }, // 薄紫
       ].filter((b) => this.textures.exists(b.tex));
+      // アート未配置バイオームの代用に使う「実在する生成アート」（＝山）を1つ確保
+      this.fallbackArt = (this.biomes.find((b) => b.art && this.textures.exists(b.art)) || {}).art || null;
       // 生成アート背景を敷く用の画像（cover表示・ゆっくり漂う）。テクスチャは setBiome で差し替え。
       this.biomeArtImg = this.add.image(this.W / 2, this.H / 2, "bg_far").setDepth(-10).setVisible(false);
       this.tweens.add({ targets: this.biomeArtImg, x: this.W / 2 + 34, duration: 17000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // 遠景の微かな漂い
+
+      // ── 水面リフレクション（ログウィズ風の映り込み）──
+      // 背景を「水位ライン」で上下反転ミラー。青く半透明にし、横揺れ＋ハイライトで水に見せる。
+      this.waterTop = this.heroY + 78; // 岸のすぐ下（足元より下）に水位
+      this.waterImg = this.add.image(this.W / 2, 2 * this.waterTop - this.H / 2, "bg_far").setFlipY(true).setDepth(-4).setAlpha(0.55).setTint(0x7fb0dd).setVisible(false);
+      // 水面帯にだけ映すマスク（空・キャラには被せない）
+      const wmg = this.make.graphics({ add: false });
+      wmg.fillRect(0, this.waterTop, this.W, this.H - this.waterTop);
+      this.waterImg.setMask(wmg.createGeometryMask());
+      this.tweens.add({ targets: this.waterImg, x: this.W / 2 + 12, duration: 4200, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // さざ波の横揺れ
+      this.tweens.add({ targets: this.waterImg, alpha: 0.42, duration: 2600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // 光の明滅
+      // 岸のきわの光ライン（水面の始まりを示す）
+      this.add.rectangle(this.W / 2, this.waterTop, this.W, 2, 0xdff1ff, 0.5).setDepth(-3);
+      // 水面のハイライト筋（横に流れる白い反射）
+      this.makeTex("water_glint", 200, 40, (g) => { g.fillStyle(0xffffff, 0.5); [8, 60, 130].forEach((x) => g.fillRect(x, 18, 40, 2)); });
+      this.waterGlint = this.add.tileSprite(this.W / 2, this.waterTop + 40, this.W, 70, "water_glint").setOrigin(0.5, 0).setDepth(-3).setAlpha(0.18);
+
       this.curBiome = -1;
       this.setBiome(0);
     }
+  }
+
+  // 2色を乗算合成（水の反射色づくり用）。a×b/255 で暗めに混ざる。
+  blendTint(a, b) {
+    const r = Math.round((((a >> 16) & 255) * ((b >> 16) & 255)) / 255);
+    const g = Math.round((((a >> 8) & 255) * ((b >> 8) & 255)) / 255);
+    const bl = Math.round(((a & 255) * (b & 255)) / 255);
+    return (r << 16) | (g << 8) | bl;
   }
 
   // バイオーム切替：空グラデを塗り替え、遠景tex を差し替える
@@ -625,15 +653,24 @@ export default class GameScene extends Phaser.Scene {
       this.skyG.fillGradientStyle(b.top, b.top, b.bot, b.bot, 1, 1, 1, 1);
       this.skyG.fillRect(0, 0, this.W, this.H);
     }
-    // 生成アートがあれば画面いっぱいに敷く（＝場所感が一気に出る）。無ければ従来のピクセル遠景へ。
-    const hasArt = b.art && this.textures.exists(b.art) && this.biomeArtImg;
-    if (hasArt) {
-      this.biomeArtImg.setTexture(b.art).setVisible(true);
+    // 専用アート→無ければ山アートをバイオーム色にティントして流用→それも無ければ従来のピクセル遠景。
+    const ownArt = b.art && this.textures.exists(b.art) ? b.art : null;
+    const useArt = ownArt || this.fallbackArt; // 代用（山）でも写実背景を出す
+    if (useArt && this.biomeArtImg) {
+      this.biomeArtImg.setTexture(useArt).setVisible(true);
+      this.biomeArtImg.setTint(ownArt ? 0xffffff : b.sub || 0xffffff); // 代用時のみ色を掛けて別の土地に見せる
       const cover = Math.max(this.W / this.biomeArtImg.width, this.H / this.biomeArtImg.height) * 1.12;
       this.biomeArtImg.setScale(cover);
       if (this.farLayer) this.farLayer.setVisible(false); // ピクセル遠景は隠す
+      // 水面の映り込みも同じ景色に更新（青く落として反射に）
+      if (this.waterImg) {
+        this.waterImg.setTexture(useArt).setVisible(true).setScale(cover);
+        // バイオーム色 × 水の青 を掛け合わせて、土地ごとに水の色も変える
+        this.waterImg.setTint(this.blendTint(ownArt ? 0xffffff : b.sub || 0xffffff, 0x7fb0dd));
+      }
     } else {
       if (this.biomeArtImg) this.biomeArtImg.setVisible(false);
+      if (this.waterImg) this.waterImg.setVisible(false);
       if (this.farLayer) {
         this.farLayer.setVisible(true);
         if (this.textures.exists(b.tex)) this.farLayer.setTexture(b.tex);
@@ -646,6 +683,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.farLayer) this.farLayer.tilePositionX += d * 0.15;
     if (this.midLayer) this.midLayer.tilePositionX += d * 0.4;
     if (this.groundLayer) this.groundLayer.tilePositionX += d * 1.0;
+    if (this.waterGlint) this.waterGlint.tilePositionX += d * 0.5; // 水面の光筋も流す
   }
 
   buildHud() {
@@ -714,7 +752,7 @@ export default class GameScene extends Phaser.Scene {
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png"); // ピクセル遠景
     for (let i = 1; i <= 3; i++) if (!this.textures.exists("bg_far" + i)) this.load.image("bg_far" + i, "chars/bg_far" + i + ".png"); // バイオーム
     // 生成アートのバイオーム背景（有るものだけ。追加は下の配列にキーを足すだけ）
-    for (const bk of ["mountain"]) if (!this.textures.exists("bg_biome_" + bk)) this.load.image("bg_biome_" + bk, "chars/bg_biome_" + bk + ".jpg");
+    for (const bk of ["mountain", "forest", "ruins", "void"]) if (!this.textures.exists("bg_biome_" + bk)) this.load.image("bg_biome_" + bk, "chars/bg_biome_" + bk + ".jpg"); // 未配置は404→山アートのティント流用にフォールバック
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     for (const k of ["kid_boy", "kid_boy_walk", "kid_girl", "kid_girl_walk"]) if (!this.textures.exists(k)) this.load.image(k, "chars/" + k + ".png"); // 主人公(男/女)＝相棒に指示
     if (!this.textures.exists("hero_slime_atk")) this.load.image("hero_slime_atk", "chars/hero_slime_atk.png");

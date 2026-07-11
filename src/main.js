@@ -24,6 +24,16 @@ window.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") persist();
 });
 
+// 描画解像度の倍率を決める。画面に対する拡大率(fit)とデバイス画素密度(dpr)の積を、
+// 整数に丸めて上限3でキャップ（重すぎない範囲で常にドット等倍以上＝くっきり）。
+function computeZoom() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = window.innerWidth || GAME_WIDTH;
+  const h = window.innerHeight || GAME_HEIGHT;
+  const fit = Math.min(w / GAME_WIDTH, h / GAME_HEIGHT); // FIT が引き伸ばす率
+  return Math.max(1, Math.min(3, Math.ceil(fit * dpr)));
+}
+
 const config = {
   type: Phaser.AUTO,
   parent: "game",
@@ -43,10 +53,23 @@ const config = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    zoom: Math.min(2, Math.max(1, Math.floor(window.devicePixelRatio || 1))), // Retina等で内部解像度を上げてくっきり
+    // 内部解像度(zoom)を「画面への引き伸ばし率 × デバイス画素密度」で決める。
+    //  FIT は 450×800 の小さいバッファを画面サイズまで拡大するので、その分だけ描画解像度を上げないとボケる。
+    //  例: 高さ1000pxのPC(dpr1) → fit≈1.25 → zoom2（900×1600で描画）／スマホ(dpr3) → zoom3。
+    zoom: computeZoom(),
   },
   // 起動は TitleScene → HomeScene（拠点）→ GameScene（進軍）。
   scene: [TitleScene, HomeScene, GameScene],
 };
 
 window.game = new Phaser.Game(config); // デバッグ用にグローバル参照を残す
+
+// ウィンドウサイズ/ズームが変わったら描画解像度も追い直す（拡大でボケないように）
+let _zoomTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(_zoomTimer);
+  _zoomTimer = setTimeout(() => {
+    const z = computeZoom();
+    if (window.game?.scale && window.game.scale.zoom !== z) window.game.scale.setZoom(z);
+  }, 200);
+});
