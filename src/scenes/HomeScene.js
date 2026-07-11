@@ -270,9 +270,10 @@ export default class HomeScene extends Phaser.Scene {
           const inp = typeof window !== "undefined" && window.prompt ? window.prompt("名前を入力（8文字まで）", name) : "";
           const v = (inp || "").trim().slice(0, 8);
           if (v) { name = v; nameT.setText(name); }
-        }, { stroke: 0x5a7aa0, textColor: "#bfe0ff", fontSize: "15px" });
-        const ok = this.makeButton(cx, 500, 236, 56, "この名前で始める", () => { sfx.tap(); step3(); }, { stroke: 0xffd24d, textColor: "#ffe9b0", fontSize: "19px" });
-        layer.add([rename.rect, rename.txt, rename.badge, rename.gfx, ok.rect, ok.txt, ok.badge, ok.gfx]);
+        }, { color: 0xeef4fc, stroke: 0x5a7aa0, textColor: "#1f6aa8", fontSize: "15px" }); // 明るいオンボ背景で読めるよう濃色文字
+        const ok = this.makeButton(cx, 500, 236, 56, "この名前で始める", () => { sfx.tap(); step3(); }, { color: 0x4caf50, stroke: 0x2e7d32, textColor: "#ffffff", fontSize: "19px" }); // 主要CTA=緑＋白文字
+        // gfx(塗り)を先頭＝最背面に。txtを後＝前面に（順序を誤ると塗りが文字を覆い隠す）
+        layer.add([rename.gfx, rename.rect, rename.txt, rename.badge, ok.gfx, ok.rect, ok.txt, ok.badge]);
       });
 
     const step3 = () =>
@@ -307,12 +308,12 @@ export default class HomeScene extends Phaser.Scene {
                 setPlayer({ gender, name });
                 markPlayerChosen();
                 this.tweens.add({ targets: [overlay, layer], alpha: 0, duration: 420, onComplete: () => { overlay.destroy(); layer.destroy(true); this.buildHome(); } });
-              }, { stroke: 0x4caf50, textColor: "#bfffbf", fontSize: "20px" });
-              layer.add([go.rect, go.txt, go.badge, go.gfx]);
+              }, { color: 0x4caf50, stroke: 0x2e7d32, textColor: "#ffffff", fontSize: "20px" }); // 主要CTA=緑＋白文字
+              layer.add([go.gfx, go.rect, go.txt, go.badge]); // gfxを最背面に
             },
           });
-        }, { stroke: 0xffd24d, textColor: "#ffe9b0", fontSize: "19px" });
-        layer.add([hatch.rect, hatch.txt, hatch.badge, hatch.gfx]);
+        }, { color: 0xffc94d, stroke: 0xd4a017, textColor: "#5a3d00", fontSize: "19px" }); // 主要CTA=金＋濃茶文字
+        layer.add([hatch.gfx, hatch.rect, hatch.txt, hatch.badge]); // gfxを最背面に
         if (hatch.icon) layer.add(hatch.icon); // 🥚アイコンもレイヤーへ（片付け対象に）
       });
 
@@ -871,7 +872,7 @@ export default class HomeScene extends Phaser.Scene {
       );
       const yes = this.makeButton(this.W / 2, 340, 280, 54, "すべて消す", () => { resetSave(); this.scene.restart(); }, { color: 0xfbe6e6, stroke: 0xc23b3b, textColor: "#c23b3b" });
       const no = this.makeButton(this.W / 2, 410, 280, 54, "やめる", () => this.closeActivePanel(), { color: 0x4caf50, stroke: 0x2e7d32, textColor: "#ffffff" });
-      c.add([yes.rect, yes.txt, yes.badge, yes.gfx, no.rect, no.txt, no.badge, no.gfx]);
+      c.add([yes.gfx, yes.rect, yes.txt, yes.badge, no.gfx, no.rect, no.txt, no.badge]); // gfx(塗り)を最背面に
     });
   }
 
@@ -912,7 +913,7 @@ export default class HomeScene extends Phaser.Scene {
       }, { color: 0x4caf50, stroke: 0x2e7d32, hover: 0x43a047, textColor: "#ffffff", fontSize: "20px", font: DISPLAY_FONT });
       // 灯がゆっくり脈打つ（旅立ちの重み）
       this.tweens.add({ targets: [go.gfx, go.txt], alpha: 0.75, duration: 1000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-      c.add([go.rect, go.txt, go.badge, go.gfx]);
+      c.add([go.gfx, go.rect, go.txt, go.badge]); // gfx(塗り)を最背面に
     });
   }
 
@@ -1463,7 +1464,7 @@ export default class HomeScene extends Phaser.Scene {
         const code = exportSave();
         if (typeof window !== "undefined" && window.prompt) window.prompt("このコードを長押しでコピーして保管してください", code);
       }, { color: 0xe9f1fb, stroke: 0x5a9ad0, textColor: "#1f6aa8", fontSize: "16px" });
-      c.add([b1.rect, b1.txt, b1.badge, b1.gfx]);
+      c.add([b1.gfx, b1.rect, b1.txt, b1.badge]); // gfx(塗り)を最背面に
 
       const b2 = this.makeButton(this.W / 2, 318, 280, 52, "♻ 復元する（コードを貼り付け）", () => {
         const code = typeof window !== "undefined" && window.prompt ? window.prompt("バックアップコードを貼り付けてください", "") : "";
@@ -1476,7 +1477,7 @@ export default class HomeScene extends Phaser.Scene {
           this.toast("コードが正しくありません");
         }
       }, { color: 0xf1e9fb, stroke: 0xa06ac0, textColor: "#7a3ba8", fontSize: "15px" });
-      c.add([b2.rect, b2.txt, b2.badge, b2.gfx]);
+      c.add([b2.gfx, b2.rect, b2.txt, b2.badge]); // gfx(塗り)を最背面に
 
       c.add(this.add.text(this.W / 2, 400, "※スマホで保存が消える時は、ブラウザの『プライベート/シークレット』を解除するか、\nこのコードを保管してください。", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a", align: "center", lineSpacing: 5, wordWrap: { width: this.W - 70 } }).setOrigin(0.5));
     });
