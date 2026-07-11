@@ -95,6 +95,8 @@ export default class HomeScene extends Phaser.Scene {
     }
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png");
+    if (!this.textures.exists("bg_home")) this.load.image("bg_home", "chars/bg_home.jpg"); // 生成アートの動く背景（軽量JPEG）
+    if (!this.textures.exists("bg_home_fg")) this.load.image("bg_home_fg", "chars/bg_home_fg.png"); // 手前の草花（透過）
     if (!this.textures.exists("town_nest")) this.load.image("town_nest", "chars/town_nest.png"); // 卵の巣
     for (const k of ["kid_boy", "kid_boy_walk", "kid_girl", "kid_girl_walk", "egg"]) if (!this.textures.exists(k)) this.load.image(k, "chars/" + k + ".png"); // 主人公(男/女)＋たまご
     for (const k of C.EMOTION_ORDER) {
@@ -134,19 +136,25 @@ export default class HomeScene extends Phaser.Scene {
     this.W = C.GAME_WIDTH;
     this.H = C.GAME_HEIGHT;
     this.panel = null;
-    // 背景：明るい朝の空＋草原（旧: 群青の夜）。ポケモン/デジモン級の快活な明るさへ。
-    const bgG = this.add.graphics();
-    bgG.fillGradientStyle(0x8fc8f0, 0x9fd0ee, 0xc4e8e0, 0xeef0d6, 1, 1, 1, 1); // 空色→やわらか草原
-    bgG.fillRect(0, 0, this.W, this.H);
-    if (this.textures.exists("bg_far")) {
-      this.add.image(this.W / 2, 250, "bg_far").setDisplaySize(this.W, 150).setAlpha(0.18).setTint(0xd8e8ff); // かすんだ遠山
-      this.add.rectangle(this.W / 2, 325, this.W, this.H - 325, 0xbfe0a8, 0.5); // 明るい草地
+    // 背景：生成アートの「動く風景」＝パララックス。奥(遠景)はゆっくり、手前(草花)は速めに流れて奥行きを出す。
+    const skyG = this.add.graphics().setDepth(-21); // 万一ロード前でも空色の下地
+    skyG.fillGradientStyle(0x8fc8f0, 0x9fd0ee, 0xc4e8e0, 0xeef0d6, 1, 1, 1, 1);
+    skyG.fillRect(0, 0, this.W, this.H);
+    if (this.textures.exists("bg_home")) {
+      const bg = this.add.image(this.W / 2, this.H / 2, "bg_home").setDepth(-20);
+      const cover = Math.max(this.W / bg.width, this.H / bg.height) * 1.14; // 画面を覆い、パン用の余白を持たせる
+      bg.setScale(cover);
+      this.tweens.add({ targets: bg, x: this.W / 2 + 42, duration: 16000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // 奥はゆっくり漂う
+    }
+    if (this.textures.exists("bg_home_fg")) {
+      const fg = this.add.image(this.W / 2, this.H + 8, "bg_home_fg").setOrigin(0.5, 1).setDepth(-14); // 画面最下部の草花
+      fg.setScale(Math.max((this.W + 120) / fg.width, 0.34)); // 画面幅＋パン余白を覆う
+      this.tweens.add({ targets: fg, x: this.W / 2 - 70, duration: 9000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // 手前は速め＝視差
     }
     // ごく薄いビネット（四辺をほんのり締める・暗くしすぎない）
-    this.add.rectangle(this.W / 2, 20, this.W, 40, 0x2a4a6a, 0.1);
-    this.add.rectangle(this.W / 2, this.H - 20, this.W, 40, 0x2a4a3a, 0.12);
-    this.add.rectangle(14, this.H / 2, 28, this.H, 0x2a4a6a, 0.07);
-    this.add.rectangle(this.W - 14, this.H / 2, 28, this.H, 0x2a4a6a, 0.07);
+    this.add.rectangle(this.W / 2, 20, this.W, 40, 0x2a4a6a, 0.1).setDepth(-12);
+    this.add.rectangle(14, this.H / 2, 28, this.H, 0x2a4a6a, 0.06).setDepth(-12);
+    this.add.rectangle(this.W - 14, this.H / 2, 28, this.H, 0x2a4a6a, 0.06).setDepth(-12);
 
     // 音：設定反映＋初回操作で解錠
     setMuted(getPref("muted"));
