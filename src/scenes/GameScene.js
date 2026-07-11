@@ -268,13 +268,13 @@ export default class GameScene extends Phaser.Scene {
     this.paused = true;
     if (this.battleTimer) this.battleTimer.paused = true;
     this._coachSteps = [
-      { text: "これが キミの あいぼう！\nいっしょに たたかうよ。", arrow: { x: this.heroX, y: this.heroY - 40 } },
-      { text: "まえの てきを、あいぼうが\nやっつけて くれる。おうえん しよう！", arrow: { x: this.enemyX, y: this.heroY - 30 } },
-      { text: "うえの 🔥💧⚡✨ は いま そだってる キモチ。\nはやくたおす=🔥 / たえる=💧 / さきに=⚡ / ぎゃくてん=✨", arrow: { x: this.W / 2, y: 92 } },
-      { text: "キモチが たまると、あいぼうは\n「しんか」できる。すがたを えらべるよ！", arrow: { x: this.heroX, y: this.heroY - 62 } },
-      { text: "せんとうちゅうの 4つの アイコンは『感情スキル』。\nたまると タップで 発動できる（おまかせ中は 自動で 使う）", arrow: { x: this.W / 2, y: this.H - 244 } },
-      { text: "したの ボタンで ⚙つよく・はやさ・↩かえる。\nつかれたら おうちに かえろう。", arrow: { x: this.W / 2, y: this.H - 90 } },
-      { text: "じゃあ ──\nいってらっしゃい！" },
+      { text: "これが 君の相棒。\n共に、前へ進む。", arrow: { x: this.heroX, y: this.heroY - 40 } },
+      { text: "前の敵は、相棒が自動で倒す。\n君は その戦いを 見守り、導く。", arrow: { x: this.enemyX, y: this.heroY - 30 } },
+      { text: "上の 🔥💧⚡✨ は 今 兆している感情。\n速攻=🔥 / 耐える=💧 / 先手=⚡ / 逆転=✨", arrow: { x: this.W / 2, y: 92 } },
+      { text: "感情が満ちると、相棒は「進化」する。\nどの姿になるかは、君が選ぶ。", arrow: { x: this.heroX, y: this.heroY - 62 } },
+      { text: "戦闘中の 4つのアイコンは『感情スキル』。\n溜まればタップで発動（おまかせ中は自動）。", arrow: { x: this.W / 2, y: this.H - 244 } },
+      { text: "下のボタンで ⚙強化・速度・↩撤退。\n引き際を見極めるのも、君の裁量。", arrow: { x: this.W / 2, y: this.H - 90 } },
+      { text: "それでは ──\n旅立とう。" },
     ];
     this.buildCoach();
   }
@@ -905,9 +905,16 @@ export default class GameScene extends Phaser.Scene {
       const x = 30 + i * 36;
       const rect = this.add.rectangle(x, barY + 4, 32, 34, 0x1c1c2a).setStrokeStyle(1, 0x3a3a52).setInteractive({ useHandCursor: true });
       const txt = this.add.text(x, barY + 4, "×" + mult, { fontFamily: UI_FONT, fontSize: "14px", color: "#cfcfe0" }).setOrigin(0.5);
-      rect.on("pointerdown", () => this.setSpeed(mult));
-      this.speedBtns.push({ mult, rect, txt });
+      const lock = this.add.text(x, barY + 4, "🔒", { fontFamily: EMOJI_FONT, fontSize: "13px" }).setOrigin(0.5).setVisible(false); // 未解放の鍵
+      rect.on("pointerdown", () => this.trySetSpeed(mult));
+      this.speedBtns.push({ mult, rect, txt, lock });
     });
+    // 起動時、保存されている速度がまだ未解放なら、解放済みの最大速度に落とす
+    if (!this.speedUnlocked(this.speed)) {
+      const maxOk = C.SPEED_STEPS.filter((m) => this.speedUnlocked(m)).pop() || 1;
+      this.speed = maxOk;
+      setPref("speed", maxOk);
+    }
 
     // 強化（コインで使い切り強化。おまかせもここ）
     this.upgradeBtn = this.makeBarButton(this.W / 2 + 18, barY, 150, 46, `⚙ 強化 💰${this.coins}`, () => this.openUpgradePanel(), {
@@ -924,9 +931,9 @@ export default class GameScene extends Phaser.Scene {
     });
 
     // ---- 手動バトル操作（子供が相棒に指示）。戦闘中のみ表示 ----
-    this.modeBtn = this.makeBarButton(52, 688, 92, 40, this.manualMode ? "てうち" : "おまかせ", () => this.toggleManual(), { color: 0x1c2c1c, stroke: 0x4a6a4a, textColor: "#bfe0bf", fontSize: "13px" });
-    this.attackBtn = this.makeBarButton(this.W / 2 - 6, 688, 138, 54, "⚔ こうげき", () => this.doCommand(false), { color: 0x2a3a2a, stroke: 0x4caf50, textColor: "#bfffbf", fontSize: "19px" });
-    this.skillBtn = this.makeBarButton(this.W - 88, 688, 138, 54, "✦ ひっさつ", () => this.doCommand(true), { color: 0x3a2a48, stroke: 0xb060e0, textColor: "#e6c2ff", fontSize: "19px" });
+    this.modeBtn = this.makeBarButton(52, 688, 92, 40, this.manualMode ? "手動" : "おまかせ", () => this.toggleManual(), { color: 0x1c2c1c, stroke: 0x4a6a4a, textColor: "#bfe0bf", fontSize: "13px" });
+    this.attackBtn = this.makeBarButton(this.W / 2 - 6, 688, 138, 54, "⚔ 攻撃", () => this.doCommand(false), { color: 0x2a3a2a, stroke: 0x4caf50, textColor: "#bfffbf", fontSize: "19px" });
+    this.skillBtn = this.makeBarButton(this.W - 88, 688, 138, 54, "✦ 必殺", () => this.doCommand(true), { color: 0x3a2a48, stroke: 0xb060e0, textColor: "#e6c2ff", fontSize: "19px" });
     for (const b of [this.modeBtn, this.attackBtn, this.skillBtn]) {
       b.rect.setDepth(6);
       b.txt.setDepth(6);
@@ -950,6 +957,27 @@ export default class GameScene extends Phaser.Scene {
     return { rect, txt };
   }
 
+  // 倍速の解放条件：×2は第1のボス撃破、×3は第5のボス撃破（累計）。今回の旅の撃破もその場で数える。
+  speedBossReq(mult) {
+    return mult >= 3 ? 5 : mult >= 2 ? 1 : 0;
+  }
+  effectiveBossKills() {
+    return (getSave().lifetime.bossKills || 0) + (this.bossKillCount || 0);
+  }
+  speedUnlocked(mult) {
+    return this.effectiveBossKills() >= this.speedBossReq(mult);
+  }
+
+  trySetSpeed(mult) {
+    if (this.speedUnlocked(mult)) {
+      this.setSpeed(mult);
+    } else {
+      const req = this.speedBossReq(mult);
+      this.pushLog(`×${mult}は 第${req}のボスを 倒すと 使える（あと ${req - this.effectiveBossKills()} 体）`);
+      this.refreshSpeedBtns();
+    }
+  }
+
   setSpeed(mult) {
     this.speed = mult;
     setPref("speed", mult);
@@ -961,9 +989,17 @@ export default class GameScene extends Phaser.Scene {
   refreshSpeedBtns() {
     if (!this.speedBtns) return;
     for (const b of this.speedBtns) {
-      const on = b.mult === this.speed;
-      b.rect.setFillStyle(on ? 0x2a3a2a : 0x1c1c2a).setStrokeStyle(1, on ? 0x4caf50 : 0x3a3a52);
-      b.txt.setColor(on ? "#bfffbf" : "#cfcfe0");
+      const unlocked = this.speedUnlocked(b.mult);
+      const on = b.mult === this.speed && unlocked;
+      if (!unlocked) {
+        b.rect.setFillStyle(0x14141c).setStrokeStyle(1, 0x2a2a38);
+        b.txt.setColor("#55556a").setAlpha(0.5);
+        if (b.lock) b.lock.setVisible(true);
+      } else {
+        b.rect.setFillStyle(on ? 0x2a3a2a : 0x1c1c2a).setStrokeStyle(1, on ? 0x4caf50 : 0x3a3a52);
+        b.txt.setColor(on ? "#bfffbf" : "#cfcfe0").setAlpha(1);
+        if (b.lock) b.lock.setVisible(false);
+      }
     }
   }
 
@@ -1623,7 +1659,7 @@ export default class GameScene extends Phaser.Scene {
     this.manualMode = !this.manualMode;
     setPref("manual", this.manualMode);
     if (this.battle) this.battle.manual = this.manualMode;
-    if (this.modeBtn) this.modeBtn.txt.setText(this.manualMode ? "てうち" : "おまかせ");
+    if (this.modeBtn) this.modeBtn.txt.setText(this.manualMode ? "手動" : "おまかせ");
     this.setBattleActionsVisible(this.mode === "battle");
   }
 
@@ -1660,6 +1696,11 @@ export default class GameScene extends Phaser.Scene {
       if (isBoss) {
         reward *= C.BOSS.rewardMult;
         this.bossKillCount = (this.bossKillCount || 0) + 1; // 旅のボス討伐数（帰還時の記録用）
+        // 倍速の解放をその場で反映（×2=第1ボス / ×3=第5ボス）＋解放時の告知
+        const totalNow = this.effectiveBossKills();
+        if (totalNow === this.speedBossReq(2)) this.pushLog("⚡ ×2倍速が 解放された！");
+        if (totalNow === this.speedBossReq(3)) this.pushLog("⚡ ×3倍速が 解放された！");
+        this.refreshSpeedBtns();
         // 撃破：大演出＋次のボスへ
         this.flashWhite(0.3);
         this.cameras.main.shake(260, 0.008);
@@ -1934,8 +1975,8 @@ export default class GameScene extends Phaser.Scene {
     const cards = options.slice(0, 3);
     const c = this.add.container(0, 0).setDepth(215);
     c.add(this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x05050c, 0.82).setInteractive());
-    c.add(this.add.text(this.W / 2, 150, "── しんか できる！ ──", { fontFamily: UI_FONT, fontSize: "20px", color: "#ffd24d", fontStyle: "bold" }).setOrigin(0.5));
-    c.add(this.add.text(this.W / 2, 182, "どの すがたに なる？", { fontFamily: UI_FONT, fontSize: "14px", color: "#e8e8ef" }).setOrigin(0.5));
+    c.add(this.add.text(this.W / 2, 150, "── 進化の刻 ──", { fontFamily: UI_FONT, fontSize: "20px", color: "#ffd24d", fontStyle: "bold" }).setOrigin(0.5));
+    c.add(this.add.text(this.W / 2, 182, "どの姿を選ぶ？", { fontFamily: UI_FONT, fontSize: "14px", color: "#e8e8ef" }).setOrigin(0.5));
     const cardW = 130;
     const gap = 10;
     const total = cards.length * cardW + (cards.length - 1) * gap;
@@ -1945,10 +1986,10 @@ export default class GameScene extends Phaser.Scene {
       const card = this.add.rectangle(x, cardY, cardW, 208, 0x14141f, 0.98).setStrokeStyle(2, form.color || 0xffffff).setInteractive({ useHandCursor: true });
       const icon = this.add.text(x, cardY - 64, form.icon, { fontFamily: EMOJI_FONT, fontSize: "44px" }).setOrigin(0.5);
       const title = this.add.text(x, cardY - 6, form.name, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(form.color || 0xffffff), align: "center", wordWrap: { width: cardW - 12 } }).setOrigin(0.5);
-      const kindLabel = form.kind === "triple" ? "三重しんか" : form.kind === "double" ? "こんごうしんか" : "しんか";
+      const kindLabel = form.kind === "triple" ? "三重進化" : form.kind === "double" ? "混合進化" : "進化";
       const desc = this.add.text(x, cardY + 42, `〈${form.label}〉\n${kindLabel}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#b8b8c8", align: "center", lineSpacing: 4, wordWrap: { width: cardW - 14 } }).setOrigin(0.5);
       // どの姿でも初進化はステータス強化される、を明示（何が起きるか分からない不安をなくす）
-      const gainTxt = `こうげき・HP ×${C.EVOLUTION.statMultiplier}`;
+      const gainTxt = `攻撃・HP ×${C.EVOLUTION.statMultiplier}`;
       const gain = this.add.text(x, cardY + 84, gainTxt, { fontFamily: UI_FONT, fontSize: "11px", color: "#bfffbf", align: "center", wordWrap: { width: cardW - 14 } }).setOrigin(0.5);
       const picked = form;
       card.on("pointerover", () => card.setFillStyle(0x1e1e2c, 0.98));
@@ -1957,7 +1998,7 @@ export default class GameScene extends Phaser.Scene {
       c.add([card, icon, title, desc, gain]);
       x += cardW + gap;
     }
-    const skip = this.add.text(this.W / 2, this.H - 92, "まだ しんかしない", { fontFamily: UI_FONT, fontSize: "14px", color: "#8a8aa0" }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    const skip = this.add.text(this.W / 2, this.H - 92, "まだ進化しない", { fontFamily: UI_FONT, fontSize: "14px", color: "#8a8aa0" }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     skip.on("pointerdown", () => this.chooseEvolution(c, null));
     c.add(skip);
     this._choice = c;
@@ -2058,7 +2099,7 @@ export default class GameScene extends Phaser.Scene {
 
             const named = form.kind === "stage" && form.stage > 1; // 既に名がある→「進化した」
             const nameTxt = this.add
-              .text(this.W / 2, this.H / 2 - 110, `あいぼうは "${dispName}"\n〈${species}〉${named ? "に しんかした！" : "に なった！"}`, {
+              .text(this.W / 2, this.H / 2 - 110, `相棒は "${dispName}"\n〈${species}〉${named ? "へ 進化した" : "に 目覚めた"}`, {
                 fontFamily: UI_FONT,
                 fontSize: "23px",
                 color: "#ffffff",
@@ -2074,7 +2115,7 @@ export default class GameScene extends Phaser.Scene {
             this.tweens.add({ targets: nameTxt, scale: 1, duration: 520, ease: "Back.easeOut" }); // 新しい名がスケールインで立ち上がる
             const evoTag =
               form.kind === "triple" ? "（三重混合）" : form.kind === "dark" ? "（闇堕ち）" : form.kind === "double" ? "（混合進化）" : form.stage === 3 ? "（化身）" : form.stage === 2 ? "（戦士）" : "";
-            this.pushLog(`✨ あいぼうは "${dispName}"〈${species}〉に なった${evoTag}`);
+            this.pushLog(`✨ 相棒は "${dispName}"〈${species}〉になった${evoTag}`);
             recordForm(dispName); // 感情図鑑に刻む
             this.refreshEvoHint(); // 段階が進んだので次の進化目標に更新
 
@@ -2149,27 +2190,27 @@ export default class GameScene extends Phaser.Scene {
     const D = {
       anger: { icon: "🔥", color: C.EMOTIONS.anger.color, dexForm: "焔の精霊", close: "怒りは、愛のかたち。",
         beats: [
-          [{ text: "キミと あつめた キモチの なかで、" }, { text: "いちばん熱かったのは ── 怒り。", color: "#ffbfae" }],
+          [{ text: "君が 拾い集めた 感情の中で、" },{ text: "いちばん熱かったのは ── 怒り。", color: "#ffbfae" }],
           [{ text: "それは 弱さではなかった。" }, { text: "大切なものを 守る、焔だった。", color: "#ffbfae" }],
-          [{ text: "いかりは、たいせつな ものを" }, { text: "まもる ちからに なった。", color: "#ffbfae" }],
+          [{ text: "怒りは ── 大切なものを" }, { text: "守るための、力になった。", color: "#ffbfae" }],
         ] },
       sadness: { icon: "💧", color: C.EMOTIONS.sadness.color, dexForm: "雫の精霊", close: "悲しみは、優しさの器。",
         beats: [
-          [{ text: "キミと あつめた キモチの なかで、" }, { text: "いちばん深かったのは ── 悲しみ。", color: "#bfe0ff" }],
+          [{ text: "君が 拾い集めた 感情の中で、" },{ text: "いちばん深かったのは ── 悲しみ。", color: "#bfe0ff" }],
           [{ text: "涙は 弱さではなかった。" }, { text: "誰かの痛みを 知る、深さだった。", color: "#bfe0ff" }],
-          [{ text: "なみだは、だれかの いたみを" }, { text: "わかる やさしさに なった。", color: "#bfe0ff" }],
+          [{ text: "涙は ── 誰かの痛みを" }, { text: "分かち合う、優しさになった。", color: "#bfe0ff" }],
         ] },
       courage: { icon: "⚡", color: C.EMOTIONS.courage.color, dexForm: "雷の精霊", close: "勇気は、優しさの脚。",
         beats: [
-          [{ text: "キミと あつめた キモチの なかで、" }, { text: "いちばん速かったのは ── 勇気。", color: "#ffe9a0" }],
+          [{ text: "君が 拾い集めた 感情の中で、" },{ text: "いちばん速かったのは ── 勇気。", color: "#ffe9a0" }],
           [{ text: "前へ出る力は 弱さではなかった。" }, { text: "怖さを 知って なお、進む光。", color: "#ffe9a0" }],
-          [{ text: "こわさを しって なお、" }, { text: "まえに すすむ ちからに なった。", color: "#ffe9a0" }],
+          [{ text: "怖さを 知って なお ──" }, { text: "前へ進む、力になった。", color: "#ffe9a0" }],
         ] },
       hope: { icon: "✨", color: 0xfff0c0, dexForm: "灯の精霊", close: "希望は、消えない灯。",
         beats: [
-          [{ text: "キミと あつめた キモチの なかで、" }, { text: "いちばん静かだったのは ── 希望。", color: "#fff4e6" }],
+          [{ text: "君が 拾い集めた 感情の中で、" },{ text: "いちばん静かだったのは ── 希望。", color: "#fff4e6" }],
           [{ text: "それは 弱さではなかった。" }, { text: "どんな闇でも 消えなかった、灯。", color: "#fff4e6" }],
-          [{ text: "きぼうは、どんな よるでも" }, { text: "きえない あかりに なった。", color: "#fff4e6" }],
+          [{ text: "希望は ── どんな夜も" }, { text: "消えない、灯になった。", color: "#fff4e6" }],
         ] },
       dark: { icon: "🌑", color: 0x5a3a6a, dexForm: "澱の精霊", close: "闇を抱いて なお、心は 心。",
         beats: [
@@ -2277,38 +2318,38 @@ export default class GameScene extends Phaser.Scene {
     const my = this.H / 2 + 30;
     const beats = [
       () => {
-        T(my - 20, "── すべての キモチを、しった ──", { size: "22px" });
-        T(my + 28, "うれしいも、かなしいも、こわいも、わくわくも。", { size: "14px", color: "#cfc6ba" });
+        T(my - 20, "── すべての感情を、識った ──", { size: "22px" });
+        T(my + 28, "喜びも、悲しみも、恐れも、そして希望も。", { size: "14px", color: "#cfc6ba" });
       },
       () => {
-        T(my - 8, "キミと あいぼうは、たくさんの\nキモチを あつめて、ここまで きた。", { size: "17px", color: "#efeae2" });
+        T(my - 8, "君と相棒は 数えきれない感情を拾い、\nここまで歩いてきた。", { size: "17px", color: "#efeae2" });
       },
       () => {
-        T(my - 16, "かなしくて ないた ひも、\nこわくて にげたく なった ひも あった。", { size: "16px", color: "#cfc6ba" });
-        T(my + 48, "でも ── その ぜんぶが、ちからに なった。", { size: "16px", color: "#ffd9a0" });
+        T(my - 16, "涙に暮れた夜も、\n恐れに足がすくんだ日もあった。", { size: "16px", color: "#cfc6ba" });
+        T(my + 48, "けれど ── その すべてが、力になった。", { size: "16px", color: "#ffd9a0" });
       },
       () => {
         // 色が あかるく もどる
         this.tweens.add({ targets: warm, fillAlpha: 0.22, duration: 1400 });
         sfx.ending();
-        T(my - 8, "キモチは、よわさじゃ なかった。", { size: "23px", color: "#fff4e6" });
-        T(my + 36, "ぜんぶ、キミを おおきく する ちからだったんだ。", { size: "15px", color: "#e6dccf" });
+        T(my - 8, "感情は、弱さではなかった。", { size: "23px", color: "#fff4e6" });
+        T(my + 36, "そのすべてが、君を大きくする力だった。", { size: "15px", color: "#e6dccf" });
       },
       () => {
-        // 育った あいぼうに、プレイヤーが名をつける
+        // 育った相棒に、プレイヤーが名をつける
         let nm = getSave().spiritName;
         if (!nm) {
-          const input = typeof window !== "undefined" && window.prompt ? window.prompt("そだった あいぼうに、なまえを つけよう", "") : "";
+          const input = typeof window !== "undefined" && window.prompt ? window.prompt("育った相棒に、名を授けよう", "") : "";
           nm = (input || "").trim().slice(0, 12);
           if (!nm) nm = "ヒカリ";
           setSpiritName(nm);
         }
         T(my - 12, `── "${nm}" ──`, { size: "26px", color: "#fff4e6" });
-        T(my + 34, "キミと あいぼうの、たからものの なまえ。", { size: "14px", color: "#cfc6ba" });
+        T(my + 34, "君と相棒が 分かち合った、記憶の名。", { size: "14px", color: "#cfc6ba" });
       },
       () => {
         T(my - 30, "「ありがとう」", { size: "30px", color: "#ffffff" });
-        T(my + 24, "たくさんの キモチを くれて、ありがとう。\nまた、あたらしい ぼうけんへ！", { size: "14px", color: "#e6dccf" });
+        T(my + 24, "たくさんの感情を、ありがとう。\nさあ ── 次の旅へ。", { size: "14px", color: "#e6dccf" });
       },
     ];
 
@@ -2474,7 +2515,7 @@ export default class GameScene extends Phaser.Scene {
     this.enemyLabel.setVisible(false);
     this.tweens.killTweensOf(this.enemySprite);
     sfx.death();
-    this.pushLog("あいぼうは くたくた…！ きょうは おうちで やすもう（あつめた キモチは きえないよ）");
+    this.pushLog("相棒は 力尽きた ── 今日はここまで。（集めた感情は、消えない）");
     this.tweens.add({ targets: this.heroSprite, alpha: 0.55, duration: 400 });
     this.popDamage(this.heroX, this.heroY - 40, "💫", "#ffe08a");
     this.tweens.add({ targets: this.enemySprite, alpha: 0, duration: 300 });

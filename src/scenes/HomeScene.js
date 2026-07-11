@@ -607,7 +607,7 @@ export default class HomeScene extends Phaser.Scene {
           });
           const cntBg = this.add.rectangle(cx, cy + 60, 84, 15, 0xffffff, 0.8);
           c.add(cntBg);
-          c.add(this.add.text(cx, cy + 60, `${here.length}体が はたらき中`, { fontFamily: UI_FONT, fontSize: "10px", color: "#2e7d32", fontStyle: "bold" }).setOrigin(0.5));
+          c.add(this.add.text(cx, cy + 60, `${here.length}体が 稼働中`, { fontFamily: UI_FONT, fontSize: "10px", color: "#2e7d32", fontStyle: "bold" }).setOrigin(0.5));
         }
       });
 
