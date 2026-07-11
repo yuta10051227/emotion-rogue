@@ -45,6 +45,16 @@ import {
   exportSave,
   importSave,
   formSeen,
+  dexProgress,
+  dexBonusPct,
+  shinySeen,
+  shinyCount,
+  dexRewardList,
+  claimDexReward,
+  shinyRewardList,
+  claimShinyReward,
+  unclaimedCollectionCount,
+  artifactSetComplete,
   achievementList,
   claimAchievement,
   unclaimedAchievementCount,
@@ -122,10 +132,21 @@ export default class HomeScene extends Phaser.Scene {
     } else {
       obj = this.add.text(x, y, emojiFallback, { fontFamily: EMOJI_FONT, fontSize: Math.round(size * 0.6) + "px" }).setOrigin(0.5);
     }
-    if (float) {
-      this.tweens.add({ targets: obj, y: y - 6, duration: 1800, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    // きらめき個体（色違い）：金オーラ＋✨を添えたコンテナで返す（収集A・街/図鑑/隊列どこでも特別に光る）
+    //  コンテナで包むことで、返り値を c.add / list.add / tween する既存呼び出しはそのまま動く。
+    let ret = obj;
+    if (b && b.shiny) {
+      const r = size * 0.62;
+      const aura = this.add.circle(0, 0, r, 0xfff0a0, 0.5).setBlendMode(Phaser.BlendModes.ADD);
+      const spark = this.add.text(r * 0.7, -r * 0.7, "✨", { fontFamily: EMOJI_FONT, fontSize: Math.round(size * 0.34) + "px" }).setOrigin(0.5);
+      obj.setPosition(0, 0); // コンテナ基準（0,0）へ寄せる
+      ret = this.add.container(x, y, [aura, obj, spark]); // オーラ→本体→✨の順＝本体の後ろで光る
+      this.tweens.add({ targets: aura, scale: 1.25, alpha: 0.22, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // ゆっくり脈打つ
     }
-    return obj;
+    if (float) {
+      this.tweens.add({ targets: ret, y: y - 6, duration: 1800, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    }
+    return ret;
   }
 
   init(data) {
@@ -454,6 +475,8 @@ export default class HomeScene extends Phaser.Scene {
 
     // 受け取れる実績があれば一度だけ知らせる
     if (unclaimedAchievementCount() > 0) this.time.delayedCall(600, () => this.toast("受け取れる あかし があります"));
+    // 受け取れる収集報酬（図鑑コンプ／きらめき）があれば一度だけ知らせる
+    if (unclaimedCollectionCount() > 0) this.time.delayedCall(1000, () => this.toast("受け取れる 収集報酬があります"));
 
     this.drawBaseStrip(); // やすらぎの街：留守番の仲間が働いている様子
 
@@ -710,7 +733,11 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   refreshNoticeBadge() {
-    if (this.noticeBtn) this.noticeBtn.badge.setText(this.unreadNotices() > 0 ? "●" : "");
+    // 図鑑タブは「お知らせ」ボタンの中。受け取れる収集報酬があれば赤い数字で急かす（無ければ未読●）
+    if (!this.noticeBtn) return;
+    const coll = unclaimedCollectionCount();
+    if (coll > 0) this.noticeBtn.badge.setText(String(coll));
+    else this.noticeBtn.badge.setText(this.unreadNotices() > 0 ? "●" : "");
   }
 
   refreshAchieveBadge() {
@@ -1572,28 +1599,59 @@ export default class HomeScene extends Phaser.Scene {
         return;
       }
 
-      c.add(this.add.text(this.W / 2, 150, "── いま積み上げた力 ──", { fontFamily: UI_FONT, fontSize: "13px", color: "#74839a" }).setOrigin(0.5));
-      let y = 184;
+      // ── セット状態（収集D）：4感情そろえば全ステ+X%。足りない感情を見せて完成を誘う ──
+      const missing = C.EMOTION_ORDER.filter((k) => !arts.some((a) => a.emotion === k));
+      const bandY = 150;
+      if (artifactSetComplete()) {
+        c.add(this.add.rectangle(this.W / 2, bandY, this.W - 40, 34, 0xfff4c8).setStrokeStyle(1, 0xd0a840));
+        c.add(this.add.text(this.W / 2, bandY, `🌟 四感情セット 完成！　全ステータス +${C.ARTIFACT.setBonusPctAll}%`, { fontFamily: UI_FONT, fontSize: "13px", color: "#b8860b" }).setOrigin(0.5));
+      } else {
+        const icons = missing.map((k) => C.EMOTIONS[k].icon).join(" ");
+        c.add(this.add.rectangle(this.W / 2, bandY, this.W - 40, 34, 0xeef3fa).setStrokeStyle(1, 0xc2d2e2));
+        c.add(this.add.text(this.W / 2, bandY, `セットまで: あと ${icons}　（全ステ +${C.ARTIFACT.setBonusPctAll}%）`, { fontFamily: UI_FONT, fontSize: "13px", color: "#4c5e76" }).setOrigin(0.5));
+      }
+
+      c.add(this.add.text(this.W / 2, 186, "── いま積み上げた力 ──", { fontFamily: UI_FONT, fontSize: "13px", color: "#74839a" }).setOrigin(0.5));
+      let y = 214;
       C.ARTIFACT.stats.forEach((st) => {
         const v = b[st.key] || 0;
         const has = v > 0;
-        c.add(this.add.text(this.W / 2 - 120, y, `${st.icon} ${st.label}`, { fontFamily: UI_FONT, fontSize: "16px", color: has ? "#22344a" : "#9aa5b3" }).setOrigin(0, 0.5));
-        c.add(this.add.text(this.W / 2 + 120, y, has ? `+${v}%` : "—", { fontFamily: UI_FONT, fontSize: "16px", color: has ? "#b8860b" : "#9aa5b3" }).setOrigin(1, 0.5));
-        y += 34;
+        c.add(this.add.text(this.W / 2 - 120, y, `${st.icon} ${st.label}`, { fontFamily: UI_FONT, fontSize: "15px", color: has ? "#22344a" : "#9aa5b3" }).setOrigin(0, 0.5));
+        c.add(this.add.text(this.W / 2 + 120, y, has ? `+${v}%` : "—", { fontFamily: UI_FONT, fontSize: "15px", color: has ? "#b8860b" : "#9aa5b3" }).setOrigin(1, 0.5));
+        y += 28;
       });
-      c.add(this.add.text(this.W / 2, y + 16, "結晶は転生でも消えない。集めるほど、強くなる。", { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a" }).setOrigin(0.5));
+
+      // ── 集めた結晶それぞれ（レア度つき・収集D）。多くなるのでスクロール ──
+      c.add(this.add.text(this.W / 2, y + 12, "── 集めた結晶 ──", { fontFamily: UI_FONT, fontSize: "13px", color: "#74839a" }).setOrigin(0.5));
+      const listTop = y + 32;
+      const list = this.add.container(0, 0);
+      c.add(list);
+      let ly = listTop + 8;
+      const rowH = 34;
+      arts.forEach((a) => {
+        const rar = C.ARTIFACT.rarities.find((r) => r.key === (a.rarity || "common")) || C.ARTIFACT.rarities[0];
+        const st = C.ARTIFACT.stats.find((s) => s.key === a.stat) || { label: a.stat, icon: "◆" };
+        const emo = C.EMOTIONS[a.emotion];
+        const rarCss = colorToCss(rar.color);
+        list.add(this.add.rectangle(this.W / 2, ly, this.W - 50, rowH, 0xffffff).setStrokeStyle(1, rar.color)); // 縁をレア度色に
+        list.add(this.add.text(38, ly, `${rar.star} ${emo ? emo.icon : "◆"} ${st.icon} ${st.label}`, { fontFamily: UI_FONT, fontSize: "13px", color: rarCss }).setOrigin(0, 0.5));
+        list.add(this.add.text(this.W - 40, ly, `+${a.pct}%`, { fontFamily: UI_FONT, fontSize: "13px", color: rarCss }).setOrigin(1, 0.5));
+        ly += rowH + 6;
+      });
+      this.attachScroll(c, list, listTop, this.H - 56, ly + 8);
+      c.add(this.add.text(this.W / 2, this.H - 40, "結晶は転生でも消えない。集めるほど、強くなる。", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0.5));
     });
   }
 
   // ---- お知らせ（運営／物語 タブ）----
-  // 感情図鑑：到達した進化形態のコレクション（未到達は❓）
+  // 感情図鑑：集める楽しみ（収集A/B/C）を束ねる。未入手はシルエットで「集めたくなる」ように。
   renderDex(c) {
-    // 基本進化は主人公のpixelアート、混合/三重/闇堕ち/精霊は絵文字。
+    // 基本進化は主人公のpixelアート、混合/三重/精霊は絵文字。
     const single = [];
     C.EMOTION_ORDER.forEach((k) => C.EVOLUTION_STAGES.forms[k].forEach((f, s) => single.push({ tex: "hero_" + k + "_" + (s + 1), name: f.name })));
     const mixed = Object.values(C.MIXED_EVOLUTION.forms).map((f) => ({ icon: f.icon, name: f.name }));
     const triple = Object.values(C.TRIPLE_EVOLUTION.forms).map((f) => ({ icon: f.icon, name: f.name }));
-    // 闇堕ちは明るい方針で封印中（到達不可）→ 図鑑からは非表示。永遠に埋まらない❓枠を見せない。
+    // 闇堕ちは明るい方針で封印中（到達不可）→ 図鑑からは非表示。永遠に埋まらない枠を見せない。
     const spirit = [{ icon: "🌈", name: "感情の精霊" }];
     const cats = [
       { label: "はじまり", forms: [{ tex: "hero_slime", name: "スライム", always: true }] },
@@ -1602,16 +1660,24 @@ export default class HomeScene extends Phaser.Scene {
       { label: "三重混合", forms: triple },
       { label: "頂点", forms: spirit },
     ];
-    const flat = [...single, ...mixed, ...triple, ...spirit];
-    const seenAll = flat.filter((f) => formSeen(f.name)).length;
-    c.add(this.add.text(this.W / 2, 150, `感情図鑑　${seenAll} / ${flat.length}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#22344a" }).setOrigin(0.5));
 
+    // ── 完成度（B）＋図鑑ボーナス（C）：固定ヘッダとして上部に据える ──
+    const prog = dexProgress();
+    c.add(this.add.text(this.W / 2, 150, `感情図鑑　${prog.seen} / ${prog.total}　(${prog.pct}%)`, { fontFamily: UI_FONT, fontSize: "16px", color: "#22344a" }).setOrigin(0.5));
+    const barW = this.W - 96;
+    const barX = this.W / 2 - barW / 2;
+    const barY = 168;
+    c.add(this.add.rectangle(this.W / 2, barY, barW, 8, 0xdfe8f2).setStrokeStyle(1, 0xc2d2e2)); // 溝
+    if (prog.pct > 0) c.add(this.add.rectangle(barX + 1, barY, Math.max(2, (barW - 2) * prog.pct / 100), 6, 0x5ac0a0).setOrigin(0, 0.5)); // 満ち
+    c.add(this.add.text(this.W / 2, 184, `図鑑ボーナス　HP・攻撃 +${Math.round(dexBonusPct() * 100)}%`, { fontFamily: UI_FONT, fontSize: "12px", color: "#b8860b" }).setOrigin(0.5));
+
+    // ── スクロールする本体（グリッド→きらめき→コンプ報酬）──
     const list = this.add.container(0, 0);
     c.add(list);
     const cols = 4;
     const cellW = (this.W - 40) / cols;
     const cellH = 66;
-    let y = 180;
+    let y = 214;
     cats.forEach((cat) => {
       const got = cat.forms.filter((f) => f.always || formSeen(f.name)).length;
       list.add(this.add.text(24, y, `${cat.label}  ${got}/${cat.forms.length}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#4c5e76" }).setOrigin(0, 0.5));
@@ -1620,10 +1686,17 @@ export default class HomeScene extends Phaser.Scene {
         const cx = 24 + cellW * (i % cols) + cellW / 2;
         const cy = y + Math.floor(i / cols) * cellH + 20;
         const seen = f.always || formSeen(f.name);
-        if (seen && f.tex && this.textures.exists(f.tex)) {
-          list.add(this.add.image(cx, cy, f.tex).setDisplaySize(42, 42));
+        if (f.tex && this.textures.exists(f.tex)) {
+          // 画像形態：未入手は暗いシルエット（形は見せる＝集めたくなる）
+          const im = this.add.image(cx, cy, f.tex).setDisplaySize(42, 42);
+          if (!seen) im.setTint(0x2a2a3a).setAlpha(0.55);
+          list.add(im);
         } else if (seen && f.icon) {
           list.add(this.add.text(cx, cy, f.icon, { fontFamily: EMOJI_FONT, fontSize: "26px" }).setOrigin(0.5));
+        } else if (f.icon) {
+          // 絵文字形態は色付きで着色できないため、影つきの「？」で存在だけ匂わせる
+          list.add(this.add.text(cx + 1, cy + 1, "？", { fontFamily: UI_FONT, fontSize: "22px", color: "#1c2430" }).setOrigin(0.5).setAlpha(0.35));
+          list.add(this.add.text(cx, cy, "？", { fontFamily: UI_FONT, fontSize: "22px", color: "#3a4658" }).setOrigin(0.5));
         } else {
           list.add(this.add.text(cx, cy, "❓", { fontFamily: UI_FONT, fontSize: "22px", color: "#9aa5b3" }).setOrigin(0.5));
         }
@@ -1631,8 +1704,66 @@ export default class HomeScene extends Phaser.Scene {
       });
       y += Math.ceil(cat.forms.length / cols) * cellH + 10;
     });
-    // 図鑑用に主人公進化アートを読み込む（未ロードなら）
-    this.attachScroll(c, list, 168, this.H - 56, y + 10);
+
+    // ── きらめき（A）：4感情の色違いをそろえる。記録済みは金の光、未記録はうっすら ──
+    y += 4;
+    list.add(this.add.text(24, y, `✨ きらめき　${shinyCount()}/4`, { fontFamily: UI_FONT, fontSize: "13px", color: "#b8860b" }).setOrigin(0, 0.5));
+    y += 32;
+    C.EMOTION_ORDER.forEach((k, i) => {
+      const cx = 24 + cellW * i + cellW / 2;
+      const info = C.EMOTIONS[k];
+      const seen = shinySeen(k);
+      if (seen) {
+        list.add(this.add.circle(cx, y, 18, 0xffe066, 0.7).setBlendMode(Phaser.BlendModes.ADD)); // 金の輝き
+        list.add(this.add.text(cx, y, info.icon, { fontFamily: EMOJI_FONT, fontSize: "24px" }).setOrigin(0.5));
+      } else {
+        list.add(this.add.text(cx, y, info.icon, { fontFamily: EMOJI_FONT, fontSize: "24px" }).setOrigin(0.5).setAlpha(0.16)); // うっすら＝未記録
+      }
+      list.add(this.add.text(cx, y + 22, seen ? "きらめき" : "？", { fontFamily: UI_FONT, fontSize: "9px", color: seen ? "#b8860b" : "#9aa5b3" }).setOrigin(0.5, 0));
+    });
+    y += 46;
+
+    // ── コンプ報酬（A/B）：受け取れるものは金ボタン。タップは attachScroll の rows で拾う ──
+    const claimRows = [];
+    const addRewardRows = (title, arr, kind, cur) => {
+      list.add(this.add.text(24, y, title, { fontFamily: UI_FONT, fontSize: "13px", color: "#4c5e76" }).setOrigin(0, 0.5));
+      y += 26;
+      arr.forEach((rw) => {
+        const rowH = 40;
+        list.add(this.add.rectangle(this.W / 2, y, this.W - 50, rowH, rw.claimed ? 0xe6ebf2 : rw.done ? 0xeef7e4 : 0xffffff).setStrokeStyle(1, rw.claimed ? 0xc2ccd8 : rw.done ? 0xb5c96a : 0xd6e2f0));
+        list.add(this.add.text(38, y - 8, rw.label, { fontFamily: UI_FONT, fontSize: "13px", color: rw.done ? "#b8860b" : "#22344a" }).setOrigin(0, 0.5));
+        const parts = [];
+        if (rw.reward.satori) parts.push(`🧠悟り+${rw.reward.satori}`);
+        if (rw.reward.gold) parts.push(`💰+${rw.reward.gold}`);
+        list.add(this.add.text(38, y + 11, parts.join("　"), { fontFamily: UI_FONT, fontSize: "10px", color: "#74839a" }).setOrigin(0, 0.5));
+        if (rw.claimed) {
+          list.add(this.add.text(this.W - 40, y, "受領✓", { fontFamily: UI_FONT, fontSize: "13px", color: "#8a97a8" }).setOrigin(1, 0.5));
+        } else if (rw.done) {
+          list.add(this.add.rectangle(this.W - 66, y, 74, 30, 0xfbf3d8).setStrokeStyle(1, 0xd0a840));
+          list.add(this.add.text(this.W - 66, y, "受け取る", { fontFamily: UI_FONT, fontSize: "12px", color: "#b8860b" }).setOrigin(0.5));
+          claimRows.push({ id: `${kind}:${rw.need}`, y });
+        } else {
+          list.add(this.add.text(this.W - 40, y, `${Math.min(cur, rw.need)}/${rw.need}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a" }).setOrigin(1, 0.5));
+        }
+        y += rowH + 8;
+      });
+    };
+    y += 6;
+    addRewardRows("── 図鑑コンプ報酬 ──", dexRewardList(), "dex", prog.seen);
+    y += 4;
+    addRewardRows("── きらめき報酬 ──", shinyRewardList(), "shiny", shinyCount());
+
+    this.attachScroll(c, list, 198, this.H - 56, y + 10, (id) => {
+      const [kind, needStr] = id.split(":");
+      const need = parseInt(needStr, 10);
+      const r = kind === "dex" ? claimDexReward(need) : claimShinyReward(need);
+      if (r && r.ok) {
+        this.toast("報酬を受け取った");
+        sfx.coin();
+        this.refreshNoticeBadge(); // ホームの収集バッジを更新
+        this.openNoticePanel("dex"); // パネルを開き直して再描画
+      }
+    }, claimRows);
   }
 
   openNoticePanel(tab) {

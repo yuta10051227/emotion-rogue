@@ -5,7 +5,7 @@
 //    Phase 1 のこのビルドから永続セーブを導入する。
 // =====================================================================
 
-import { HERO_BASE, EMOTIONS, EMOTION_ORDER, SOUL, EQUIPMENT, CRAFT, TREE, EVOLUTION, COMPANION, DIARY, ARTIFACT, ITEMS, SHOP_COMPANIONS, SKILL, MASTERY, ACHIEVEMENTS } from "./config.js";
+import { HERO_BASE, EMOTIONS, EMOTION_ORDER, SOUL, EQUIPMENT, CRAFT, TREE, EVOLUTION, EVOLUTION_STAGES, MIXED_EVOLUTION, TRIPLE_EVOLUTION, COMPANION, DIARY, ARTIFACT, ITEMS, SHOP_COMPANIONS, SKILL, MASTERY, ACHIEVEMENTS, COLLECTION } from "./config.js";
 
 const KEY = "lacryma_save_v1";
 const KEY_BAK = "lacryma_save_v1_bak"; // 1世代前の正常データ（データ消失対策・DR反面教師）
@@ -89,7 +89,7 @@ function defaultSave() {
     endingSeen: false, // 感情統合エンディングを見たか（§17-4：一度だけ）
     endings: {}, // 見たエンディングの種類（balance/anger/sadness/courage/hope/dark）＝図鑑・再訪動機
     spiritName: "", // 統合で生まれた「感情の精霊」にプレイヤーがつけた名
-    dex: { forms: {} }, // 感情図鑑：到達した進化形態の名前を記録
+    dex: { forms: {}, shiny: {}, rewards: [], shinyRewards: [] }, // 感情図鑑：記録した形態/きらめき/受取済み報酬
     // 感情の結晶＝アーティファクト（DR④／設計§9軸1）：持つだけで恒久%強化が積み上がる
     artifacts: [],
     stamp: 0, // 最終保存時刻（端末間クラウド同期の新旧判定）
@@ -164,6 +164,9 @@ function ensure(s) {
   s.artifacts = Array.isArray(s.artifacts) ? s.artifacts : [];
   s.dex = s.dex && typeof s.dex === "object" ? s.dex : { forms: {} };
   s.dex.forms = s.dex.forms && typeof s.dex.forms === "object" ? s.dex.forms : {};
+  s.dex.shiny = s.dex.shiny && typeof s.dex.shiny === "object" ? s.dex.shiny : {}; // きらめき記録（emotion→true）
+  s.dex.rewards = Array.isArray(s.dex.rewards) ? s.dex.rewards : []; // 受取済み図鑑コンプ報酬(need値)
+  s.dex.shinyRewards = Array.isArray(s.dex.shinyRewards) ? s.dex.shinyRewards : [];
   s.endings = s.endings && typeof s.endings === "object" ? s.endings : {};
   s.player = { ...d.player, ...(s.player || {}) };
   if (typeof s.nextEquipId !== "number") s.nextEquipId = 1;
@@ -183,13 +186,105 @@ export function formSeen(name) {
   return !!getSave().dex.forms[name];
 }
 
+// ---- 収集要素（A きらめき / B 図鑑コンプ / C 図鑑ボーナス）----
+function grantReward(r) {
+  const s = getSave();
+  if (r && r.satori) { s.enlightenment += r.satori; s.lifetime.enlightenment += r.satori; }
+  if (r && r.gold) { s.gold += r.gold; s.lifetime.gold += r.gold; }
+}
+// きらめき個体を図鑑に記録（感情ごと）。新規記録なら true。
+export function recordShiny(emotion) {
+  const s = getSave();
+  if (emotion && !s.dex.shiny[emotion]) { s.dex.shiny[emotion] = true; persist(); return true; }
+  return false;
+}
+export function shinySeen(emotion) { return !!getSave().dex.shiny[emotion]; }
+export function shinyCount() { const sh = getSave().dex.shiny || {}; return Object.keys(sh).filter((k) => sh[k]).length; }
+
+// 図鑑で記録しうる全形態の名前（記録可能な総数の母数）
+export function allDexForms() {
+  const out = [];
+  for (const k of EMOTION_ORDER) (EVOLUTION_STAGES.forms[k] || []).forEach((f) => out.push(f.name));
+  Object.values(MIXED_EVOLUTION.forms).forEach((f) => out.push(f.name));
+  Object.values(TRIPLE_EVOLUTION.forms).forEach((f) => out.push(f.name));
+  out.push("感情の精霊"); // 頂点
+  return out;
+}
+export function dexProgress() {
+  const all = allDexForms();
+  const forms = getSave().dex.forms;
+  const seen = all.filter((n) => forms[n]).length;
+  return { seen, total: all.length, pct: Math.round((seen / Math.max(1, all.length)) * 100) };
+}
+export function dexFormsCount() { return dexProgress().seen; }
+// 図鑑ボーナス(C)：記録数に応じた恒久%（HP・攻撃）
+export function dexBonusPct() { return dexFormsCount() * COLLECTION.dexBonusPerForm; }
+
+// 図鑑コンプ報酬(B)・きらめき報酬(A)の一覧と受け取り
+export function dexRewardList() {
+  const seen = dexFormsCount();
+  const done = getSave().dex.rewards;
+  return COLLECTION.dexRewards.map((r) => ({ ...r, done: seen >= r.need, claimed: done.includes(r.need) }));
+}
+export function claimDexReward(need) {
+  const s = getSave();
+  const r = COLLECTION.dexRewards.find((x) => x.need === need);
+  if (!r || s.dex.rewards.includes(need) || dexFormsCount() < need) return { ok: false };
+  s.dex.rewards.push(need);
+  grantReward(r.reward);
+  persist();
+  return { ok: true, reward: r.reward, label: r.label };
+}
+export function shinyRewardList() {
+  const cnt = shinyCount();
+  const done = getSave().dex.shinyRewards;
+  return COLLECTION.shinyRewards.map((r) => ({ ...r, done: cnt >= r.need, claimed: done.includes(r.need) }));
+}
+export function claimShinyReward(need) {
+  const s = getSave();
+  const r = COLLECTION.shinyRewards.find((x) => x.need === need);
+  if (!r || s.dex.shinyRewards.includes(need) || shinyCount() < need) return { ok: false };
+  s.dex.shinyRewards.push(need);
+  grantReward(r.reward);
+  persist();
+  return { ok: true, reward: r.reward, label: r.label };
+}
+export function unclaimedCollectionCount() {
+  return dexRewardList().filter((r) => r.done && !r.claimed).length + shinyRewardList().filter((r) => r.done && !r.claimed).length;
+}
+
 // アーティファクトの恒久ボーナス（%）を集計
 export function getArtifactBonuses() {
   const b = { hp: 0, atk: 0, spd: 0, frag: 0, coin: 0, drop: 0 };
-  for (const a of getSave().artifacts) {
+  const arts = getSave().artifacts;
+  const emos = {};
+  for (const a of arts) {
     if (b[a.stat] !== undefined) b[a.stat] += a.pct;
+    if (a.emotion) emos[a.emotion] = true;
+  }
+  // セット効果(収集D)：4感情すべての結晶を持つと全ステ+X%
+  if (EMOTION_ORDER.every((k) => emos[k])) {
+    b.hp += ARTIFACT.setBonusPctAll;
+    b.atk += ARTIFACT.setBonusPctAll;
+    b.spd += ARTIFACT.setBonusPctAll;
   }
   return b;
+}
+// 結晶のレア度をロール（収集D）
+function rollArtifactRarity() {
+  const r = Math.random();
+  let acc = 0;
+  for (const x of ARTIFACT.rarities) {
+    acc += x.chance;
+    if (r <= acc) return x;
+  }
+  return ARTIFACT.rarities[0];
+}
+// 結晶のセット効果が成立しているか（UI表示用）
+export function artifactSetComplete() {
+  const emos = {};
+  for (const a of getSave().artifacts) if (a.emotion) emos[a.emotion] = true;
+  return EMOTION_ORDER.every((k) => emos[k]);
 }
 
 // 感情オブジェクトの主感情（なければ null）
@@ -323,6 +418,9 @@ export function mergeCloudSaves(base, other) {
 
   // 図鑑・エンディング：見た記録の和集合
   for (const k in o.dex.forms) if (o.dex.forms[k]) m.dex.forms[k] = true;
+  if (o.dex.shiny) for (const k in o.dex.shiny) if (o.dex.shiny[k]) m.dex.shiny[k] = true;
+  if (Array.isArray(o.dex.rewards)) for (const n of o.dex.rewards) if (!m.dex.rewards.includes(n)) m.dex.rewards.push(n);
+  if (Array.isArray(o.dex.shinyRewards)) for (const n of o.dex.shinyRewards) if (!m.dex.shinyRewards.includes(n)) m.dex.shinyRewards.push(n);
   for (const k in o.endings) if (o.endings[k]) m.endings[k] = true;
   m.endingSeen = !!(m.endingSeen || o.endingSeen);
   if (!m.spiritName && o.spiritName) m.spiritName = o.spiritName;
@@ -677,6 +775,10 @@ export function computeHeroStats() {
   hp *= 1 + art.hp / 100;
   atk *= 1 + art.atk / 100;
   spd *= 1 + art.spd / 100;
+  // 図鑑ボーナス(収集C)：集めるほど強くなる
+  const dexB = dexBonusPct();
+  hp *= 1 + dexB;
+  atk *= 1 + dexB;
   hp = Math.round(hp);
   atk = Math.round(atk);
   spd = Math.round(spd);
@@ -735,8 +837,10 @@ export function transmigrate(run) {
   for (let i = 0; i < artN; i++) {
     const emotion = EMOTION_ORDER[Math.floor(Math.random() * EMOTION_ORDER.length)];
     const stat = ARTIFACT.stats[Math.floor(Math.random() * ARTIFACT.stats.length)];
-    const pct = stat.base + Math.floor(Math.random() * (stat.base + 1));
-    const art = { emotion, stat: stat.key, pct };
+    const rar = rollArtifactRarity(); // レア度をロール（収集D）
+    const base = stat.base + Math.floor(Math.random() * (stat.base + 1));
+    const pct = Math.max(1, Math.round(base * rar.mult));
+    const art = { emotion, stat: stat.key, pct, rarity: rar.key };
     s.artifacts.push(art);
     earnedArtifacts.push(art);
   }
@@ -1079,6 +1183,7 @@ function makeChild(emotion) {
     roleLabel: r.label,
     name: names[Math.floor(Math.random() * names.length)],
     rarity: "rare", // 共鳴で生まれた子は希少
+    shiny: Math.random() < COLLECTION.shinyChance, // きらめき個体(色違い)を低確率でロール（収集A）
     atk: Math.max(1, Math.round(COMPANION.base.atk * f)),
     heal: Math.max(1, Math.round(COMPANION.base.heal * f)),
     spd: COMPANION.base.spd + 1,
@@ -1145,9 +1250,11 @@ export function commitRunCompanions(runComps, runDistance = 0) {
           runs: rc.runs || 0,
           originIdx: rc.originIdx || 0,
           active: willActive,
+          shiny: !!rc.shiny, // きらめき個体（収集A）
         };
         s.party.bonded.push(rec);
         newlyBonded.push(rec);
+        if (rec.shiny) recordShiny(rec.emotion); // 図鑑にきらめきを刻む
       } else {
         dispersed.push({ name: rc.name, icon: rc.icon });
       }
@@ -1164,6 +1271,7 @@ export function commitRunCompanions(runComps, runDistance = 0) {
       const egg = s.party.eggs.shift();
       hatched = makeChild(egg.emotion);
       s.party.bonded.push(hatched);
+      if (hatched.shiny) recordShiny(hatched.emotion); // 孵化でのきらめきを記録（収集A）
     }
     // 2) 共鳴の蓄積 → 卵
     s.party.resonance += Math.floor(runDistance);

@@ -250,6 +250,33 @@ export const ARTIFACT = {
     { key: "coin", label: "コイン", icon: "💰", base: 8 },
     { key: "drop", label: "ドロップ率", icon: "🎁", base: 5 },
   ],
+  // レア度（収集D）：獲得時にロール。%効果に倍率＋★表示。極は集めがい。
+  rarities: [
+    { key: "common", label: "並", mult: 1.0, chance: 0.6, color: 0x9aa5b3, star: "★" },
+    { key: "rare", label: "希", mult: 1.6, chance: 0.3, color: 0x4d9fff, star: "★★" },
+    { key: "epic", label: "極", mult: 2.4, chance: 0.1, color: 0xb060e0, star: "★★★" },
+  ],
+  // セット効果（収集D）：4感情すべての結晶を1つ以上持つと全ステータス上昇
+  setBonusPctAll: 6,
+};
+
+// ---- 収集要素（集めたくなる仕掛け：A きらめき / B 図鑑コンプ / C 図鑑ボーナス）----
+export const COLLECTION = {
+  shinyChance: 0.02, // きらめき個体(色違い)の出現率 ~1/50（孵化・仲間獲得でロール）
+  dexBonusPerForm: 0.004, // 図鑑に記録した形態1つにつき HP・攻撃 +0.4%（集めると強くなる=C）
+  // 図鑑の記録数で受け取れるコンプ報酬（B）。need=累計記録数。
+  dexRewards: [
+    { need: 4, reward: { satori: 8 }, label: "記録 4種" },
+    { need: 8, reward: { satori: 16 }, label: "記録 8種" },
+    { need: 12, reward: { satori: 24, gold: 300 }, label: "記録 12種" },
+    { need: 18, reward: { satori: 40, gold: 600 }, label: "記録 18種" },
+    { need: 23, reward: { satori: 80, gold: 1500 }, label: "図鑑 コンプリート" },
+  ],
+  // きらめき個体を集めた数の特別報酬（A）
+  shinyRewards: [
+    { need: 1, reward: { satori: 15 }, label: "初のきらめき" },
+    { need: 4, reward: { satori: 40, gold: 800 }, label: "きらめき 4種" },
+  ],
 };
 
 // ---- 導く心のツリー（設計書§8 ④プレイヤー成長）----

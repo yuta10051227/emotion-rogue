@@ -4,7 +4,7 @@
 //  感情 → 役割：怒り=前衛火力／悲しみ=癒し／勇気=先制／希望=逆転の一手。
 // =====================================================================
 
-import { COMPANION, ENEMY_BASE } from "../data/config.js";
+import { COMPANION, ENEMY_BASE, COLLECTION } from "../data/config.js";
 
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -62,6 +62,7 @@ export function makeCompanion(emotion, distance, id, opts = {}) {
     level: 1, // 個体強化レベル（お金で永続強化）
     runs: 0, // ともに歩んだ旅の数（愛着の指標）
     originIdx: Math.floor(Math.random() * (COMPANION.origins[emotion] || [""]).length), // 出自の一言
+    shiny: Math.random() < (COLLECTION.shinyChance || 0), // きらめき個体(色違い)を低確率でロール（収集A）
   };
 }
 

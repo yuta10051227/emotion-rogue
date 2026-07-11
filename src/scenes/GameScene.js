@@ -2996,6 +2996,9 @@ export default class GameScene extends Phaser.Scene {
       if (o) {
         const base = o.baseY != null ? o.baseY : this.partyY;
         o.spr.y = base + (Math.floor(time / 340 + i * 1.4) % 2 === 0 ? 0 : -3); // 2コマ待機（少しずらして）
+        // きらめきのオーラ／✨は本体に追従
+        if (o.aura) o.aura.setPosition(o.spr.x, o.spr.y);
+        if (o.spark) o.spark.setPosition(o.spr.x, o.spr.y - 22);
       }
       i += 1;
     }
@@ -3150,7 +3153,15 @@ export default class GameScene extends Phaser.Scene {
     }
     spr.setScale(0);
     const nm = this.add.text(bx, by, comp.name, { fontFamily: UI_FONT, fontSize: "11px", color: "#9a9aac" }).setOrigin(0.5).setDepth(2).setVisible(false);
-    this.companionSprites[comp.id] = { spr, nm, body, shadow, baseX: bx, baseY: by, fitScale };
+    // きらめき個体（色違い）：金色の加算オーラ＋✨で「特別な子」に見せる（収集A）
+    let aura = null;
+    let spark = null;
+    if (comp.shiny) {
+      aura = this.add.circle(bx, by, 22, 0xfff0a0, 0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(1);
+      this.tweens.add({ targets: aura, scale: 1.28, alpha: 0.22, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // ゆっくり脈打つ
+      spark = this.add.text(bx, by - 22, "✨", { fontFamily: EMOJI_FONT, fontSize: "16px" }).setOrigin(0.5).setDepth(3);
+    }
+    this.companionSprites[comp.id] = { spr, nm, body, shadow, aura, spark, baseX: bx, baseY: by, fitScale };
   }
 
   pulseCompanion(id) {
