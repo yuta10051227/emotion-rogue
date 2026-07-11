@@ -559,11 +559,23 @@ export default class HomeScene extends Phaser.Scene {
       const lv = townLevel();
       const bonus = Math.round(C.COMPANION.idle.townBonusPerLevel * (lv - 1) * 100);
       const stay = s.party.bonded.filter((b) => !b.active);
-      c.add(this.add.text(this.W / 2, 116, `街レベル ${lv}　（生産 +${bonus}%）`, { fontFamily: UI_FONT, fontSize: "17px", color: "#1f6aa8" }).setOrigin(0.5));
-      c.add(this.add.text(this.W / 2, 140, `留守番 ${stay.length} 体　／　次のLvまで 転生 ${C.COMPANION.idle.townRebirthsPerLevel - (s.soul.rebirths % C.COMPANION.idle.townRebirthsPerLevel)} 回`, { fontFamily: UI_FONT, fontSize: "12px", color: "#4c5e76" }).setOrigin(0.5));
-
-      // 街の空気（pixel遠景を薄く敷く）
-      if (this.textures.exists("bg_far")) c.add(this.add.image(this.W / 2, 250, "bg_far").setDisplaySize(this.W - 24, 130).setAlpha(0.25));
+      // ── 村の風景を背景に敷いて「街」らしく。カード内にマスクで収める ──
+      const regTop = 110;
+      const regBot = 668;
+      const regW = this.W - 30;
+      if (this.textures.exists("bg_home")) {
+        const img = this.add.image(this.W / 2, (regTop + regBot) / 2, "bg_home");
+        img.setScale(Math.max(regW / img.width, (regBot - regTop) / img.height) * 1.02);
+        const mk = this.make.graphics({ add: false });
+        mk.fillRoundedRect(this.W / 2 - regW / 2, regTop, regW, regBot - regTop, 10);
+        const mask = mk.createGeometryMask();
+        img.setMask(mask);
+        c.add(img);
+        c.add(this.add.rectangle(this.W / 2, regTop + 26, regW, 52, 0xffffff, 0.5).setMask(mask)); // 見出しの下地
+        c.add(this.add.rectangle(this.W / 2, regBot - 16, regW, 34, 0xffffff, 0.42).setMask(mask)); // 説明文の下地
+      }
+      c.add(this.add.text(this.W / 2, regTop + 15, `街レベル ${lv}　（生産 +${bonus}%）`, { fontFamily: UI_FONT, fontSize: "16px", color: "#1c4a6e", fontStyle: "bold" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, regTop + 37, `留守番 ${stay.length} 体　／　次のLvまで 転生 ${C.COMPANION.idle.townRebirthsPerLevel - (s.soul.rebirths % C.COMPANION.idle.townRebirthsPerLevel)} 回`, { fontFamily: UI_FONT, fontSize: "11px", color: "#2e4a66" }).setOrigin(0.5));
 
       // 4感情の「場所」を 2x2 で（pixelの建物）。属性の合う留守番仲間がそこで働く。
       const positions = [
@@ -576,20 +588,26 @@ export default class HomeScene extends Phaser.Scene {
         const [cx, cy] = positions[i];
         const info = C.EMOTIONS[k];
         const here = stay.filter((b) => b.emotion === k);
+        // 建物（接地影つきで地面に立つ）
+        c.add(this.add.ellipse(cx, cy + 2, 78, 15, 0x1a2a10, 0.22));
         if (this.textures.exists("town_" + k)) c.add(this.add.image(cx, cy - 42, "town_" + k).setDisplaySize(82, 82));
         else c.add(this.add.text(cx, cy - 42, info.icon, { fontFamily: EMOJI_FONT, fontSize: "40px" }).setOrigin(0.5));
-        c.add(this.add.text(cx, cy + 8, C.COMPANION.spots[k], { fontFamily: UI_FONT, fontSize: "13px", color: colorToCss(info.color) }).setOrigin(0.5));
+        // 工房名（読みやすい札）
+        c.add(this.add.rectangle(cx, cy + 12, 80, 18, 0xffffff, 0.86).setStrokeStyle(1, info.color));
+        c.add(this.add.text(cx, cy + 12, C.COMPANION.spots[k], { fontFamily: UI_FONT, fontSize: "12px", color: colorToCss(info.color), fontStyle: "bold" }).setOrigin(0.5));
         if (!here.length) {
-          c.add(this.add.text(cx, cy + 34, "（誰もいない）", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0.5));
+          c.add(this.add.text(cx, cy + 36, "（誰もいない）", { fontFamily: UI_FONT, fontSize: "10px", color: "#4c5e76" }).setOrigin(0.5));
         } else {
           here.slice(0, 3).forEach((b, j) => {
-            const x = cx - 30 + j * 30;
-            const yy = cy + 36;
-            const spr = this.charPortrait(x, yy, b.emotion, 28, b.icon, false, b);
-            this.tweens.add({ targets: spr, y: yy - 3, duration: 480 + j * 70, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+            const wx = cx - 26 + j * 26;
+            const wy = cy + 40;
+            const spr = this.charPortrait(wx, wy, b.emotion, 26, b.icon, false, b);
             c.add(spr);
+            this.animateTownWorker(c, spr, wx, wy, b.emotion); // 歩きながら素材を集める
           });
-          c.add(this.add.text(cx, cy + 58, `${here.length}体が採取中`, { fontFamily: UI_FONT, fontSize: "10px", color: "#4c5e76" }).setOrigin(0.5));
+          const cntBg = this.add.rectangle(cx, cy + 60, 84, 15, 0xffffff, 0.8);
+          c.add(cntBg);
+          c.add(this.add.text(cx, cy + 60, `${here.length}体が はたらき中`, { fontFamily: UI_FONT, fontSize: "10px", color: "#2e7d32", fontStyle: "bold" }).setOrigin(0.5));
         }
       });
 
@@ -601,7 +619,33 @@ export default class HomeScene extends Phaser.Scene {
       c.add(this.add.text(this.W / 2 - 28, ny - 10, eggs > 0 ? `感情の卵 ×${eggs}` : "卵はまだない", { fontFamily: UI_FONT, fontSize: "14px", color: eggs > 0 ? "#b8860b" : "#74839a" }).setOrigin(0, 0.5));
       c.add(this.add.text(this.W / 2 - 28, ny + 12, eggs > 0 ? "次の旅で孵る" : "2体以上を同行させると生まれる", { fontFamily: UI_FONT, fontSize: "10px", color: "#74839a" }).setOrigin(0, 0.5));
 
-      c.add(this.add.text(this.W / 2, 566, "留守番の仲間が、合う場所で素材を集める。街は転生で育つ。", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a", align: "center", wordWrap: { width: this.W - 60 } }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, regBot - 16, "留守番の仲間が、合う場所で素材を集めてくれる。街は転生で育つ。", { fontFamily: UI_FONT, fontSize: "11px", color: "#3a5570", align: "center", wordWrap: { width: this.W - 60 } }).setOrigin(0.5));
+    });
+  }
+
+  // 留守番モンスターを「歩いて働いている」ように見せる：巡回移動＋上下＋素材の収集エフェクト
+  animateTownWorker(c, spr, sx, sy, emotion) {
+    const info = C.EMOTIONS[emotion] || {};
+    const amp = 9 + Math.random() * 6; // 左右の巡回幅
+    const dur = 1200 + Math.random() * 800;
+    const leftBase = emotion === "anger" || emotion === "sadness" || emotion === "courage"; // 元絵が左向きの仲間
+    const setDir = (movingRight) => { if (spr.setFlipX) spr.setFlipX(movingRight ? leftBase : !leftBase); }; // 進行方向を向く
+    setDir(true);
+    spr.x = sx - amp;
+    this.tweens.add({ targets: spr, x: sx + amp, duration: dur, yoyo: true, repeat: -1, ease: "Sine.easeInOut", onYoyo: () => setDir(false), onRepeat: () => setDir(true) });
+    this.tweens.add({ targets: spr, y: sy - 3, duration: 320 + Math.random() * 120, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // 歩みの上下
+    // 収集エフェクト：感情の素材がふわっと昇って消える（＝働いている実感）
+    const mat = makeIcon(this, sx, sy - 8, info.icon, 13, EMOJI_FONT).setAlpha(0);
+    c.add(mat);
+    this.tweens.add({
+      targets: mat,
+      y: sy - 42,
+      alpha: { from: 0.95, to: 0 },
+      duration: 1000,
+      ease: "Sine.easeOut",
+      repeat: -1,
+      repeatDelay: 800 + Math.random() * 1400,
+      onRepeat: () => { mat.x = spr.x; }, // 現在の立ち位置から昇る
     });
   }
 
