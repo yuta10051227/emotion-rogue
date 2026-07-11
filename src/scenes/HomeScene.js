@@ -67,6 +67,9 @@ import {
   abyssActive,
   setAbyss,
   canUnlockAnyNode,
+  trueChapterUnlocked,
+  getStarterEgg,
+  setStarterEgg,
 } from "../data/save.js";
 import { cloudConfigured, getUser } from "../data/cloud.js";
 import { openAccountOverlay } from "../ui/authOverlay.js";
@@ -95,6 +98,11 @@ const NOTICES = {
     { id: "st2", title: "忘れられた灯", body: "だれも見ていなくても、その子は歩き続けていた。" },
   ],
 };
+
+// 物語タブの中身（真章をクリアしていれば TRUE_CHAPTER のお知らせを追記）
+function storyNotices() {
+  return trueChapterUnlocked() ? [...NOTICES.story, ...C.TRUE_CHAPTER.notices] : NOTICES.story;
+}
 
 export default class HomeScene extends Phaser.Scene {
   constructor() {
@@ -647,7 +655,26 @@ export default class HomeScene extends Phaser.Scene {
       c.add(this.add.text(this.W / 2 - 28, ny - 10, eggs > 0 ? `感情の卵 ×${eggs}` : "卵はまだない", { fontFamily: UI_FONT, fontSize: "14px", color: eggs > 0 ? "#b8860b" : "#74839a" }).setOrigin(0, 0.5));
       c.add(this.add.text(this.W / 2 - 28, ny + 12, eggs > 0 ? "次の旅で孵る" : "2体以上を同行させると生まれる", { fontFamily: UI_FONT, fontSize: "10px", color: "#74839a" }).setOrigin(0, 0.5));
 
-      c.add(this.add.text(this.W / 2, regBot - 16, "留守番の仲間が、合う場所で素材を集めてくれる。街は転生で育つ。", { fontFamily: UI_FONT, fontSize: "11px", color: "#3a5570", align: "center", wordWrap: { width: this.W - 60 } }).setOrigin(0.5));
+      // 始まりの卵（真章）：4系統から選ぶと、次の旅の相棒が その幼体スタートになる
+      if (trueChapterUnlocked()) {
+        const sy = 570;
+        const cur = getStarterEgg();
+        c.add(this.add.text(this.W / 2, sy - 22, "始まりの卵 ── 相棒の始まりの姿を選ぶ", { fontFamily: UI_FONT, fontSize: "12px", color: "#7a5a1a", fontStyle: "bold" }).setOrigin(0.5));
+        C.EMOTION_ORDER.forEach((k, i) => {
+          const info = C.EMOTIONS[k];
+          const ex = this.W / 2 - 132 + i * 88;
+          const on = cur === k;
+          const box = this.add.rectangle(ex, sy + 16, 78, 60, on ? 0xfff3d6 : 0xffffff, 0.95).setStrokeStyle(on ? 2 : 1, on ? info.color : 0xd6c9a8).setInteractive({ useHandCursor: true });
+          const tk = "hero_" + k + "_1";
+          const ic = this.textures.exists(tk) ? this.add.image(ex, sy + 6, tk).setDisplaySize(38, 38) : this.add.text(ex, sy + 6, info.icon, { fontFamily: EMOJI_FONT, fontSize: "26px" }).setOrigin(0.5);
+          const lb = this.add.text(ex, sy + 34, on ? "選択中" : info.label, { fontFamily: UI_FONT, fontSize: "10px", color: on ? colorToCss(info.color) : "#74839a", fontStyle: on ? "bold" : "normal" }).setOrigin(0.5);
+          box.on("pointerdown", () => { sfx.tap && sfx.tap(); setStarterEgg(on ? null : k); this.openTownPanel(); });
+          c.add([box, ic, lb]);
+        });
+        c.add(this.add.text(this.W / 2, regBot - 14, "選んだ系統で始めると、相棒は一段育った姿から旅立つ。", { fontFamily: UI_FONT, fontSize: "11px", color: "#3a5570", align: "center", wordWrap: { width: this.W - 60 } }).setOrigin(0.5));
+      } else {
+        c.add(this.add.text(this.W / 2, regBot - 16, "留守番の仲間が、合う場所で素材を集めてくれる。街は転生で育つ。", { fontFamily: UI_FONT, fontSize: "11px", color: "#3a5570", align: "center", wordWrap: { width: this.W - 60 } }).setOrigin(0.5));
+      }
     });
   }
 
@@ -734,7 +761,7 @@ export default class HomeScene extends Phaser.Scene {
 
   unreadNotices() {
     const read = getSave().noticesRead;
-    return [...NOTICES.ops, ...NOTICES.story].filter((n) => !read.includes(n.id)).length;
+    return [...NOTICES.ops, ...storyNotices()].filter((n) => !read.includes(n.id)).length;
   }
 
   refreshNoticeBadge() {
@@ -1815,7 +1842,7 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   openNoticePanel(tab) {
-    markNoticesRead([...NOTICES.ops.map((n) => n.id), ...NOTICES.story.map((n) => n.id)]);
+    markNoticesRead([...NOTICES.ops.map((n) => n.id), ...storyNotices().map((n) => n.id)]);
     this.refreshNoticeBadge();
     this.openPanel("お知らせ", (c) => {
       const mkTab = (x, key, label) => {
@@ -1857,7 +1884,7 @@ export default class HomeScene extends Phaser.Scene {
           });
         }
       } else {
-        NOTICES[tab].forEach((n) => {
+        (tab === "story" ? storyNotices() : NOTICES[tab]).forEach((n) => {
           list.add(this.add.text(34, y, "▸ " + n.title, { fontFamily: UI_FONT, fontSize: "16px", color: "#22344a" }));
           const body = this.add.text(34, y + 26, n.body, { fontFamily: UI_FONT, fontSize: "14px", color: "#4c5e76", wordWrap: { width: this.W - 70 }, lineSpacing: 4 });
           list.add(body);

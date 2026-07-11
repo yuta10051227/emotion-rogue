@@ -11,7 +11,7 @@ import { createBattle, stepBattle, forceFinish, commandAttack, commandSkill, her
 import { createEmotionState, gainEmotions, checkEvolution, leadingEmotion, secondEmotion } from "../logic/evolution.js";
 import { makeCompanion, voiceStage, pickVoiceLine } from "../logic/companion.js";
 import { sfx, onFirstGesture, setMuted, setMusicMood } from "../logic/audio.js";
-import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm, markBattleCoached, recordEnding, endingCollected, getPlayer, abyssActive } from "../data/save.js";
+import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm, markBattleCoached, recordEnding, endingCollected, getPlayer, abyssActive, formSeen, mixUnlocked, tripleUnlocked, trueChapterUnlocked, markTrueChapter, getStarterEgg } from "../data/save.js";
 
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const UI_FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
@@ -783,6 +783,22 @@ export default class GameScene extends Phaser.Scene {
       this.heroFit = 1;
       this.heroFormKey = null;
     }
+    // 始まりの卵（真章）：選んだ系統の第1形態でスタート（一段育った状態＝ラスボス撃破の褒美）
+    const starter = getStarterEgg();
+    if (starter && this.heroIsImage && this.textures.exists("hero_" + starter + "_1")) {
+      const tkey = "hero_" + starter + "_1";
+      this.heroSprite.setTexture(tkey);
+      faceEnemy(this.heroSprite, tkey);
+      this.heroFormKey = tkey;
+      this.evolvedKey = starter;
+      this.evoStage = 1;
+      this.evoMult *= C.EVOLUTION.statMultiplier; // 第1形態ぶんの強化を最初から
+      this.heroFit = this.heroFitFor(1);
+      this.heroSprite.setScale(this.heroFit);
+      this._starterEgg = starter; // ヒント表示用
+      this.applyRunUpgrades(); // evoMult反映（create冒頭の確定より後なので再計算）
+      if (this.heroStats) this.heroStats.hp = this.heroStats.maxHp;
+    }
     this.enemySprite = this.add.text(this.enemyX, this.enemyY, "", { fontFamily: EMOJI_FONT, fontSize: "56px" }).setOrigin(0.5).setDepth(2).setVisible(false);
     this.enemyLabel = this.add.text(this.enemyX, this.enemyY - 50, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5).setDepth(2).setVisible(false);
 
@@ -1439,6 +1455,12 @@ export default class GameScene extends Phaser.Scene {
       hope: [0xffffff, 0xffffff, 0xffe0c0, 0xd0e0ff, 0xffd0e0],
     };
     const tint = Phaser.Utils.Array.GetRandom(TINTS[emotion] || [0xffffff]);
+    // 真章の門番：エンディング到達済み＆未解放なら、500m以降のボス枠にラスボス「空白の王」が現れる
+    if (distance >= C.LAST_BOSS.distance && getSave().endingSeen && !trueChapterUnlocked()) {
+      const lb = C.LAST_BOSS;
+      this.bossCount += 1;
+      return { hp: Math.round(hp * lb.hpMult), maxHp: Math.round(hp * lb.hpMult), atk: Math.round(atk * lb.atkMult), spd, icon: lb.icon, label: lb.name, lean: emotion, boss: true, lastBoss: true, bossPx: Math.round(bossPx * 1.12), tint: 0xffffff };
+    }
     this.bossCount += 1;
     return { hp, maxHp: hp, atk, spd, icon: t.icon, label: t.name, lean: emotion, boss: true, bossPx, tint };
   }
@@ -1796,6 +1818,11 @@ export default class GameScene extends Phaser.Scene {
       if (isBoss) {
         reward *= C.BOSS.rewardMult;
         this.bossKillCount = (this.bossKillCount || 0) + 1; // 旅のボス討伐数（帰還時の記録用）
+        // ラスボス「空白の王」撃破 → 真章「本来の物語」解放
+        if (this.currentEnemy.lastBoss && markTrueChapter()) {
+          this.pushLog("🕳 空白の王が 崩れ落ちた ── 真章「本来の物語」が 解放された");
+          for (const ln of C.LAST_BOSS.defeatLines) this.pushLog(ln);
+        }
         // 倍速の解放をその場で反映（×2=第1ボス / ×3=第5ボス）＋解放時の告知
         const totalNow = this.effectiveBossKills();
         if (totalNow === this.speedBossReq(2)) this.pushLog("⚡ ×2倍速が 解放された！");
@@ -2031,13 +2058,14 @@ export default class GameScene extends Phaser.Scene {
     const ratio = C.MIXED_EVOLUTION.ratio;
     const out = [];
     if (ranked[2].value > 0 && ranked[2].value >= lead * ratio) {
-      const form = C.TRIPLE_EVOLUTION.forms[ranked[3].key];
-      if (form) out.push({ ...form, kind: "triple" });
+      const missing = ranked[3].key;
+      const form = C.TRIPLE_EVOLUTION.forms[missing];
+      if (form && tripleUnlocked(missing)) out.push({ ...form, kind: "triple" }); // アンロックA：構成3系統を図鑑記録で解放
     }
     if (ranked[1].value > 0 && ranked[1].value >= lead * ratio) {
       const pair = [ranked[0].key, ranked[1].key].sort((a, b) => C.EMOTION_ORDER.indexOf(a) - C.EMOTION_ORDER.indexOf(b)).join("+");
       const form = C.MIXED_EVOLUTION.forms[pair];
-      if (form) out.push({ ...form, kind: "double" });
+      if (form && mixUnlocked(pair)) out.push({ ...form, kind: "double" }); // アンロックA：両系統の第1形態を記録で解放
     }
     return out;
   }
@@ -2083,11 +2111,13 @@ export default class GameScene extends Phaser.Scene {
     let x = this.W / 2 - total / 2 + cardW / 2;
     const cardY = this.H / 2 + 12;
     for (const form of cards) {
-      const card = this.add.rectangle(x, cardY, cardW, 208, 0x14141f, 0.98).setStrokeStyle(2, form.color || 0xffffff).setInteractive({ useHandCursor: true });
-      const icon = this.add.text(x, cardY - 64, form.icon, { fontFamily: EMOJI_FONT, fontSize: "44px" }).setOrigin(0.5);
-      const title = this.add.text(x, cardY - 6, form.name, { fontFamily: UI_FONT, fontSize: "15px", color: colorToCss(form.color || 0xffffff), align: "center", wordWrap: { width: cardW - 12 } }).setOrigin(0.5);
+      const seen = formSeen(form.name); // アンロックB：未記録の姿はシルエット＋？？？（選ぶと判明）
+      const card = this.add.rectangle(x, cardY, cardW, 208, 0x14141f, 0.98).setStrokeStyle(2, seen ? form.color || 0xffffff : 0x55556a).setInteractive({ useHandCursor: true });
+      const icon = this.add.text(x, cardY - 64, seen ? form.icon : "？", { fontFamily: EMOJI_FONT, fontSize: "44px", color: seen ? "#ffffff" : "#3a3a4a" }).setOrigin(0.5);
+      if (!seen) icon.setAlpha(0.85); // シルエット感
+      const title = this.add.text(x, cardY - 6, seen ? form.name : "？？？", { fontFamily: UI_FONT, fontSize: "15px", color: seen ? colorToCss(form.color || 0xffffff) : "#8a8aa0", align: "center", wordWrap: { width: cardW - 12 } }).setOrigin(0.5);
       const kindLabel = form.kind === "triple" ? "三重進化" : form.kind === "double" ? "混合進化" : "進化";
-      const desc = this.add.text(x, cardY + 42, `〈${form.label}〉\n${kindLabel}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#b8b8c8", align: "center", lineSpacing: 4, wordWrap: { width: cardW - 14 } }).setOrigin(0.5);
+      const desc = this.add.text(x, cardY + 42, seen ? `〈${form.label}〉\n${kindLabel}` : `〈？？？〉\n${kindLabel}（未発見）`, { fontFamily: UI_FONT, fontSize: "12px", color: "#b8b8c8", align: "center", lineSpacing: 4, wordWrap: { width: cardW - 14 } }).setOrigin(0.5);
       // どの姿でも初進化はステータス強化される、を明示（何が起きるか分からない不安をなくす）
       const gainTxt = `攻撃・HP ×${C.EVOLUTION.statMultiplier}`;
       const gain = this.add.text(x, cardY + 84, gainTxt, { fontFamily: UI_FONT, fontSize: "11px", color: "#bfffbf", align: "center", wordWrap: { width: cardW - 14 } }).setOrigin(0.5);
