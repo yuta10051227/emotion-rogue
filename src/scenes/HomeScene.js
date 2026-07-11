@@ -140,16 +140,20 @@ export default class HomeScene extends Phaser.Scene {
     const skyG = this.add.graphics().setDepth(-21); // 万一ロード前でも空色の下地
     skyG.fillGradientStyle(0x8fc8f0, 0x9fd0ee, 0xc4e8e0, 0xeef0d6, 1, 1, 1, 1);
     skyG.fillRect(0, 0, this.W, this.H);
+    // ゆっくりした「カメラの横パン」を再現：奥も手前も"同じ向き・同じ周期"で漂わせ、
+    //  手前ほど大きく動かす＝視差。向きや周期がバラバラだと不自然に滑って見えるため揃える。
+    const PAN = 22; // 奥の振れ幅（px）。手前はこの約2.4倍。
+    const PERIOD = 20000; // 共通周期（位相ロック）
     if (this.textures.exists("bg_home")) {
-      const bg = this.add.image(this.W / 2, this.H / 2, "bg_home").setDepth(-20);
-      const cover = Math.max(this.W / bg.width, this.H / bg.height) * 1.14; // 画面を覆い、パン用の余白を持たせる
+      const bg = this.add.image(this.W / 2 - PAN, this.H / 2, "bg_home").setDepth(-20); // 左寄りから開始＝±PANで中心対称
+      const cover = Math.max(this.W / bg.width, this.H / bg.height) * 1.16; // 画面を覆い、パン用の余白を持たせる
       bg.setScale(cover);
-      this.tweens.add({ targets: bg, x: this.W / 2 + 42, duration: 16000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // 奥はゆっくり漂う
+      this.tweens.add({ targets: bg, x: this.W / 2 + PAN, duration: PERIOD, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
     }
     if (this.textures.exists("bg_home_fg")) {
-      const fg = this.add.image(this.W / 2, this.H + 8, "bg_home_fg").setOrigin(0.5, 1).setDepth(-14); // 画面最下部の草花
-      fg.setScale(Math.max((this.W + 120) / fg.width, 0.34)); // 画面幅＋パン余白を覆う
-      this.tweens.add({ targets: fg, x: this.W / 2 - 70, duration: 9000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // 手前は速め＝視差
+      const fg = this.add.image(this.W / 2 - PAN * 2.4, this.H + 8, "bg_home_fg").setOrigin(0.5, 1).setDepth(-14); // 手前は大きく振る
+      fg.setScale(Math.max((this.W + 200) / fg.width, 0.34)); // 画面幅＋パン余白を覆う
+      this.tweens.add({ targets: fg, x: this.W / 2 + PAN * 2.4, duration: PERIOD, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // 奥と同じ向き・同周期＝自然なパン
     }
     // ごく薄いビネット（四辺をほんのり締める・暗くしすぎない）
     this.add.rectangle(this.W / 2, 20, this.W, 40, 0x2a4a6a, 0.1).setDepth(-12);
@@ -522,9 +526,16 @@ export default class HomeScene extends Phaser.Scene {
   drawBaseStrip() {
     const stay = getSave().party.bonded.filter((b) => !b.active);
     const y = 668;
-    // タップで街の詳細へ
-    this.add.rectangle(this.W / 2, y - 2, this.W - 24, 64, 0x000000, 0.001).setInteractive({ useHandCursor: true }).on("pointerdown", () => this.openTownPanel());
-    this.add.text(this.W / 2, y - 26, `─ やすらぎの街 Lv${townLevel()} ─ ▸`, { fontFamily: UI_FONT, fontSize: "12px", color: "#6a6a86" }).setOrigin(0.5);
+    // 「やすらぎの街」へ入れる看板ボタン（道の上に立つ標識のように）。タップで街の詳細へ。
+    const townBtn = this.makeButton(this.W / 2, y - 24, 208, 38, `🏠 やすらぎの街 Lv${townLevel()}　▸`, () => this.openTownPanel(), {
+      color: 0xfff2d6, // あたたかいクリーム
+      stroke: 0xe0a848, // 金の縁＝標識らしさ
+      textColor: "#8a5a1a",
+      fontSize: "14px",
+    });
+    // 「押せる看板」だと分かるよう、ふわりと呼吸させる
+    const parts = [townBtn.gfx, townBtn.rect, townBtn.txt, townBtn.badge, townBtn.icon].filter(Boolean);
+    this.tweens.add({ targets: parts, y: "-=2", duration: 1400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
     if (!stay.length) {
       this.add.text(this.W / 2, y + 4, "仲間を「留守番」にすると、ここで素材を集めてくれる", { fontFamily: UI_FONT, fontSize: "11px", color: "#4a4a5e" }).setOrigin(0.5);
       return;
