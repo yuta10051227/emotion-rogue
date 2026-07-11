@@ -16,6 +16,26 @@ import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterial
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const UI_FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
 
+// ---- スプライトの向き（設計書外・実測）----
+//  敵は常に右(enemyX>heroX)。味方は右を向くべき。だが元絵の向きはアセットごとにバラバラ。
+//  下記は「元絵が左を向いている」キー＝反転(flipX=true)して右(敵)を向かせる対象。
+//  ここに無いキーは元絵のまま(右向き/正面)＝反転しない。
+//  ※特に _atk(攻撃)フレームは全て右向きなので反転しない（一律反転だと攻撃が後ろを向く）。
+//  実測日 2026-07-11：全スプライトをモンタージュ比較して判定（顔・体の向きで判断）。
+const FACE_LEFT = new Set([
+  "hero_slime", "hero_slime_walk",
+  "hero_anger_1", "hero_anger_1_walk",
+  "hero_courage_1", "hero_courage_1_walk",
+  "hero_sadness_1_walk",
+  "kid_boy_walk",
+  "char_anger", "char_sadness", "char_courage",
+]);
+// スプライトを「敵(右)向き」にする。テクスチャ差し替えのたびに呼ぶこと（flipXは保持されるので誤差替の防止）。
+function faceEnemy(sprite, key) {
+  if (!sprite || !sprite.setFlipX) return;
+  sprite.setFlipX(FACE_LEFT.has(key));
+}
+
 function colorToCss(n) {
   return "#" + n.toString(16).padStart(6, "0");
 }
@@ -479,8 +499,9 @@ export default class GameScene extends Phaser.Scene {
       this.farLayer.setTileScale(sc, sc);
       // 遠景の夜景ピクセル画は暗い。透過を下げ＋明色ティントで「昼のかすんだ遠山」にし、
       // 背後の明るい空グラデを透けさせる（= 全体が明るく）。深淵時のみ濃いめに残す。
-      this.farLayer.setAlpha(this.abyss ? 0.72 : 0.4);
-      this.farLayer.setTint(this.abyss ? 0x9a7ad0 : 0xd8e8ff);
+      // 遠景の情景をしっかり見せる（0.4だと薄すぎて「どこにいるか分からない」＝場所感が消えていた）。
+      this.farLayer.setAlpha(this.abyss ? 0.82 : 0.68);
+      this.farLayer.setTint(this.abyss ? 0x9a7ad0 : 0xccd8ea); // 明るい空と調和する青灰。情景の輪郭は残す。
       this.midLayer.setVisible(false);
       // バイオーム（距離で移り変わる世界観）。空を明るい昼の色に（ポケモン/デジモン級の明るさ）。
       this.biomes = [
@@ -636,7 +657,8 @@ export default class GameScene extends Phaser.Scene {
     if (this.textures.exists("hero_slime")) {
       // 元絵は右向き（攻撃フレームが右へ踏み込む＝敵 enemyX=330 の方向）。反転しないのが正しい。
       // 元絵は正面〜左向き。敵は右(enemyX=330)なので反転して敵を向く（flipXはテクスチャ差替を跨いで保持）。
-      this.heroSprite = this.add.image(this.heroX, this.heroY, "hero_slime").setDepth(2).setFlipX(true);
+      this.heroSprite = this.add.image(this.heroX, this.heroY, "hero_slime").setDepth(2);
+      faceEnemy(this.heroSprite, "hero_slime"); // 元絵の向きに応じて敵(右)を向く
       this.heroIsImage = true;
       this.heroBaseW = this.heroSprite.width;
       this.heroFit = this.heroFitFor(0);
@@ -656,7 +678,8 @@ export default class GameScene extends Phaser.Scene {
     this.kidFormKey = "kid_" + (pg.gender === "girl" ? "girl" : "boy");
     this.kidX = this.heroX - 52;
     if (this.textures.exists(this.kidFormKey)) {
-      this.kidSprite = this.add.image(this.kidX, this.heroY + 6, this.kidFormKey).setDepth(2).setScale(0.72).setFlipX(true); // 敵(右)を向く
+      this.kidSprite = this.add.image(this.kidX, this.heroY + 6, this.kidFormKey).setDepth(2).setScale(0.72);
+      faceEnemy(this.kidSprite, this.kidFormKey); // 元絵の向きに応じて敵(右)を向く
       this.kidIsImage = true;
     } else {
       this.kidSprite = this.add.text(this.kidX, this.heroY, pg.gender === "girl" ? "👧" : "👦", { fontFamily: EMOJI_FONT, fontSize: "40px" }).setOrigin(0.5).setDepth(2);
@@ -700,9 +723,10 @@ export default class GameScene extends Phaser.Scene {
       this.kidSprite.y = this.heroY + 6 + (Math.floor(time / 260) % 2 === 0 ? 0 : -3); // 子供も跳ねる
       if (this.kidIsImage && this.mode === "walk" && this.textures.exists(this.kidFormKey + "_walk")) {
         const wk = Math.floor(time / 220) % 2 === 0 ? this.kidFormKey : this.kidFormKey + "_walk";
-        if (this.kidSprite.texture.key !== wk) this.kidSprite.setTexture(wk);
+        if (this.kidSprite.texture.key !== wk) { this.kidSprite.setTexture(wk); faceEnemy(this.kidSprite, wk); }
       } else if (this.kidIsImage && this.kidSprite.texture.key !== this.kidFormKey) {
         this.kidSprite.setTexture(this.kidFormKey);
+        faceEnemy(this.kidSprite, this.kidFormKey);
       }
     }
     if (this.heroBody) {
@@ -961,7 +985,7 @@ export default class GameScene extends Phaser.Scene {
       // 進軍中は歩行フレームと交互に（歩いてる感）
       if (this.heroIsImage && this.heroFormKey && this.textures.exists(this.heroFormKey + "_walk")) {
         const wkey = Math.floor(time / 220) % 2 === 0 ? this.heroFormKey : this.heroFormKey + "_walk";
-        if (this.heroSprite.texture.key !== wkey) this.heroSprite.setTexture(wkey);
+        if (this.heroSprite.texture.key !== wkey) { this.heroSprite.setTexture(wkey); faceEnemy(this.heroSprite, wkey); }
       }
       this.heroAura.y = this.heroSprite.y;
       this.bobCompanions(time);
@@ -1014,13 +1038,20 @@ export default class GameScene extends Phaser.Scene {
     const cx = this.W / 2;
     const cy = this.H / 2 - 30;
     const omen = this.add.text(cx, cy, "── 強大な気配 ──", { fontFamily: UI_FONT, fontSize: "18px", color: colorToCss(info.color) }).setOrigin(0.5).setDepth(59).setAlpha(0);
+    // 名前は縁取り(stroke)＋和文フォントで。絵文字を混ぜると縁取りで文字化けするので分離。
     const nameT = this.add
-      .text(cx - 40, cy + 34, `${t.icon} ${t.name}`, { fontFamily: UI_FONT, fontSize: "28px", color: "#ffffff", fontStyle: "bold", stroke: colorToCss(info.color), strokeThickness: 4, letterSpacing: 4 })
+      .text(cx - 40, cy + 40, t.name, { fontFamily: UI_FONT, fontSize: "28px", color: "#ffffff", fontStyle: "bold", stroke: colorToCss(info.color), strokeThickness: 4, letterSpacing: 4 })
       .setOrigin(0.5)
       .setDepth(59)
       .setAlpha(0)
       .setScale(1.35);
-    this.tweens.add({ targets: omen, alpha: 1, duration: 260 });
+    // 絵文字アイコンは専用の絵文字フォントで別描画（縁取りなし＝文字化け回避）
+    const iconT = this.add
+      .text(cx, cy + 6, t.icon, { fontFamily: EMOJI_FONT, fontSize: "34px" })
+      .setOrigin(0.5)
+      .setDepth(59)
+      .setAlpha(0);
+    this.tweens.add({ targets: [omen, iconT], alpha: 1, duration: 260 });
     this.tweens.add({ targets: nameT, alpha: 1, x: cx, duration: 320, ease: "Quad.easeOut" }); // 横からドラマチックにスライドイン
     this.tweens.add({ targets: nameT, scale: 1, duration: 460, ease: "Back.easeOut" });
     // 名の周りに感情色の粒が集う
@@ -1030,7 +1061,7 @@ export default class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: p, x: cx, y: cy + 34, alpha: 0, duration: 520, ease: "Sine.easeIn", onComplete: () => p.destroy() });
     }
     this.time.delayedCall(1500, () => {
-      this.tweens.add({ targets: [omen, nameT], alpha: 0, duration: 420, onComplete: () => { omen.destroy(); nameT.destroy(); } });
+      this.tweens.add({ targets: [omen, nameT, iconT], alpha: 0, duration: 420, onComplete: () => { omen.destroy(); nameT.destroy(); iconT.destroy(); } });
     });
 
     this.pushLog(`⚠ ${t.icon} ${t.name} が 近づいている…`);
@@ -1082,7 +1113,7 @@ export default class GameScene extends Phaser.Scene {
     this.mode = "battle";
     this.heroSkillCharge = 0;
     this.heroSprite.y = this.heroY;
-    if (this.heroIsImage && this.heroFormKey && this.heroSprite.texture.key !== this.heroFormKey) this.heroSprite.setTexture(this.heroFormKey); // 歩行→待機に戻す
+    if (this.heroIsImage && this.heroFormKey && this.heroSprite.texture.key !== this.heroFormKey) { this.heroSprite.setTexture(this.heroFormKey); faceEnemy(this.heroSprite, this.heroFormKey); } // 歩行→待機に戻す
     this.heroStats.hp = this.heroStats.maxHp; // 接敵の最初だけ全回復（群れの間はHP持ち越し＝圧）
 
     // 群れ編成（ボスは単体）。先頭と控え（右に並ぶ）。
@@ -1956,6 +1987,7 @@ export default class GameScene extends Phaser.Scene {
               const tkey = "hero_" + form.key + "_" + (form.kind === "stage" ? form.stage : 1);
               if (this.textures.exists(tkey)) {
                 this.heroSprite.setTexture(tkey);
+                faceEnemy(this.heroSprite, tkey); // 進化後も向きを再判定
                 this.heroFormKey = tkey;
               }
               this.heroFit = this.heroFitFor(form.stage);
@@ -2947,10 +2979,11 @@ export default class GameScene extends Phaser.Scene {
     const light = this.speed >= 3;
     if (!light && !comp.shopId && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion + "_atk")) {
       o.spr.setTexture("char_" + comp.emotion + "_atk");
+      faceEnemy(o.spr, "char_" + comp.emotion + "_atk"); // 攻撃フレームは右向き＝反転しない
       const ctok = (o._atkToken = (o._atkToken || 0) + 1);
       this.time.delayedCall(220, () => {
         if (ctok !== o._atkToken) return; // 連撃中は古いタイマーで素の絵に戻さない
-        if (o.spr && o.spr.scene && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion)) o.spr.setTexture("char_" + comp.emotion);
+        if (o.spr && o.spr.scene && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion)) { o.spr.setTexture("char_" + comp.emotion); faceEnemy(o.spr, "char_" + comp.emotion); }
       });
     }
     this.tweens.add({ targets: o.spr, x: hx + 48, duration: 110, yoyo: true, ease: "Quad.easeOut", onComplete: () => { o.spr.x = hx; } });
@@ -2963,6 +2996,7 @@ export default class GameScene extends Phaser.Scene {
     const atk = this.heroFormKey + "_atk";
     if (!this.textures.exists(atk)) return;
     this.heroSprite.setTexture(atk);
+    faceEnemy(this.heroSprite, atk); // 攻撃フレームは右向き＝反転しない（一律反転だと後ろを向いて攻撃していた）
     const fit = this.heroFit || 1;
     if (this.speed < 3) {
       this._heroSquash = true; // スクワッシュ中は呼吸スケールを止める（tweenとの取り合い防止）
@@ -2981,7 +3015,7 @@ export default class GameScene extends Phaser.Scene {
     const htok = (this._heroAtkToken = (this._heroAtkToken || 0) + 1);
     this.time.delayedCall(Math.max(80, 240 / Math.max(1, this.speed)), () => {
       if (htok !== this._heroAtkToken) return; // 連撃中は古いタイマーで素の絵に戻さない
-      if (this.heroSprite && this.heroSprite.scene && this.heroIsImage && this.textures.exists(this.heroFormKey)) this.heroSprite.setTexture(this.heroFormKey);
+      if (this.heroSprite && this.heroSprite.scene && this.heroIsImage && this.textures.exists(this.heroFormKey)) { this.heroSprite.setTexture(this.heroFormKey); faceEnemy(this.heroSprite, this.heroFormKey); }
     });
   }
 
@@ -3047,7 +3081,8 @@ export default class GameScene extends Phaser.Scene {
     const cKey = comp.shopId && this.textures.exists("shop_" + comp.shopId) ? "shop_" + comp.shopId : "char_" + comp.emotion;
     let spr, fitScale;
     if (this.textures.exists(cKey)) {
-      spr = this.add.image(bx, by, cKey).setDepth(2).setFlipX(true); // 仲間も味方側＝敵(右)を向く
+      spr = this.add.image(bx, by, cKey).setDepth(2);
+      faceEnemy(spr, cKey); // 仲間も元絵の向きに応じて敵(右)を向く
       fitScale = (comp.shopId ? 58 : 54) / spr.width; // 特別な子は少し大きく
     } else {
       spr = this.add.text(bx, by, comp.icon, { fontFamily: EMOJI_FONT, fontSize: "32px" }).setOrigin(0.5).setDepth(2);
