@@ -504,12 +504,16 @@ export default class GameScene extends Phaser.Scene {
       this.farLayer.setTint(this.abyss ? 0x9a7ad0 : 0xccd8ea); // 明るい空と調和する青灰。情景の輪郭は残す。
       this.midLayer.setVisible(false);
       // バイオーム（距離で移り変わる世界観）。空を明るい昼の色に（ポケモン/デジモン級の明るさ）。
+      //  art＝生成アート背景キー（あれば優先。無ければ従来のピクセル遠景texへフォールバック）
       this.biomes = [
-        { tex: "bg_far", top: 0x7ec8ff, bot: 0xe8f6ff, name: "山鳴りの道" }, // 晴れた青空
-        { tex: "bg_far1", top: 0x9be0b4, bot: 0xf0fff4, name: "囁きの森" }, // 新緑の明るさ
-        { tex: "bg_far2", top: 0xffc98f, bot: 0xfff2e0, name: "忘れられた廃墟" }, // 暖かな砂・夕陽
-        { tex: "bg_far3", top: 0xcfa8ff, bot: 0xf4eaff, name: "幽玄の境" }, // やわらかな薄紫
+        { tex: "bg_far", art: "bg_biome_mountain", top: 0x7ec8ff, bot: 0xe8f6ff, name: "山鳴りの道" }, // 晴れた青空
+        { tex: "bg_far1", art: "bg_biome_forest", top: 0x9be0b4, bot: 0xf0fff4, name: "囁きの森" }, // 新緑の明るさ
+        { tex: "bg_far2", art: "bg_biome_ruins", top: 0xffc98f, bot: 0xfff2e0, name: "忘れられた廃墟" }, // 暖かな砂・夕陽
+        { tex: "bg_far3", art: "bg_biome_void", top: 0xcfa8ff, bot: 0xf4eaff, name: "幽玄の境" }, // やわらかな薄紫
       ].filter((b) => this.textures.exists(b.tex));
+      // 生成アート背景を敷く用の画像（cover表示・ゆっくり漂う）。テクスチャは setBiome で差し替え。
+      this.biomeArtImg = this.add.image(this.W / 2, this.H / 2, "bg_far").setDepth(-10).setVisible(false);
+      this.tweens.add({ targets: this.biomeArtImg, x: this.W / 2 + 34, duration: 17000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // 遠景の微かな漂い
       this.curBiome = -1;
       this.setBiome(0);
     }
@@ -527,7 +531,20 @@ export default class GameScene extends Phaser.Scene {
       this.skyG.fillGradientStyle(b.top, b.top, b.bot, b.bot, 1, 1, 1, 1);
       this.skyG.fillRect(0, 0, this.W, this.H);
     }
-    if (this.farLayer && this.textures.exists(b.tex)) this.farLayer.setTexture(b.tex);
+    // 生成アートがあれば画面いっぱいに敷く（＝場所感が一気に出る）。無ければ従来のピクセル遠景へ。
+    const hasArt = b.art && this.textures.exists(b.art) && this.biomeArtImg;
+    if (hasArt) {
+      this.biomeArtImg.setTexture(b.art).setVisible(true);
+      const cover = Math.max(this.W / this.biomeArtImg.width, this.H / this.biomeArtImg.height) * 1.12;
+      this.biomeArtImg.setScale(cover);
+      if (this.farLayer) this.farLayer.setVisible(false); // ピクセル遠景は隠す
+    } else {
+      if (this.biomeArtImg) this.biomeArtImg.setVisible(false);
+      if (this.farLayer) {
+        this.farLayer.setVisible(true);
+        if (this.textures.exists(b.tex)) this.farLayer.setTexture(b.tex);
+      }
+    }
   }
 
   // 進軍に合わせて各層を流す（奥ほどゆっくり＝奥行き）
@@ -602,6 +619,8 @@ export default class GameScene extends Phaser.Scene {
     // 仲間・ボス・主人公進化アート（Gemini生成）。無ければ絵文字にフォールバック。
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png"); // ピクセル遠景
     for (let i = 1; i <= 3; i++) if (!this.textures.exists("bg_far" + i)) this.load.image("bg_far" + i, "chars/bg_far" + i + ".png"); // バイオーム
+    // 生成アートのバイオーム背景（有るものだけ。追加は下の配列にキーを足すだけ）
+    for (const bk of ["mountain"]) if (!this.textures.exists("bg_biome_" + bk)) this.load.image("bg_biome_" + bk, "chars/bg_biome_" + bk + ".jpg");
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     for (const k of ["kid_boy", "kid_boy_walk", "kid_girl", "kid_girl_walk"]) if (!this.textures.exists(k)) this.load.image(k, "chars/" + k + ".png"); // 主人公(男/女)＝相棒に指示
     if (!this.textures.exists("hero_slime_atk")) this.load.image("hero_slime_atk", "chars/hero_slime_atk.png");
