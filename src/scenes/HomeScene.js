@@ -937,6 +937,43 @@ export default class HomeScene extends Phaser.Scene {
     });
   }
 
+  // 金の彫刻フレーム（二重罫＋ベベル＋角ブラケット）。gfx に直接描く。ログウィズ風の「作り込まれた額縁」。
+  //  opts: corners=角飾りを付ける / thick=外罫の太さ / accent=内側に添える色（省略で金のみ）
+  drawOrnateFrame(gfx, x, y, w, h, r = 10, opts = {}) {
+    const L = x - w / 2, T = y - h / 2;
+    const gold = opts.gold ?? 0xc9a23a; // 金の本体
+    const goldHi = opts.goldHi ?? 0xf4dc86; // 光（上・左）
+    const goldLo = opts.goldLo ?? 0x7d611a; // 陰（下・右）
+    const dark = opts.dark ?? 0x140f08; // 外周の暗い縁（額の立体感）
+    const thick = opts.thick ?? 3;
+    // 外周の暗リム → 金の本体罫
+    gfx.lineStyle(thick + 2, dark, 1);
+    gfx.strokeRoundedRect(L - 1, T - 1, w + 2, h + 2, r + 2);
+    gfx.lineStyle(thick, gold, 1);
+    gfx.strokeRoundedRect(L, T, w, h, r);
+    // ベベル：上/左に光、下/右に陰の細線で金属の丸みを出す
+    gfx.lineStyle(1, goldHi, 0.9);
+    gfx.beginPath(); gfx.moveTo(L + r, T + 1.5); gfx.lineTo(L + w - r, T + 1.5); gfx.strokePath();
+    gfx.beginPath(); gfx.moveTo(L + 1.5, T + r); gfx.lineTo(L + 1.5, T + h - r); gfx.strokePath();
+    gfx.lineStyle(1, goldLo, 0.9);
+    gfx.beginPath(); gfx.moveTo(L + r, T + h - 1.5); gfx.lineTo(L + w - r, T + h - 1.5); gfx.strokePath();
+    gfx.beginPath(); gfx.moveTo(L + w - 1.5, T + r); gfx.lineTo(L + w - 1.5, T + h - r); gfx.strokePath();
+    // 内側のヘアライン（罫を二重に＝額縁らしさ）。accent があればその色で。
+    const p = opts.inset ?? 5;
+    gfx.lineStyle(1, opts.accent ?? goldLo, opts.accent ? 0.9 : 0.7);
+    gfx.strokeRoundedRect(L + p, T + p, w - 2 * p, h - 2 * p, Math.max(2, r - p));
+    // 四隅の角ブラケット（金の鋲）。大きい枠のみ。
+    if (opts.corners) {
+      const a = opts.cornerArm ?? 12, o = 3;
+      gfx.lineStyle(2, goldHi, 1);
+      const corner = (cx, cy, dx, dy) => {
+        gfx.beginPath(); gfx.moveTo(cx + dx * (a), cy); gfx.lineTo(cx, cy); gfx.lineTo(cx, cy + dy * (a)); gfx.strokePath();
+      };
+      corner(L + o, T + o, 1, 1); corner(L + w - o, T + o, -1, 1);
+      corner(L + o, T + h - o, 1, -1); corner(L + w - o, T + h - o, -1, -1);
+    }
+  }
+
   makeButton(x, y, w, h, label, onClick, opts = {}) {
     // 角丸のカード風ボタン（明るい面に感情色の縁が灯る・ポケモン/デジモン級の快活さ）
     const fill = opts.color ?? 0xf3f8ff;
@@ -947,8 +984,8 @@ export default class HomeScene extends Phaser.Scene {
       gfx.clear();
       gfx.fillStyle(col, 0.98);
       gfx.fillRoundedRect(x - w / 2, y - h / 2, w, h, 10);
-      gfx.lineStyle(1, border, 1);
-      gfx.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 10);
+      // 金の彫刻枠。呼び出し側の stroke色は内側のアクセント罫として残す（色分けを保ちつつ額縁化）。
+      this.drawOrnateFrame(gfx, x, y, w, h, 10, { thick: 2, inset: 4, accent: border });
     };
     drawBg(fill);
     // rect は当たり判定専用（ほぼ透明）。呼び出し側の互換のため残す。
@@ -993,15 +1030,19 @@ export default class HomeScene extends Phaser.Scene {
     const card = this.add.graphics();
     const cw = this.W - 24;
     const ch = this.H - 110;
+    const cardX = this.W / 2 - cw / 2, cardY = this.H / 2 - ch / 2;
     card.fillStyle(0xf3f8ff, 0.98);
-    card.fillRoundedRect(this.W / 2 - cw / 2, this.H / 2 - ch / 2, cw, ch, 14);
-    card.lineStyle(1, 0xaecbe8, 1);
-    card.strokeRoundedRect(this.W / 2 - cw / 2, this.H / 2 - ch / 2, cw, ch, 14);
-    const titleT = this.add.text(this.W / 2, 80, title, { fontFamily: DISPLAY_FONT, fontSize: "24px", color: "#1c3a5a" }).setOrigin(0.5);
-    // 題字の下に細い罫線
-    const rule = this.add.rectangle(this.W / 2, 100, cw - 60, 1, 0xaecbe8);
+    card.fillRoundedRect(cardX, cardY, cw, ch, 14);
+    // 題字帯：濃紺→金の縁で「彫り込まれた見出し板」に
+    card.fillStyle(0x1c2c44, 1);
+    card.fillRoundedRect(cardX, cardY, cw, 52, { tl: 14, tr: 14, bl: 0, br: 0 });
+    // 金の彫刻フレーム（角ブラケット付き）
+    this.drawOrnateFrame(card, this.W / 2, this.H / 2, cw, ch, 14, { thick: 3, inset: 6, corners: true, cornerArm: 16 });
+    const titleT = this.add.text(this.W / 2, cardY + 26, title, { fontFamily: DISPLAY_FONT, fontSize: "23px", color: "#f4dc86" }).setOrigin(0.5);
+    // 題字帯の下の金罫
+    const rule = this.add.rectangle(this.W / 2, cardY + 52, cw - 6, 2, 0xc9a23a);
     const close = this.add
-      .text(this.W - 30, 66, "✕", { fontFamily: UI_FONT, fontSize: "26px", color: "#74839a" })
+      .text(this.W - 30, cardY + 26, "✕", { fontFamily: UI_FONT, fontSize: "24px", color: "#f4dc86" })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
     close.on("pointerdown", () => {
