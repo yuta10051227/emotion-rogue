@@ -5,7 +5,7 @@
 //    Phase 1 のこのビルドから永続セーブを導入する。
 // =====================================================================
 
-import { HERO_BASE, EMOTIONS, EMOTION_ORDER, SOUL, EQUIPMENT, CRAFT, TREE, EVOLUTION, EVOLUTION_STAGES, MIXED_EVOLUTION, TRIPLE_EVOLUTION, COMPANION, DIARY, ARTIFACT, ITEMS, SHOP_COMPANIONS, SKILL, MASTERY, ACHIEVEMENTS, COLLECTION } from "./config.js";
+import { HERO_BASE, EMOTIONS, EMOTION_ORDER, SOUL, EQUIPMENT, CRAFT, TREE, EVOLUTION, EVOLUTION_STAGES, MIXED_EVOLUTION, TRIPLE_EVOLUTION, COMPANION, DIARY, ARTIFACT, ITEMS, SHOP_COMPANIONS, SKILL, MASTERY, ACHIEVEMENTS, COLLECTION, DAILY } from "./config.js";
 
 const KEY = "lacryma_save_v1";
 const KEY_BAK = "lacryma_save_v1_bak"; // 1世代前の正常データ（データ消失対策・DR反面教師）
@@ -142,6 +142,8 @@ function ensure(s) {
   s.lifetimeFrags = { ...d.lifetimeFrags, ...(s.lifetimeFrags || {}) };
   s.achievementsClaimed = Array.isArray(s.achievementsClaimed) ? s.achievementsClaimed : [];
   if (typeof s.abyssBest !== "number") s.abyssBest = 0;
+  s.trueChapter = !!s.trueChapter; // 真章（空白の王撃破）
+  if (s.starterEgg && !EMOTION_ORDER.includes(s.starterEgg)) s.starterEgg = null; // 始まりの卵
   // 既存の仲間に 個体強化/愛着/レア度フィールドを補完
   let _activeN = 0;
   for (const b of s.party.bonded) {
@@ -251,6 +253,98 @@ export function claimShinyReward(need) {
 }
 export function unclaimedCollectionCount() {
   return dexRewardList().filter((r) => r.done && !r.claimed).length + shinyRewardList().filter((r) => r.done && !r.claimed).length;
+}
+
+// ---- 真章「本来の物語」（空白の王撃破で解放）＋始まりの卵 ----
+export function trueChapterUnlocked() {
+  return !!getSave().trueChapter;
+}
+export function markTrueChapter() {
+  const s = getSave();
+  if (!s.trueChapter) {
+    s.trueChapter = true;
+    persist();
+    return true;
+  }
+  return false;
+}
+// 始まりの卵：次の旅の主人公の系統（null=スライム / anger|sadness|courage|hope=その系統の幼体スタート）
+export function getStarterEgg() {
+  return getSave().starterEgg || null;
+}
+export function setStarterEgg(emotion) {
+  const s = getSave();
+  s.starterEgg = emotion && EMOTION_ORDER.includes(emotion) ? emotion : null;
+  persist();
+}
+
+// ---- 進化分岐のアンロック（A+B）----
+//  A: 混合(X+Y)は 両系統の第1形態を図鑑に記録すると解放。三重は構成3系統すべて。
+//  B: 解放後も未記録の姿はカード上でシルエット表示（選ぶと判明）→ UI側が formSeen で判定。
+function stage1Seen(emotionKey) {
+  const f = (EVOLUTION_STAGES.forms[emotionKey] || [])[0];
+  return !!(f && getSave().dex.forms[f.name]);
+}
+export function mixUnlocked(pairKey) {
+  const [a, b] = String(pairKey).split("+");
+  return stage1Seen(a) && stage1Seen(b);
+}
+export function tripleUnlocked(missingKey) {
+  return EMOTION_ORDER.filter((k) => k !== missingKey).every((k) => stage1Seen(k));
+}
+
+// ---- デイリーの灯（日替わり目標：今日やる理由）----
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; // 端末ローカル日付で日替わり
+}
+// その日の3件を用意（日付が変わっていたら引き直し）
+export function ensureDaily() {
+  const s = getSave();
+  const today = todayStr();
+  if (s.daily && s.daily.date === today && Array.isArray(s.daily.goals) && s.daily.goals.length) return s.daily;
+  const pool = DAILY.pool.slice();
+  // 型が重ならないように選ぶ（runs/frags/kills/boss/dist から3種）
+  const goals = [];
+  while (goals.length < DAILY.count && pool.length) {
+    const i = Math.floor(Math.random() * pool.length);
+    const def = pool.splice(i, 1)[0];
+    if (goals.some((g) => g.type === def.type)) continue;
+    goals.push({ id: def.id, type: def.type, target: def.target, label: def.label, reward: def.reward, progress: 0, claimed: false });
+  }
+  s.daily = { date: today, goals };
+  persist();
+  return s.daily;
+}
+// 転生時に旅の実績からデイリーを進める（進行の唯一の入口＝取りこぼしなし）
+function advanceDaily(run, dist) {
+  const d = ensureDaily();
+  const fragSum = EMOTION_ORDER.reduce((a, k) => a + (Number.isFinite(run.emotions && run.emotions[k]) ? run.emotions[k] : 0), 0);
+  for (const g of d.goals) {
+    if (g.claimed) continue;
+    if (g.type === "runs") g.progress += 1;
+    else if (g.type === "frags") g.progress += fragSum;
+    else if (g.type === "kills") g.progress += Number.isFinite(run.kills) ? run.kills : 0;
+    else if (g.type === "boss") g.progress += Number.isFinite(run.bossKills) ? run.bossKills : 0;
+    else if (g.type === "dist") g.progress = Math.max(g.progress, dist); // 1回の旅の最高到達
+  }
+}
+export function dailyList() {
+  return ensureDaily().goals.map((g) => ({ ...g, done: g.progress >= g.target }));
+}
+export function claimDaily(id) {
+  const s = getSave();
+  const d = ensureDaily();
+  const g = d.goals.find((x) => x.id === id);
+  if (!g || g.claimed || g.progress < g.target) return { ok: false };
+  g.claimed = true;
+  if (g.reward.satori) { s.enlightenment += g.reward.satori; s.lifetime.enlightenment += g.reward.satori; }
+  if (g.reward.gold) { s.gold += g.reward.gold; s.lifetime.gold += g.reward.gold; }
+  persist();
+  return { ok: true, reward: g.reward, label: g.label };
+}
+export function unclaimedDailyCount() {
+  return dailyList().filter((g) => g.done && !g.claimed).length;
 }
 
 // アーティファクトの恒久ボーナス（%）を集計
@@ -421,6 +515,8 @@ export function mergeCloudSaves(base, other) {
   if (o.dex.shiny) for (const k in o.dex.shiny) if (o.dex.shiny[k]) m.dex.shiny[k] = true;
   if (Array.isArray(o.dex.rewards)) for (const n of o.dex.rewards) if (!m.dex.rewards.includes(n)) m.dex.rewards.push(n);
   if (Array.isArray(o.dex.shinyRewards)) for (const n of o.dex.shinyRewards) if (!m.dex.shinyRewards.includes(n)) m.dex.shinyRewards.push(n);
+  m.trueChapter = !!(m.trueChapter || o.trueChapter); // 真章は片方で解放済みなら維持
+  if (!m.starterEgg && o.starterEgg) m.starterEgg = o.starterEgg; // 卵の選択は勝者優先で補完
   for (const k in o.endings) if (o.endings[k]) m.endings[k] = true;
   m.endingSeen = !!(m.endingSeen || o.endingSeen);
   if (!m.spiritName && o.spiritName) m.spiritName = o.spiritName;
@@ -801,6 +897,7 @@ export function transmigrate(run) {
   s.lifetime.kills += Number.isFinite(run && run.kills) ? run.kills : 0;
   s.lifetime.bossKills += Number.isFinite(run && run.bossKills) ? run.bossKills : 0;
   if (run && run.abyss) s.abyssBest = Math.max(s.abyssBest, Math.floor(safeDist));
+  advanceDaily(run || {}, Math.floor(safeDist)); // デイリーの灯を進める（唯一の進行入口）
   const levelGain = safeDist >= SOUL.minRewardDistance ? Math.max(1, Math.floor(safeDist / SOUL.levelPerDeathDistance)) : 0;
   s.soul.level += levelGain;
   s.soul.rebirths += 1;

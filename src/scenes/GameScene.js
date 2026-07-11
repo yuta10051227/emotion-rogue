@@ -56,6 +56,7 @@ export default class GameScene extends Phaser.Scene {
     this.despair = 0; // 旅で瀕死を耐えた回数（闇堕ち判定）
     this.heroSkillCharge = 0; // 技ゲージ
     this.nextEncounter = this.encounterGap();
+    this.nextEventAt = 30 + Math.random() * 40; // 旅のイベント（分岐マス）：最初は30〜70mで出会う
     // 固定距離ボス（DR④）
     this.bossCount = 0;
     this.nextBoss = C.BOSS.everyMeters;
@@ -379,6 +380,99 @@ export default class GameScene extends Phaser.Scene {
     this.pushLog(`${info.icon} ${info.label}に 心が傾いた（岐路）`, colorToCss(info.color));
     this.flashEdge(key);
     this.refreshEvoHint();
+    this.paused = false;
+    if (this.battleTimer && this.mode === "battle" && this.battle && !this.battle.finished) this.battleTimer.paused = false;
+  }
+
+  // ---- 旅のイベント（分岐マス：進軍中に低頻度で出会う選択。旅ごとの物語感を出す）----
+  openTravelEvent() {
+    if (this._choice || this.mode !== "walk") return;
+    this.dismissCare(); // ケア中の吹き出しを消してから（岐路カードと同じ作法）
+    this.paused = true;
+    if (this.battleTimer) this.battleTimer.paused = true;
+    const def = C.TRAVEL_EVENTS.defs[Math.floor(Math.random() * C.TRAVEL_EVENTS.defs.length)];
+    const c = this.add.container(0, 0).setDepth(215);
+    const dim = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x05050c, 0.82).setInteractive();
+    c.add(dim);
+    c.add(this.add.text(this.W / 2, 200, def.icon, { fontFamily: EMOJI_FONT, fontSize: "40px" }).setOrigin(0.5));
+    c.add(this.add.text(this.W / 2, 250, `── ${def.title} ──`, { fontFamily: UI_FONT, fontSize: "18px", color: "#ffd24d" }).setOrigin(0.5));
+    c.add(this.add.text(this.W / 2, 300, def.desc, { fontFamily: UI_FONT, fontSize: "13px", color: "#cfcfe0", align: "center", lineSpacing: 6 }).setOrigin(0.5));
+    // 選択肢は縦積み（物語の分岐らしく1本ずつ読ませる）
+    let y = 400;
+    const affordable = [];
+    for (const choice of def.choices) {
+      const ok = !choice.cost || this.coins >= choice.cost;
+      const btn = this.add.rectangle(this.W / 2, y, 300, 54, ok ? 0x14141f : 0x0d0d14, 0.98).setStrokeStyle(1, ok ? 0x8a8aa0 : 0x3a3a4c);
+      const label = this.add.text(this.W / 2, y - 10, choice.label, { fontFamily: UI_FONT, fontSize: "15px", color: ok ? "#e8e8ef" : "#5a5a70" }).setOrigin(0.5);
+      const hint = this.add.text(this.W / 2, y + 13, ok ? choice.hint : `${choice.hint}（💰不足）`, { fontFamily: UI_FONT, fontSize: "11px", color: ok ? "#8a8aa0" : "#4a4a5c" }).setOrigin(0.5);
+      if (ok) {
+        btn.setInteractive({ useHandCursor: true });
+        btn.on("pointerover", () => btn.setFillStyle(0x1e1e2c, 0.98));
+        btn.on("pointerout", () => btn.setFillStyle(0x14141f, 0.98));
+        btn.on("pointerdown", () => this.applyTravelEvent(def, choice));
+        affordable.push(choice);
+      }
+      c.add([btn, label, hint]);
+      y += 66;
+    }
+    c.add(this.add.text(this.W / 2, this.H - 92, this.autoInvest ? "おまかせ：自動で選びます…" : "どうする？", { fontFamily: UI_FONT, fontSize: "13px", color: "#8a8aa0" }).setOrigin(0.5));
+    this._choice = c; // 岐路/進化パネルと同じガード（同時に開かない）
+    if (this.autoInvest && affordable.length) {
+      // おまかせ：コインが心もとなければ無償の選択肢を優先し、あとは先頭の払えるものを選ぶ
+      const free = affordable.find((ch) => !ch.cost);
+      const pick = this.coins < 60 && free ? free : affordable[0];
+      this.time.delayedCall(1400, () => { if (this._choice) this.applyTravelEvent(def, pick); });
+    }
+  }
+
+  applyTravelEvent(def, choice) {
+    if (!this._choice) return;
+    this._choice.destroy(true);
+    this._choice = null;
+    if (choice.cost) {
+      this.coins -= choice.cost;
+      this.refreshCoinUi();
+    }
+    const e = choice.effect || {};
+    if (e.heal) {
+      // 最大HPの%回復（負値はダメージ）。歩き中はheroStatsを書き換えれば次の描画で反映される
+      const st = this.heroStats;
+      st.hp = Math.max(1, Math.min(st.maxHp, Math.round(st.hp + st.maxHp * e.heal)));
+      if (e.heal > 0) this.pushLog(`${def.icon} 傷が癒えた（HP ${st.hp}/${st.maxHp}）`, "#bfffbf");
+      else this.pushLog(`${def.icon} 少し消耗した（HP ${st.hp}/${st.maxHp}）`, "#ff9d9d");
+    }
+    if (e.coins) {
+      this.coins += e.coins;
+      this.refreshCoinUi();
+      this.pushLog(`${def.icon} 💰${e.coins} を 手に入れた`, "#ffd24d");
+    }
+    if (e.frag) {
+      // 感情の欠片：戦闘勝利と同じ獲得経路を通す（共鳴・ツリー倍率・逓減が自然に効く）
+      const key = e.frag.key || leadingEmotion(this.emotions).key || "hope";
+      const times = Math.max(1, Math.round(e.frag.amount || 1));
+      gainEmotions(this.emotions, Array(times).fill(key), {
+        resonanceKey: this.resonanceKey,
+        resonanceBonus: C.SOUL.resonanceBonus,
+        fragMult: this.fragMult,
+      });
+      this.updateGauges();
+      this.flashEdge(key);
+      const info = C.EMOTIONS[key];
+      this.pushLog(`${def.icon} ${info.icon} ${info.label}の欠片が 満ちた`, colorToCss(info.color));
+    }
+    if (e.lean) {
+      // 旅の間だけのステ強化（岐路カードと同じ層に重ねる）
+      this.runStatLean[e.lean.stat] = (this.runStatLean[e.lean.stat] || 0) + e.lean.amount;
+      this.applyRunUpgrades();
+      this.pushLog(`${def.icon} 力が 宿った（${choice.hint}）`, "#bfd8ff");
+    }
+    if (e.despair) {
+      this.despair = Math.max(0, (this.despair || 0) - e.despair);
+      this.pushLog(`${def.icon} 心の澱が 洗い流された`, "#bfefff");
+    }
+    if (e.nothing) {
+      this.pushLog(`${def.icon} …何も 起こらなかった`);
+    }
     this.paused = false;
     if (this.battleTimer && this.mode === "battle" && this.battle && !this.battle.finished) this.battleTimer.paused = false;
   }
@@ -1048,6 +1142,12 @@ export default class GameScene extends Phaser.Scene {
       this.drawHpBars();
       this.checkProgress();
       if (this.paused) return; // 感情の岐路カードが開いたら、このフレームでのボス/遭遇開始を止める
+      // 旅のイベント（分岐マス）：低頻度で出会う物語的な選択。ボス直前は見せ場を邪魔しない
+      if (this.distance >= this.nextEventAt && !this._choice && !this._coach && !this._leaving && this.nextBoss - this.distance > C.TRAVEL_EVENTS.bossBuffer) {
+        this.nextEventAt = this.distance + C.TRAVEL_EVENTS.minGap + Math.random() * (C.TRAVEL_EVENTS.maxGap - C.TRAVEL_EVENTS.minGap);
+        this.openTravelEvent();
+        if (this.paused) return; // イベントが開いたら、このフレームでのボス/遭遇開始を止める
+      }
       // ボス接近の予兆
       if (!this.bossWarned && this.distance >= this.nextBoss - C.BOSS.warnDistance) {
         this.triggerBossWarning();

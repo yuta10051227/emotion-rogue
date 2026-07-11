@@ -58,6 +58,10 @@ import {
   achievementList,
   claimAchievement,
   unclaimedAchievementCount,
+  dailyList,
+  claimDaily,
+  unclaimedDailyCount,
+  ensureDaily,
   masteryInfo,
   abyssUnlocked,
   abyssActive,
@@ -452,6 +456,7 @@ export default class HomeScene extends Phaser.Scene {
     this.refreshNoticeBadge();
     // あかし（実績）：横長で1段追加
     this.achieveBtn = this.makeButton(this.W / 2, 524, bw * 2 + 8, 36, "🏅 あかし", () => this.openAchievementsPanel(), { stroke: 0xd0a840, textColor: "#b8860b", fontSize: "15px" });
+    ensureDaily(); // 今日の灯（日替わり目標）を用意（日付が変わっていたら引き直し）
     this.refreshAchieveBadge();
     this.refreshTreeBadge(); // 上げられるツリーがあれば赤ドット
 
@@ -742,7 +747,7 @@ export default class HomeScene extends Phaser.Scene {
 
   refreshAchieveBadge() {
     if (this.achieveBtn) {
-      const n = unclaimedAchievementCount();
+      const n = unclaimedAchievementCount() + unclaimedDailyCount(); // あかし＋今日の灯
       this.achieveBtn.badge.setText(n > 0 ? String(n) : "");
     }
   }
@@ -825,6 +830,37 @@ export default class HomeScene extends Phaser.Scene {
       const rows = [];
       const rowH = 56;
       let y = 168;
+
+      // ---- 今日の灯（日替わり目標3件：今日やる理由）----
+      const dailies = dailyList();
+      list.add(this.add.text(this.W / 2, y - 8, "― 今日の灯（日替わり） ―", { fontFamily: UI_FONT, fontSize: "13px", color: "#b8860b" }).setOrigin(0.5));
+      y += 32;
+      dailies.forEach((g) => {
+        const row = this.add.rectangle(this.W / 2, y, this.W - 50, rowH, g.claimed ? 0xe6ebf2 : g.done ? 0xeef7e4 : 0xffffff).setStrokeStyle(1, g.claimed ? 0xc2ccd8 : g.done ? 0xb5c96a : 0xd6e2f0);
+        const ic = this.add.text(36, y, "🕯", { fontFamily: EMOJI_FONT, fontSize: "22px" }).setOrigin(0.5);
+        const nm = this.add.text(58, y - 12, g.label, { fontFamily: UI_FONT, fontSize: "14px", color: g.done ? "#b8860b" : "#22344a" }).setOrigin(0, 0.5);
+        const rw = [];
+        if (g.reward && g.reward.satori) rw.push(`🧠悟り+${g.reward.satori}`);
+        if (g.reward && g.reward.gold) rw.push(`💰+${g.reward.gold}`);
+        const pr = this.add.text(58, y + 12, rw.join(" "), { fontFamily: UI_FONT, fontSize: "10px", color: g.done ? "#2e7d32" : "#74839a" }).setOrigin(0, 0.5);
+        list.add([row, ic, nm, pr]);
+        // 右側：受領状態（あかしの行と同じ作法）
+        if (g.claimed) {
+          list.add(this.add.text(this.W - 40, y, "受領✓", { fontFamily: UI_FONT, fontSize: "13px", color: "#8a97a8" }).setOrigin(1, 0.5));
+        } else if (g.done) {
+          const btn = this.add.rectangle(this.W - 66, y, 74, 32, 0xfbf3d8).setStrokeStyle(1, 0xd0a840);
+          const bt = this.add.text(this.W - 66, y, "受け取る", { fontFamily: UI_FONT, fontSize: "12px", color: "#b8860b" }).setOrigin(0.5);
+          list.add([btn, bt]);
+          rows.push({ id: "daily:" + g.id, y });
+        } else {
+          list.add(this.add.text(this.W - 40, y, `${Math.min(g.progress, g.target) | 0}/${g.target}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a" }).setOrigin(1, 0.5));
+        }
+        y += rowH + 8;
+      });
+
+      // ---- あかし（実績）----
+      list.add(this.add.text(this.W / 2, y + 6, "― あかし ―", { fontFamily: UI_FONT, fontSize: "13px", color: "#4c5e76" }).setOrigin(0.5));
+      y += 42;
       items.forEach((a) => {
         const d = a.def;
         const shown = Math.min(a.value, d.gte);
@@ -851,6 +887,18 @@ export default class HomeScene extends Phaser.Scene {
         y += rowH + 8;
       });
       this.attachScroll(c, list, 140, this.H - 60, y + 6, (id) => {
+        if (id.startsWith("daily:")) {
+          // 今日の灯の受け取り（idは "daily:run1" のように接頭辞付き）
+          const r = claimDaily(id.slice(6));
+          if (r.ok) {
+            this.toast(`今日の灯『${r.label}』を受け取った`);
+            sfx.coin();
+            this.refreshTreeBtn();
+            this.refreshAchieveBadge();
+            this.openAchievementsPanel();
+          }
+          return;
+        }
         const r = claimAchievement(id);
         if (r.ok) {
           this.toast(`あかし『${r.def.name}』 報酬を受け取った`);

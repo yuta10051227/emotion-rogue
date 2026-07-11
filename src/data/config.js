@@ -495,6 +495,99 @@ export const ABYSS = {
   label: "深淵",
 };
 
+// ---- ラスボス「空白の王」と真章「本来の物語」（エンディング後の第二幕）----
+//  流れ：いずれかのエンディング → 500m(第5ボス枠)に空白の王が現れる → 撃破で真章解放
+//  真章＝新ストーリー章＋「始まりの卵」(次の旅の主人公の系統を選べる)
+export const LAST_BOSS = {
+  distance: 500, // この距離のボス枠に出現（エンディング済み＆未撃破のとき）
+  name: "空白の王",
+  label: "感情を捨てた王",
+  icon: "🕳",
+  hpMult: 2.0, // 通常ボス(その距離)に対する追加倍率
+  atkMult: 1.4,
+  color: 0x8a8ab0,
+  intro: ["── 空白の王 ──", "「感情など、捨ててしまえば 楽になれる」", "捨てられた感情たちの、元凶。"],
+  defeatLines: ["王は 崩れ落ち、空白に 色が戻っていく。", "…ここから先が、本来の物語。"],
+};
+// 真章のストーリー（解放後に「物語」タブへ追加される）
+export const TRUE_CHAPTER = {
+  notices: [
+    { id: "tc1", title: "真章「本来の物語」", body: "空白の王は倒れた。だが、感情が捨てられる理由は消えていない。世界のどこかで、今日も誰かが感情を手放している。──旅は、ここからが本当の始まり。" },
+    { id: "tc2", title: "始まりの卵", body: "王の玉座の跡に、四つの卵が残されていた。怒り・悲しみ・勇気・希望──それぞれの系統の幼体が眠っている。やすらぎの街の巣で卵を選ぶと、次の旅の相棒の始まりの姿が変わる。" },
+  ],
+};
+
+// ---- 旅のイベント（分岐マス：進軍中に低頻度で出会う選択。旅ごとの物語感）----
+//  effect: heal=最大HPの%回復 / coins / frag={key,amount}(キー省略=主感情) / lean={stat,amount}(旅の間ステ強化)
+//          despair=絶望カウント減 / nothing（ハズレも味わい）
+export const TRAVEL_EVENTS = {
+  minGap: 46, // イベント間の最短距離(m)
+  maxGap: 86, // 最長（この間でランダム）
+  bossBuffer: 18, // ボス手前この距離では出さない（見せ場を邪魔しない）
+  defs: [
+    {
+      id: "shrine", icon: "⛩", title: "路傍の祠",
+      desc: "誰かが感情を弔った小さな祠。\n灯はまだ、消えていない。",
+      choices: [
+        { label: "静かに祈る", hint: "傷が癒える", effect: { heal: 0.35 } },
+        { label: "コインを供える", hint: "💰30 → 感情が満ちる", cost: 30, effect: { frag: { amount: 3 } } },
+        { label: "通り過ぎる", hint: "何も起きない", effect: { nothing: true } },
+      ],
+    },
+    {
+      id: "lost", icon: "🕯", title: "迷い子の感情",
+      desc: "道端で、小さな感情が震えている。\n拾われるのを待っているようだ。",
+      choices: [
+        { label: "手を差し伸べる", hint: "感情の欠片を得る", effect: { frag: { amount: 2 } } },
+        { label: "そっと寄り添う", hint: "✨希望が灯る", effect: { frag: { key: "hope", amount: 2 } } },
+      ],
+    },
+    {
+      id: "merchant", icon: "🎭", title: "仮面の行商人",
+      desc: "「感情、高く買うよ。安く売るよ」\n信じるかどうかは、君次第。",
+      choices: [
+        { label: "力を買う", hint: "💰40 → 攻撃+8%", cost: 40, effect: { lean: { stat: "atk", amount: 0.08 } } },
+        { label: "守りを買う", hint: "💰40 → DEF+6", cost: 40, effect: { lean: { stat: "def", amount: 6 } } },
+        { label: "断る", hint: "何も起きない", effect: { nothing: true } },
+      ],
+    },
+    {
+      id: "spring", icon: "🫧", title: "澄んだ泉",
+      desc: "感情の澱を洗い流す、静かな泉。\n水面に、疲れた顔が映る。",
+      choices: [
+        { label: "身を浸す", hint: "傷が癒え、心が軽くなる", effect: { heal: 0.5, despair: 1 } },
+        { label: "水底のコインを拾う", hint: "💰を得る（少し疲れる）", effect: { coins: 45, heal: -0.08 } },
+      ],
+    },
+    {
+      id: "remains", icon: "🎒", title: "旅人の置き土産",
+      desc: "先を歩いた誰かの荷物。\n「使ってくれ」と書かれた紙切れ。",
+      choices: [
+        { label: "ありがたく貰う", hint: "💰を得る", effect: { coins: 60 } },
+        { label: "供養して分け合う", hint: "💰少し＋感情の欠片", effect: { coins: 25, frag: { amount: 1.5 } } },
+      ],
+    },
+  ],
+};
+
+// ---- デイリーの灯（日替わり目標3件：今日やる理由）----
+//  type: runs=旅の回数 / frags=欠片の合計 / kills=討伐数 / boss=ボス討伐 / dist=1回の旅の到達距離
+//  進行はすべて転生時(transmigrate)に run の実績から加算される。
+export const DAILY = {
+  count: 3,
+  pool: [
+    { id: "run1", type: "runs", target: 1, label: "旅に出る", reward: { gold: 100 } },
+    { id: "run3", type: "runs", target: 3, label: "3回 旅に出る", reward: { satori: 10 } },
+    { id: "frag25", type: "frags", target: 25, label: "感情の欠片を 25 集める", reward: { gold: 150 } },
+    { id: "frag60", type: "frags", target: 60, label: "感情の欠片を 60 集める", reward: { satori: 14 } },
+    { id: "kill20", type: "kills", target: 20, label: "影を 20体 鎮める", reward: { gold: 120 } },
+    { id: "kill50", type: "kills", target: 50, label: "影を 50体 鎮める", reward: { satori: 12 } },
+    { id: "boss1", type: "boss", target: 1, label: "ボスを 1体 討つ", reward: { satori: 12 } },
+    { id: "dist120", type: "dist", target: 120, label: "一度の旅で 120m 到達", reward: { gold: 180 } },
+    { id: "dist250", type: "dist", target: 250, label: "一度の旅で 250m 到達", reward: { satori: 16 } },
+  ],
+};
+
 // ---- 進行の可視化（設計書§5 / DR：この先に何かある感）----
 export const PROGRESS = {
   milestoneEvery: 100, // この距離ごとに節目演出
