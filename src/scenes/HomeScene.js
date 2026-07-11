@@ -347,9 +347,18 @@ export default class HomeScene extends Phaser.Scene {
     } else {
       this.add.text(this.W / 2, 158, "🟢", { fontFamily: EMOJI_FONT, fontSize: "62px" }).setOrigin(0.5);
     }
-    this.heroStatsText = this.add
-      .text(this.W / 2, 208, "", { fontFamily: UI_FONT, fontSize: "16px", color: "#33465c" })
-      .setOrigin(0.5);
+    // ステータス行：自作アイコン＋数値（❤HP / ⚔攻撃 / ⚡素早さ）
+    const statY = 208;
+    const glyphs = ["❤", "⚔", "⚡"];
+    const gw = 74; // グループ間隔
+    let sx = this.W / 2 - ((glyphs.length - 1) * gw) / 2;
+    this.homeStatNums = [];
+    for (const glyph of glyphs) {
+      makeIcon(this, sx - 12, statY, glyph, 20, EMOJI_FONT);
+      const t = this.add.text(sx + 4, statY, "", { fontFamily: UI_FONT, fontSize: "16px", color: "#33465c" }).setOrigin(0, 0.5);
+      this.homeStatNums.push(t);
+      sx += gw;
+    }
     this.refreshHomeStats();
 
     // 魂パネル
@@ -493,7 +502,11 @@ export default class HomeScene extends Phaser.Scene {
 
   refreshHomeStats() {
     const st = computeHeroStats();
-    if (this.heroStatsText) this.heroStatsText.setText(`❤ ${st.maxHp}　⚔ ${st.atk}　⚡ ${st.spd}`);
+    if (this.homeStatNums && this.homeStatNums.length === 3) {
+      this.homeStatNums[0].setText(String(st.maxHp));
+      this.homeStatNums[1].setText(String(st.atk));
+      this.homeStatNums[2].setText(String(st.spd));
+    }
   }
 
   // やすらぎの街：留守番（同行してない）仲間が、感情の素材を集めて働いている様子（Palworld由来）
