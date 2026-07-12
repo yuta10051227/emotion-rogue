@@ -874,7 +874,7 @@ export default class GameScene extends Phaser.Scene {
   // 進化段階ごとの主人公表示サイズ（段が上がるほど大きく）
   heroFitFor(stage) {
     if (!this.heroIsImage) return 1;
-    return (58 + (stage || 0) * 9) / (this.heroBaseW || 384);
+    return (70 + (stage || 0) * 10) / (this.heroBaseW || 384); // 存在感を上げるため一回り大きく（旧58+9）
   }
 
   buildArena() {
@@ -932,14 +932,18 @@ export default class GameScene extends Phaser.Scene {
       if (this.heroStats) this.heroStats.hp = this.heroStats.maxHp;
     }
     this.enemySprite = this.add.text(this.enemyX, this.enemyY, "", { fontFamily: EMOJI_FONT, fontSize: "56px" }).setOrigin(0.5).setDepth(2).setVisible(false);
-    this.enemyLabel = this.add.text(this.enemyX, this.enemyY - 50, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5).setDepth(2).setVisible(false);
+    // 敵ネームプレート（暗い下地＋金枠）。ログウィズ風に「名前が据わる」印象へ。原点中心に描き、x/yで移動。
+    this.enemyNamePlate = this.add.graphics().setDepth(2.4).setVisible(false);
+    { const nw = 132, nh = 22; this.enemyNamePlate.fillStyle(0x0e0e18, 0.74); this.enemyNamePlate.fillRoundedRect(-nw / 2, -nh / 2, nw, nh, 6); this.enemyNamePlate.lineStyle(1, 0xc9a23a, 0.7); this.enemyNamePlate.strokeRoundedRect(-nw / 2, -nh / 2, nw, nh, 6); this.enemyNamePlate.fillStyle(0xf4dc86, 0.28); this.enemyNamePlate.fillRect(-nw / 2 + 2, -nh / 2 + 1, nw - 4, 1); }
+    this.enemyNamePlate.setPosition(this.enemyX, this.enemyY - 50);
+    this.enemyLabel = this.add.text(this.enemyX, this.enemyY - 50, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#f0e6d0", stroke: "#0a0a12", strokeThickness: 3 }).setOrigin(0.5).setDepth(2.5).setVisible(false);
 
     // 主人公の子供（男の子/女の子）＝相棒に指示を出す。戦闘には参加しない別オーバーレイ。
     const pg = getPlayer() || { gender: "boy" };
     this.kidFormKey = "kid_" + (pg.gender === "girl" ? "girl" : "boy");
     this.kidX = this.heroX - 52;
     if (this.textures.exists(this.kidFormKey)) {
-      this.kidSprite = this.add.image(this.kidX, this.heroY + 6, this.kidFormKey).setDepth(2).setScale(0.72);
+      this.kidSprite = this.add.image(this.kidX, this.heroY + 6, this.kidFormKey).setDepth(2).setScale(0.86);
       faceEnemy(this.kidSprite, this.kidFormKey); // 元絵の向きに応じて敵(右)を向く
       this.kidIsImage = true;
     } else {
@@ -950,9 +954,22 @@ export default class GameScene extends Phaser.Scene {
     this.addAtmosphere(); // 周縁ビネット
     this.time.addEvent({ delay: 130, loop: true, callback: () => this.emitEmotionParticle() }); // 感情の専用パーティクル
 
-    this.heroHpG = this.add.graphics();
-    this.enemyHpG = this.add.graphics();
-    this.skillG = this.add.graphics(); // 技ゲージ
+    // HPプレート（暗い下地＋金の細枠）。バー中心=+50に合わせ、視認性と「作り込まれた」印象を出す。
+    const hpPlate = (cx, cy) => {
+      const gp = this.add.graphics().setDepth(1.6);
+      gp.fillStyle(0x0e0e18, 0.8);
+      gp.fillRoundedRect(cx - 41, cy - 8, 82, 16, 5);
+      gp.lineStyle(1, 0xc9a23a, 0.75);
+      gp.strokeRoundedRect(cx - 41, cy - 8, 82, 16, 5);
+      gp.fillStyle(0xf4dc86, 0.3); // 上辺の光
+      gp.fillRect(cx - 39, cy - 7, 78, 1);
+      return gp;
+    };
+    this.heroHpPlate = hpPlate(this.heroX, this.heroY + 50);
+    this.enemyHpPlate = hpPlate(this.enemyX, this.enemyY + 50).setVisible(false);
+    this.heroHpG = this.add.graphics().setDepth(1.7);
+    this.enemyHpG = this.add.graphics().setDepth(1.7);
+    this.skillG = this.add.graphics().setDepth(1.7); // 技ゲージ
     // HP数値（バーの上に重ねる。狭いので短縮表記＋読みやすい縁取り）
     const hpStyle = { fontFamily: UI_FONT, fontSize: "11px", color: "#ffffff", stroke: "#0a0a12", strokeThickness: 3, fontStyle: "bold" };
     this.heroHpT = this.add.text(this.heroX, this.heroY + 50, "", hpStyle).setOrigin(0.5).setDepth(3);
@@ -1006,7 +1023,7 @@ export default class GameScene extends Phaser.Scene {
       this.heroSprite.setScale(fit, fit * (1 + Math.max(0, Math.sin(time / 286)) * amp));
     }
     if (this.kidSprite && this.kidSprite.scene && (this.mode === "walk" || this.mode === "battle")) {
-      const kfit = this.kidIsImage ? 0.72 : 1;
+      const kfit = this.kidIsImage ? 0.86 : 1;
       this.kidSprite.setScale(kfit, kfit * (1 + Math.max(0, Math.sin(time / 310)) * 0.03));
     }
     if (this.enemyBody) {
@@ -1474,8 +1491,10 @@ export default class GameScene extends Phaser.Scene {
     const scale = enemy.boss ? 1.5 : 1;
     this.enemySprite.setText(enemy.icon).setVisible(true).setScale(scale).setAlpha(1);
     this.enemySprite.x = this.W + 60;
-    this.enemyLabel.setText(enemy.boss ? `― ${enemy.label} ―` : enemy.label).setVisible(true).setAlpha(1).setColor(enemy.boss ? "#ffd24d" : "#9a9aac");
+    this.enemyLabel.setText(enemy.boss ? `― ${enemy.label} ―` : enemy.label).setVisible(true).setAlpha(1).setColor(enemy.boss ? "#ffd24d" : "#f0e6d0");
     this.enemyLabel.x = this.W + 60;
+    // ネームプレートは雑魚のみ（ボスは上部の大型バー）。ラベルと一緒に滑り込む。
+    this.enemyNamePlate.setVisible(!enemy.boss).setPosition(this.W + 60, this.enemyY - 50);
 
     // 敵アート（ボス=大きく／雑魚=小さく色変異）。位置/フェードは enemySprite が駆動。
     const biomeArt = !enemy.boss && enemy.biomeKey ? "enemy_" + enemy.biomeKey + "_" + enemy.lean : null;
@@ -1485,7 +1504,7 @@ export default class GameScene extends Phaser.Scene {
     if (hasArt) {
       this.enemyImg.setTexture(artKey).setVisible(true).setAlpha(1).setDepth(2).setTint(enemy.tint || 0xffffff);
       faceHero(this.enemyImg, artKey); // 元絵が右向きの敵だけ反転して主人公(左)を向かせる
-      const px = enemy.boss ? enemy.bossPx || 300 : Math.round(92 * (enemy.mobScale || 1)); // ボスは段階的サイズ／雑魚は個体差
+      const px = enemy.boss ? enemy.bossPx || 300 : Math.round(112 * (enemy.mobScale || 1)); // ボスは段階的サイズ／雑魚は個体差（存在感UP: 旧92）
       this.enemyImgFit = px / (this.enemyImg.width || 256);
       this.enemyImg.setScale(this.enemyImgFit);
       this.enemyImgActive = true;
@@ -1502,7 +1521,7 @@ export default class GameScene extends Phaser.Scene {
     this.drawHpBars();
 
     this.tweens.add({
-      targets: [this.enemySprite, this.enemyLabel],
+      targets: [this.enemySprite, this.enemyLabel, this.enemyNamePlate],
       x: this.enemyX,
       duration: 420,
       ease: "Sine.easeOut",
@@ -1980,6 +1999,7 @@ export default class GameScene extends Phaser.Scene {
   _resolveBattle() {
     if (this.battle.win) {
       this.enemyLabel.setVisible(false);
+    if (this.enemyNamePlate) this.enemyNamePlate.setVisible(false);
       this.tweens.killTweensOf(this.enemySprite); // ボスの鼓動など残演出を止める
       const isBoss = !!(this.currentEnemy && this.currentEnemy.boss);
       if (isBoss) sfx.bossDown();
@@ -2078,6 +2098,7 @@ export default class GameScene extends Phaser.Scene {
     this.enemyQueue = [];
     this.enemySprite.setVisible(false);
     this.enemyLabel.setVisible(false);
+    if (this.enemyNamePlate) this.enemyNamePlate.setVisible(false);
     this.currentEnemy = null;
     this.heroStats.hp = this.heroStats.maxHp;
     this.drawHpBars();
@@ -2831,6 +2852,7 @@ export default class GameScene extends Phaser.Scene {
     this.mode = "dead";
     this.battle = null;
     this.enemyLabel.setVisible(false);
+    if (this.enemyNamePlate) this.enemyNamePlate.setVisible(false);
     this.tweens.killTweensOf(this.enemySprite);
     sfx.death();
     this.pushLog("相棒は 力尽きた ── 今日はここまで。（集めた感情は、消えない）");
@@ -2848,6 +2870,7 @@ export default class GameScene extends Phaser.Scene {
     this.heroStats.hp = this.heroStats.maxHp;
     this.heroSprite.setAlpha(1).setAngle(0);
     this.enemyLabel.setVisible(false);
+    if (this.enemyNamePlate) this.enemyNamePlate.setVisible(false);
     this.tweens.killTweensOf(this.enemySprite);
     this.tweens.add({
       targets: this.enemySprite,
@@ -2873,9 +2896,11 @@ export default class GameScene extends Phaser.Scene {
     if (inBattle && !boss) {
       this.drawBar(this.enemyHpG, this.enemyX - 35, this.enemyY + 46, 70, 8, Math.max(0, this.currentEnemy.hp) / this.currentEnemy.maxHp);
       if (this.enemyHpT) this.enemyHpT.setVisible(true).setText(`${fmtShort(Math.max(0, this.currentEnemy.hp))}/${fmtShort(this.currentEnemy.maxHp)}`);
+      if (this.enemyHpPlate) this.enemyHpPlate.setVisible(true);
     } else {
       this.enemyHpG.clear();
       if (this.enemyHpT) this.enemyHpT.setVisible(false);
+      if (this.enemyHpPlate) this.enemyHpPlate.setVisible(false);
     }
     // ボスは上部に大型HPバー
     if (boss) {
