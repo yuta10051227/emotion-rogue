@@ -1465,11 +1465,14 @@ export default class HomeScene extends Phaser.Scene {
         } else if (!prevOk) {
           c.add(this.add.text(this.W - 40, y, "前提が必要", { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a" }).setOrigin(1, 0.5));
         } else {
+          // 押せる=緑CTA（白文字）／悟り不足=灰＋赤字で「足りない」と一目で分かるように
           const btn = this.add
-            .rectangle(this.W - 72, y, 92, 38, purchasable ? 0xdbe8f7 : 0xe6ebf2)
-            .setStrokeStyle(1, purchasable ? 0x5a9ad0 : 0xc2ccd8)
+            .rectangle(this.W - 72, y, 92, 38, purchasable ? 0x4caf50 : 0xeceff3)
+            .setStrokeStyle(2, purchasable ? 0x2e7d32 : 0xccd4de)
             .setInteractive({ useHandCursor: purchasable });
-          const btnT = this.add.text(this.W - 72, y, `悟り ${cost}`, { fontFamily: UI_FONT, fontSize: "13px", color: purchasable ? "#1f6aa8" : "#9aa5b3" }).setOrigin(0.5);
+          if (!purchasable) btn.setAlpha(0.85);
+          const btnT = this.add.text(this.W - 72, y - (purchasable ? 0 : 6), purchasable ? `悟り ${cost}` : `悟り ${cost}`, { fontFamily: UI_FONT, fontSize: "13px", color: purchasable ? "#ffffff" : "#9aa5b3", fontStyle: purchasable ? "bold" : "normal" }).setOrigin(0.5);
+          if (!purchasable) c.add(this.add.text(this.W - 72, y + 10, `あと ${cost - s.enlightenment}`, { fontFamily: UI_FONT, fontSize: "10px", color: "#d0553f" }).setOrigin(0.5));
           if (purchasable) {
             btn.on("pointerdown", () => {
               const res = unlockNode(br.key, node.id);

@@ -50,6 +50,21 @@ function faceHero(sprite, key) {
   sprite.setFlipX(ENEMY_FACE_RIGHT.has(key));
 }
 
+// 大きな数を短く（例 12,345,678 → 1234万 / 1.2兆）。HPバー上の狭い表示向け。
+const NUM_UNITS = [
+  [1e16, "京"], [1e12, "兆"], [1e8, "億"], [1e4, "万"],
+];
+function fmtShort(n) {
+  n = Math.max(0, Math.floor(n));
+  for (const [v, u] of NUM_UNITS) {
+    if (n >= v) {
+      const q = n / v;
+      return (q >= 100 ? Math.floor(q) : Math.round(q * 10) / 10) + u;
+    }
+  }
+  return String(n);
+}
+
 function colorToCss(n) {
   return "#" + n.toString(16).padStart(6, "0");
 }
@@ -875,9 +890,14 @@ export default class GameScene extends Phaser.Scene {
     this.heroHpG = this.add.graphics();
     this.enemyHpG = this.add.graphics();
     this.skillG = this.add.graphics(); // 技ゲージ
+    // HP数値（バーの上に重ねる。狭いので短縮表記＋読みやすい縁取り）
+    const hpStyle = { fontFamily: UI_FONT, fontSize: "11px", color: "#ffffff", stroke: "#0a0a12", strokeThickness: 3, fontStyle: "bold" };
+    this.heroHpT = this.add.text(this.heroX, this.heroY + 50, "", hpStyle).setOrigin(0.5).setDepth(3);
+    this.enemyHpT = this.add.text(this.enemyX, this.enemyY + 50, "", hpStyle).setOrigin(0.5).setDepth(3).setVisible(false);
     // ボス用の大型HPバー（上部）
     this.bossHpG = this.add.graphics().setDepth(5);
     this.bossNameT = this.add.text(this.W / 2, 124, "", { fontFamily: UI_FONT, fontSize: "15px", color: "#ffd24d" }).setOrigin(0.5).setDepth(5).setVisible(false);
+    this.bossHpT = this.add.text(this.W - 30, 145, "", { fontFamily: UI_FONT, fontSize: "12px", color: "#ffffff", stroke: "#0a0a12", strokeThickness: 3, fontStyle: "bold" }).setOrigin(1, 0.5).setDepth(6).setVisible(false);
   }
 
   // 周縁のごく淡いフレーミング。明るい世界を保つため、暗さは最小限に。
@@ -2740,12 +2760,16 @@ export default class GameScene extends Phaser.Scene {
   // ============================ visuals ============================
   drawHpBars() {
     this.drawBar(this.heroHpG, this.heroX - 35, this.heroY + 46, 70, 8, this.heroStats.hp / this.heroStats.maxHp);
+    // 主人公のHP数値（現在/最大）
+    if (this.heroHpT) this.heroHpT.setText(`${fmtShort(this.heroStats.hp)}/${fmtShort(this.heroStats.maxHp)}`);
     const inBattle = this.mode === "battle" && this.currentEnemy;
     const boss = inBattle && this.currentEnemy.boss;
     if (inBattle && !boss) {
       this.drawBar(this.enemyHpG, this.enemyX - 35, this.enemyY + 46, 70, 8, Math.max(0, this.currentEnemy.hp) / this.currentEnemy.maxHp);
+      if (this.enemyHpT) this.enemyHpT.setVisible(true).setText(`${fmtShort(Math.max(0, this.currentEnemy.hp))}/${fmtShort(this.currentEnemy.maxHp)}`);
     } else {
       this.enemyHpG.clear();
+      if (this.enemyHpT) this.enemyHpT.setVisible(false);
     }
     // ボスは上部に大型HPバー
     if (boss) {
@@ -2764,9 +2788,11 @@ export default class GameScene extends Phaser.Scene {
       this.bossHpG.lineStyle(1, 0xffd24d, 0.8);
       this.bossHpG.strokeRect(x, y, w, 14);
       this.bossNameT.setVisible(true).setText(`${this.currentEnemy.icon} ${this.currentEnemy.label}`);
+      if (this.bossHpT) this.bossHpT.setVisible(true).setText(`${fmtShort(Math.max(0, this.currentEnemy.hp))} / ${fmtShort(this.currentEnemy.maxHp)}`);
     } else {
       this.bossHpG.clear();
       this.bossNameT.setVisible(false);
+      if (this.bossHpT) this.bossHpT.setVisible(false);
     }
     this.drawSkillGauge();
   }
