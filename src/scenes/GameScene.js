@@ -701,13 +701,15 @@ export default class GameScene extends Phaser.Scene {
       // アート未配置バイオームの代用に使う「実在する生成アート」（＝山）を1つ確保
       this.fallbackArt = (this.biomes.find((b) => b.art && this.textures.exists(b.art)) || {}).art || null;
       // 生成アート背景を敷く用の画像（cover表示・ゆっくり漂う）。テクスチャは setBiome で差し替え。
-      this.biomeArtImg = this.add.image(this.W / 2, this.H / 2, "bg_far").setDepth(-10).setVisible(false);
+      //  中心を画面中央より上に置き、地平線を上げて「空を減らし景色を大きく」見せる（背景ズーム＋キャラUP）。
+      this.bgCenterY = 330;
+      this.biomeArtImg = this.add.image(this.W / 2, this.bgCenterY, "bg_far").setDepth(-10).setVisible(false);
       this.tweens.add({ targets: this.biomeArtImg, x: this.W / 2 + 34, duration: 17000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // 遠景の微かな漂い
 
       // ── 水面リフレクション（ログウィズ風の映り込み）──
       // 背景を「水位ライン」で上下反転ミラー。青く半透明にし、横揺れ＋ハイライトで水に見せる。
-      this.waterTop = this.heroY + 78; // 岸のすぐ下（足元より下）に水位
-      this.waterImg = this.add.image(this.W / 2, 2 * this.waterTop - this.H / 2, "bg_far").setFlipY(true).setDepth(-4).setAlpha(0.55).setTint(0x7fb0dd).setVisible(false);
+      this.waterTop = this.heroY + 70; // 岸のすぐ下（足元より下）に水位
+      this.waterImg = this.add.image(this.W / 2, 2 * this.waterTop - this.bgCenterY, "bg_far").setFlipY(true).setDepth(-4).setAlpha(0.55).setTint(0x7fb0dd).setVisible(false);
       // 水面帯にだけ映すマスク（空・キャラには被せない）
       const wmg = this.make.graphics({ add: false });
       wmg.fillRect(0, this.waterTop, this.W, this.H - this.waterTop);
@@ -751,7 +753,7 @@ export default class GameScene extends Phaser.Scene {
     if (useArt && this.biomeArtImg) {
       this.biomeArtImg.setTexture(useArt).setVisible(true);
       this.biomeArtImg.setTint(ownArt ? 0xffffff : b.sub || 0xffffff); // 代用時のみ色を掛けて別の土地に見せる
-      const cover = Math.max(this.W / this.biomeArtImg.width, this.H / this.biomeArtImg.height) * 1.12;
+      const cover = Math.max(this.W / this.biomeArtImg.width, this.H / this.biomeArtImg.height) * 1.42; // ズームイン（旧1.12）で空を減らし景色を大きく
       this.biomeArtImg.setScale(cover);
       if (this.farLayer) this.farLayer.setVisible(false); // ピクセル遠景は隠す
       // 水面の映り込みも同じ景色に更新（青く落として反射に）
@@ -879,9 +881,9 @@ export default class GameScene extends Phaser.Scene {
 
   buildArena() {
     this.heroX = 120;
-    this.heroY = 430;
+    this.heroY = 388; // キャラをステージ中央寄りに（旧430）。上部の空きを減らす。
     this.enemyX = 330;
-    this.enemyY = 430;
+    this.enemyY = 388;
 
     this.add.rectangle(this.W / 2, this.heroY + 62, this.W, 2, 0x20202c);
 
