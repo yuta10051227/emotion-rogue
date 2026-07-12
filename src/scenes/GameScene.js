@@ -21,20 +21,33 @@ const UI_FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
 //  敵は常に右(enemyX>heroX)。味方は右を向くべき。だが元絵の向きはアセットごとにバラバラ。
 //  下記は「元絵が左を向いている」キー＝反転(flipX=true)して右(敵)を向かせる対象。
 //  ここに無いキーは元絵のまま(右向き/正面)＝反転しない。
-//  ※特に _atk(攻撃)フレームは全て右向きなので反転しない（一律反転だと攻撃が後ろを向く）。
-//  実測日 2026-07-11：全スプライトをモンタージュ比較して判定（顔・体の向きで判断）。
+//  実測日 2026-07-12：全スプライト（atk/walk含む）を3倍拡大モンタージュで再判定（顔・腕・武器の向きで判断）。
+//  ※_atkフレームは左向きが多い＝反転しないと「後ろの子(主人公)に攻撃してるように見える」（ユーザー指摘）。
 const FACE_LEFT = new Set([
-  "hero_slime", "hero_slime_walk",
+  "hero_slime", "hero_slime_walk", "hero_slime_atk",
   "hero_anger_1", "hero_anger_1_walk",
-  "hero_courage_1", "hero_courage_1_walk",
-  "hero_sadness_1_walk",
+  "hero_anger_2_atk", "hero_anger_3_atk",
+  "hero_courage_1", "hero_courage_1_walk", "hero_courage_1_atk",
+  "hero_courage_2", "hero_courage_2_walk", "hero_courage_2_atk",
+  "hero_courage_3_atk",
+  "hero_sadness_1_walk", "hero_sadness_1_atk", "hero_sadness_2_atk",
+  "hero_hope_1_atk", "hero_hope_3_atk",
   "kid_boy_walk",
   "char_anger", "char_sadness", "char_courage",
+  "char_sadness_atk", "char_hope_atk",
 ]);
+// 敵アートのうち「元絵が右を向いている」キー＝敵は左(主人公)を向くべきなので反転する対象。
+//  （enemy_ruins_anger=右向き剣士 / boss_hope_atk=右へ突撃 / boss_sadness_atk=頭が右向き）
+const ENEMY_FACE_RIGHT = new Set(["enemy_ruins_anger", "boss_hope_atk", "boss_sadness_atk"]);
 // スプライトを「敵(右)向き」にする。テクスチャ差し替えのたびに呼ぶこと（flipXは保持されるので誤差替の防止）。
 function faceEnemy(sprite, key) {
   if (!sprite || !sprite.setFlipX) return;
   sprite.setFlipX(FACE_LEFT.has(key));
+}
+// 敵スプライトを「主人公(左)向き」にする。敵のテクスチャ差し替えのたびに呼ぶこと。
+function faceHero(sprite, key) {
+  if (!sprite || !sprite.setFlipX) return;
+  sprite.setFlipX(ENEMY_FACE_RIGHT.has(key));
 }
 
 function colorToCss(n) {
@@ -1372,7 +1385,8 @@ export default class GameScene extends Phaser.Scene {
     if (!this.enemyImg && this.textures.exists(artKey)) this.enemyImg = this.add.image(this.enemyX, this.enemyY, artKey).setDepth(2).setVisible(false); // 保険で遅延生成
     const hasArt = this.enemyImg && this.textures.exists(artKey);
     if (hasArt) {
-      this.enemyImg.setTexture(artKey).setVisible(true).setAlpha(1).setDepth(2).setFlipX(false).setTint(enemy.tint || 0xffffff); // 反転しない（元絵が主人公向き）
+      this.enemyImg.setTexture(artKey).setVisible(true).setAlpha(1).setDepth(2).setTint(enemy.tint || 0xffffff);
+      faceHero(this.enemyImg, artKey); // 元絵が右向きの敵だけ反転して主人公(左)を向かせる
       const px = enemy.boss ? enemy.bossPx || 300 : Math.round(92 * (enemy.mobScale || 1)); // ボスは段階的サイズ／雑魚は個体差
       this.enemyImgFit = px / (this.enemyImg.width || 256);
       this.enemyImg.setScale(this.enemyImgFit);
@@ -3220,7 +3234,7 @@ export default class GameScene extends Phaser.Scene {
     const light = this.speed >= 3;
     if (!light && !comp.shopId && o.spr.type === "Image" && this.textures.exists("char_" + comp.emotion + "_atk")) {
       o.spr.setTexture("char_" + comp.emotion + "_atk");
-      faceEnemy(o.spr, "char_" + comp.emotion + "_atk"); // 攻撃フレームは右向き＝反転しない
+      faceEnemy(o.spr, "char_" + comp.emotion + "_atk"); // 攻撃フレームも実測の向きで判定（FACE_LEFT参照）
       const ctok = (o._atkToken = (o._atkToken || 0) + 1);
       this.time.delayedCall(220, () => {
         if (ctok !== o._atkToken) return; // 連撃中は古いタイマーで素の絵に戻さない
@@ -3237,7 +3251,7 @@ export default class GameScene extends Phaser.Scene {
     const atk = this.heroFormKey + "_atk";
     if (!this.textures.exists(atk)) return;
     this.heroSprite.setTexture(atk);
-    faceEnemy(this.heroSprite, atk); // 攻撃フレームは右向き＝反転しない（一律反転だと後ろを向いて攻撃していた）
+    faceEnemy(this.heroSprite, atk); // 攻撃フレームも実測の向きで判定（左向きの絵は反転して敵へ向ける）
     const fit = this.heroFit || 1;
     if (this.speed < 3) {
       this._heroSquash = true; // スクワッシュ中は呼吸スケールを止める（tweenとの取り合い防止）
@@ -3269,10 +3283,14 @@ export default class GameScene extends Phaser.Scene {
     if (!this.textures.exists(atk)) return; // 攻撃フレームが無い敵は差替えず素の絵のまま（取り違え・消失を防ぐ）
     const token = (this._enemyAtkToken = (this._enemyAtkToken || 0) + 1);
     this.enemyImg.setTexture(atk);
+    faceHero(this.enemyImg, atk); // 攻撃フレームも主人公向きに（boss_hope/sadness_atk は元絵が右向き）
     const hold = Math.max(90, 260 / Math.max(1, this.speed)); // 倍速でも間延びしない
     this.time.delayedCall(hold, () => {
       if (token !== this._enemyAtkToken) return; // 後続の攻撃が来ていれば古いタイマーは戻さない
-      if (this.enemyImg && this.enemyImgActive && this.currentEnemy && this.textures.exists(base)) this.enemyImg.setTexture(base);
+      if (this.enemyImg && this.enemyImgActive && this.currentEnemy && this.textures.exists(base)) {
+        this.enemyImg.setTexture(base);
+        faceHero(this.enemyImg, base); // 素の絵に戻すときも向きを追従
+      }
     });
   }
 
