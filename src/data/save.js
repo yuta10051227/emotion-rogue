@@ -846,14 +846,29 @@ export function canUnlockAnyNode() {
   return false;
 }
 
+// 魂レベルの節目強化の累積倍率。10刻み・100刻みの到達数だけ乗算で跳ねる。
+export function soulMilestoneMult(level) {
+  const lv = Math.max(1, Math.floor(level || 1));
+  const tens = Math.floor(lv / SOUL.milestoneEvery); // 到達した10刻みの数
+  const megas = Math.floor(lv / SOUL.megaEvery); // 到達した100刻みの数
+  return (1 + tens * SOUL.milestoneBonus) * (1 + megas * SOUL.megaBonus);
+}
+// prev→next で跨いだ最大の節目を返す（"mega">"super">null）。転生時の演出用。
+export function soulMilestoneCrossed(prev, next) {
+  if (Math.floor(next / SOUL.megaEvery) > Math.floor(prev / SOUL.megaEvery)) return "mega";
+  if (Math.floor(next / SOUL.milestoneEvery) > Math.floor(prev / SOUL.milestoneEvery)) return "super";
+  return null;
+}
+
 // 出撃時の主人公ステータス（魂レベル＋装備＋ツリーを反映）
 export function computeHeroStats() {
   const s = getSave();
   const eff = getTreeEffects();
   const art = getArtifactBonuses();
   const lvlMult = 1 + (SOUL.levelStatPerLevel + eff.soulLevelPct) * (s.soul.level - 1);
-  let hp = HERO_BASE.hp * lvlMult * (1 + eff.heroHpPct);
-  let atk = HERO_BASE.atk * lvlMult * (1 + eff.heroAtkPct);
+  const mMult = soulMilestoneMult(s.soul.level); // 節目の超強化（10/100ごとの跳ね）
+  let hp = HERO_BASE.hp * lvlMult * mMult * (1 + eff.heroHpPct);
+  let atk = HERO_BASE.atk * lvlMult * mMult * (1 + eff.heroAtkPct);
   let spd = HERO_BASE.spd + eff.heroSpdFlat;
   let def = HERO_BASE.def || 0;
   let luk = HERO_BASE.luk || 0;
@@ -899,7 +914,9 @@ export function transmigrate(run) {
   if (run && run.abyss) s.abyssBest = Math.max(s.abyssBest, Math.floor(safeDist));
   advanceDaily(run || {}, Math.floor(safeDist)); // デイリーの灯を進める（唯一の進行入口）
   const levelGain = safeDist >= SOUL.minRewardDistance ? Math.max(1, Math.floor(safeDist / SOUL.levelPerDeathDistance)) : 0;
+  const prevLevel = s.soul.level;
   s.soul.level += levelGain;
+  const soulMilestone = soulMilestoneCrossed(prevLevel, s.soul.level); // 節目を跨いだか（演出用）
   s.soul.rebirths += 1;
   const dist = Math.floor(safeDist);
   const newBest = dist > s.soul.bestDistance;
@@ -946,6 +963,7 @@ export function transmigrate(run) {
   return {
     levelGain,
     newLevel: s.soul.level,
+    soulMilestone, // "mega"|"super"|null（節目到達の演出用）
     distance: dist,
     newBest,
     rebirths: s.soul.rebirths,

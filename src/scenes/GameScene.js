@@ -2689,6 +2689,13 @@ export default class GameScene extends Phaser.Scene {
       }
       T(dyn, y, `魂レベル +${summary.levelGain}　→　Lv.${summary.newLevel}`, { size: "18px", color: "#bfffbf" });
       y += 36;
+      // 節目の跳ね（ローグウィズ流）：10/100の大台を跨いだら金色で強調
+      if (summary.soulMilestone) {
+        const mega = summary.soulMilestone === "mega";
+        const mt = T(dyn, y, mega ? `★★ 超激強化！ 魂が大きく跳ねた` : `★ 超強化！ 節目を越えた`, { size: mega ? "19px" : "17px", color: mega ? "#ffd24d" : "#ffe08a" });
+        if (mt) { mt.setScale(0.6); this.tweens.add({ targets: mt, scale: 1, duration: 460, ease: "Back.easeOut" }); } // 跳ねる演出
+        y += 34;
+      }
       if (summary.satoriGain > 0) {
         T(dyn, y, `導く心は 旅から学んだ　悟り +${summary.satoriGain}`, { size: "16px", color: "#bfe0ff" });
         y += 34;
