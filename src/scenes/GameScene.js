@@ -160,6 +160,7 @@ export default class GameScene extends Phaser.Scene {
     this.bestMarked = false;
     this.paused = false;
     this.upPanel = null;
+    this.statusPanel = null;
 
     this.buildBackground();
     this.buildParallax();
@@ -286,6 +287,68 @@ export default class GameScene extends Phaser.Scene {
     if (!this.upPanel) return;
     this.upPanel.destroy(true);
     this.upPanel = null;
+    this.paused = false;
+    if (this.battleTimer && this.mode === "battle" && this.battle && !this.battle.finished) this.battleTimer.paused = false;
+  }
+
+  // ⓘ 旅のステータス確認（今の強さ・仲間・結晶を一覧。読むだけ・一時停止）
+  openRunStatusPanel() {
+    if (this.upPanel || this.statusPanel || this.mode === "dead" || this.mode === "evolve" || this.mode === "epilogue" || this._leaving || this._choice || this._coach) return;
+    this.dismissCare && this.dismissCare();
+    this.paused = true;
+    if (this.battleTimer) this.battleTimer.paused = true;
+    const cx = this.W / 2, cy = this.H / 2;
+    const c = (this.statusPanel = this.add.container(0, 0).setDepth(210));
+    const bg = this.add.rectangle(cx, cy, this.W, this.H, 0x0d1524, 0.62).setInteractive();
+    const cw = this.W - 40, ch = 452;
+    const card = this.add.graphics();
+    card.fillStyle(0x14203a, 0.99); card.fillRoundedRect(cx - cw / 2, cy - ch / 2, cw, ch, 14);
+    card.fillStyle(0x1c2c44, 1); card.fillRoundedRect(cx - cw / 2, cy - ch / 2, cw, 46, { tl: 14, tr: 14, bl: 0, br: 0 });
+    ornateFrame(card, cx, cy, cw, ch, 14, { thick: 3, inset: 6, corners: true, cornerArm: 15 });
+    c.add([bg, card]);
+    let y = cy - ch / 2 + 24;
+    c.add(this.add.text(cx, y, "旅のステータス", { fontFamily: UI_FONT, fontSize: "19px", color: "#f4dc86", fontStyle: "bold" }).setOrigin(0.5));
+    y += 44;
+    // 主人公の現ステ
+    const st = this.heroStats || {};
+    const stageLabel = ["スライム", "獣", "戦士", "化身"][this.evoStage] || "—";
+    const line = (label, val, col) => {
+      c.add(this.add.text(cx - cw / 2 + 26, y, label, { fontFamily: UI_FONT, fontSize: "14px", color: "#9fb2cc" }).setOrigin(0, 0.5));
+      c.add(this.add.text(cx + cw / 2 - 26, y, val, { fontFamily: UI_FONT, fontSize: "15px", color: col || "#e8eef7", fontStyle: "bold" }).setOrigin(1, 0.5));
+      y += 30;
+    };
+    line("❤ 最大HP", fmtShort(st.maxHp || 0), "#ff9a9a");
+    line("⚔ こうげき", fmtShort(st.atk || 0), "#ffcaa0");
+    line("⚡ すばやさ", "" + (st.spd || 0), "#bfe0ff");
+    line("🔮 魂レベル", "Lv." + (getSave().soul.level || 1), "#d8c0ff");
+    line("🧬 進化", `${stageLabel}（第${this.evoStage}段階）`, "#bfffbf");
+    // 結晶の恒久ボーナス
+    const art = getArtifactBonuses();
+    line("💎 結晶ボーナス", `HP+${Math.round(art.hp)}% / ATK+${Math.round(art.atk)}%`, "#8fd0ff");
+    // 同行の仲間
+    y += 6;
+    c.add(this.add.text(cx - cw / 2 + 26, y, `🤝 同行の仲間　${this.companions.length}体`, { fontFamily: UI_FONT, fontSize: "14px", color: "#f4dc86" }).setOrigin(0, 0.5));
+    y += 28;
+    if (!this.companions.length) {
+      c.add(this.add.text(cx, y, "（今回は一人旅）", { fontFamily: UI_FONT, fontSize: "13px", color: "#8496b0" }).setOrigin(0.5));
+      y += 26;
+    } else {
+      for (const comp of this.companions.slice(0, 4)) {
+        const info = C.EMOTIONS[comp.emotion] || {};
+        c.add(this.add.text(cx - cw / 2 + 30, y, `${info.icon || "・"} ${comp.name}`, { fontFamily: UI_FONT, fontSize: "13px", color: "#d6e2f2" }).setOrigin(0, 0.5));
+        c.add(this.add.text(cx + cw / 2 - 26, y, `${comp.roleLabel || comp.role || ""}　⚔${fmtShort(comp.atk || 0)}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#9fb2cc" }).setOrigin(1, 0.5));
+        y += 26;
+      }
+      if (this.companions.length > 4) { c.add(this.add.text(cx, y, `ほか ${this.companions.length - 4}体`, { fontFamily: UI_FONT, fontSize: "12px", color: "#8496b0" }).setOrigin(0.5)); y += 24; }
+    }
+    // 閉じる
+    const close = this.makeBarButton(cx, cy + ch / 2 - 30, 160, 42, "閉じる", () => this.closeRunStatusPanel(), { color: 0x24344e, stroke: 0xc9a23a, textColor: "#f4dc86" });
+    c.add([close.gfx, close.rect, close.txt]);
+  }
+  closeRunStatusPanel() {
+    if (!this.statusPanel) return;
+    this.statusPanel.destroy(true);
+    this.statusPanel = null;
     this.paused = false;
     if (this.battleTimer && this.mode === "battle" && this.battle && !this.battle.finished) this.battleTimer.paused = false;
   }
@@ -1055,7 +1118,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   buildLog() {
-    this.add.text(this.W / 2, 588, "─ 旅のしるし ─", { fontFamily: UI_FONT, fontSize: "12px", color: "#5a6a86" }).setOrigin(0.5);
+    // （旧「─ 旅のしるし ─」見出しは円形スキル名と重なるため撤去。ログ帯だけ残す）
     // 行ごとに色を持てるよう、1行=1テキストで積む（感情の欠片ログをその感情色に）
     this.logTextObjs = [];
     // 手動ボタン(661〜715)と重ならないよう、ログ帯を 598〜652 にクリップ。
@@ -1081,16 +1144,17 @@ export default class GameScene extends Phaser.Scene {
     const barY = 752;
     this.add.rectangle(this.W / 2, barY, this.W, 64, 0x101a30, 0.6);
 
-    // 倍速セグメント（"見守る速度"の操作。命令ではない）
-    this.add.text(14, barY - 22, "速さ", { fontFamily: UI_FONT, fontSize: "11px", color: "#6a6a80" }).setOrigin(0, 0.5);
+    // 倍速セグメント（"見守る速度"の操作。放置ゲーの最重要操作なので大きめ・見やすく）
+    this.add.text(16, barY - 24, "速さ", { fontFamily: UI_FONT, fontSize: "11px", color: "#8a8aa0", fontStyle: "bold" }).setOrigin(0, 0.5);
     this.speedBtns = [];
     C.SPEED_STEPS.forEach((mult, i) => {
-      const x = 30 + i * 36;
-      const rect = this.add.rectangle(x, barY + 4, 32, 34, 0x1c1c2a).setStrokeStyle(1, 0x3a3a52).setInteractive({ useHandCursor: true });
-      const txt = this.add.text(x, barY + 4, "×" + mult, { fontFamily: UI_FONT, fontSize: "14px", color: "#cfcfe0" }).setOrigin(0.5);
-      const lock = this.add.text(x, barY + 4, "🔒", { fontFamily: EMOJI_FONT, fontSize: "13px" }).setOrigin(0.5).setVisible(false); // 未解放の鍵
+      const x = 34 + i * 44;
+      const rect = this.add.rectangle(x, barY + 4, 40, 40, 0x1c1c2a).setInteractive({ useHandCursor: true });
+      const gfx = this.add.graphics(); // 金枠（選択状態はrefreshSpeedBtnsで塗り替え）
+      const txt = this.add.text(x, barY + 4, "×" + mult, { fontFamily: UI_FONT, fontSize: "16px", color: "#cfcfe0", fontStyle: "bold" }).setOrigin(0.5);
+      const lock = this.add.text(x, barY + 4, "🔒", { fontFamily: EMOJI_FONT, fontSize: "14px" }).setOrigin(0.5).setVisible(false); // 未解放の鍵
       rect.on("pointerdown", () => this.trySetSpeed(mult));
-      this.speedBtns.push({ mult, rect, txt, lock });
+      this.speedBtns.push({ mult, rect, txt, lock, gfx, x, y: barY + 4 });
     });
     // 起動時、保存されている速度がまだ未解放なら、解放済みの最大速度に落とす
     if (!this.speedUnlocked(this.speed)) {
@@ -1112,6 +1176,15 @@ export default class GameScene extends Phaser.Scene {
       stroke: 0xa06a4a,
       textColor: "#ffcaa0",
     });
+
+    // ⓘ ステータス確認（旅の今の強さを一覧・金の円ボタン）。デッキ右上に常時表示。
+    const ix = this.W - 30, iy = 548;
+    const iGlow = this.add.circle(ix, iy, 22, 0xffd24d, 0).setDepth(5);
+    const iRing = this.add.graphics().setDepth(6);
+    this.drawSkillRing(iRing, ix, iy, 19, 0x8fb0e0);
+    const iHit = this.add.circle(ix, iy, 19, 0xffffff, 0.001).setDepth(6).setInteractive({ useHandCursor: true });
+    const iTxt = this.add.text(ix, iy, "ⓘ", { fontFamily: UI_FONT, fontSize: "20px", color: "#f4dc86", fontStyle: "bold" }).setOrigin(0.5).setDepth(7);
+    iHit.on("pointerdown", () => { this.tweens.add({ targets: [iRing, iTxt], scale: 0.9, duration: 70, yoyo: true }); this.openRunStatusPanel(); });
 
     // ---- 手動バトル操作（子供が相棒に指示）。戦闘中のみ表示 ----
     this.modeBtn = this.makeBarButton(52, 688, 92, 40, this.manualMode ? "手動" : "おまかせ", () => this.toggleManual(), { color: 0x1c2c1c, stroke: 0x4a6a4a, textColor: "#bfe0bf", fontSize: "13px" });
@@ -1179,14 +1252,19 @@ export default class GameScene extends Phaser.Scene {
       const unlocked = this.speedUnlocked(b.mult);
       const on = b.mult === this.speed && unlocked;
       if (!unlocked) {
-        b.rect.setFillStyle(0x14141c).setStrokeStyle(1, 0x2a2a38);
+        b.rect.setFillStyle(0x14141c);
         b.txt.setColor("#55556a").setAlpha(0.5);
         if (b.lock) b.lock.setVisible(true);
       } else {
-        // 選択中＝金の枠＋金の文字（ログウィズ調）。非選択は控えめな鉄色。
-        b.rect.setFillStyle(on ? 0x2a2416 : 0x1c1c2a).setStrokeStyle(on ? 2 : 1, on ? 0xc9a23a : 0x3a3a52);
+        // 選択中＝金地＋金文字（ログウィズ調）。非選択は控えめな鉄色。
+        b.rect.setFillStyle(on ? 0x2a2416 : 0x1c1c2a);
         b.txt.setColor(on ? "#f4dc86" : "#cfcfe0").setAlpha(1);
         if (b.lock) b.lock.setVisible(false);
+      }
+      // 金の彫刻枠（選択中は太く光る）
+      if (b.gfx) {
+        b.gfx.clear();
+        ornateFrame(b.gfx, b.x, b.y, 40, 40, 7, { thick: on ? 3 : 2, inset: 4, accent: unlocked ? (on ? 0xf4dc86 : 0x3a3a52) : 0x2a2a38 });
       }
     }
   }
@@ -1697,26 +1775,41 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // ---- 感情スキル（ログウィズ①：CD式アクティブ。押さなくても勝てるが、押すと戦局が動く）----
+  // 円形スキルスロットの金リングを描く（外の暗リム→金→感情色の内輪→上部ハイライト）
+  drawSkillRing(g, x, y, r, color) {
+    g.clear();
+    g.fillStyle(0x14141f, 0.96);
+    g.fillCircle(x, y, r); // 台座
+    g.lineStyle(4, 0x140f08, 1); g.strokeCircle(x, y, r + 1); // 暗リム
+    g.lineStyle(3, 0xc9a23a, 1); g.strokeCircle(x, y, r); // 金リング
+    g.lineStyle(2, color, 0.9); g.strokeCircle(x, y, r - 4); // 感情色の内輪
+    g.lineStyle(1, 0xf4dc86, 0.85); // 上部の光ハイライト
+    g.beginPath(); g.arc(x, y, r, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(330)); g.strokePath();
+  }
+
   buildSkillButtons() {
     this.skillBtns = {};
-    // ログ帯(612〜716)と重なって読みづらかったため、ログの上（「旅のしるし」ラベル596の さらに上）へ分離。
-    const y = this.H - 244; // = 556。範囲 530〜582：ログ・操作バーと完全に非重複。
-    const w = 64;
-    const h = 52;
+    const y = this.H - 250; // 円形スロットの中心。ログ・操作バーと非重複。
+    const r = 28;
     const keys = C.EMOTION_ORDER;
     keys.forEach((key, i) => {
       const def = C.ACTIVE_SKILLS.defs[key];
       const info = C.EMOTIONS[key];
       if (!def || !info) return;
-      const x = this.W / 2 + (i - (keys.length - 1) / 2) * 80;
-      const rect = this.add.rectangle(x, y, w, h, 0x14141f, 0.96).setStrokeStyle(1, info.color).setDepth(6).setInteractive({ useHandCursor: true });
-      const icon = makeIcon(this, x, y - 11, def.icon, 22, EMOJI_FONT).setDepth(6); // スキルアイコン（自作SVG）
-      const name = this.add.text(x, y + 14, def.name, { fontFamily: UI_FONT, fontSize: "11px", color: colorToCss(info.color) }).setOrigin(0.5).setDepth(6);
-      // クールダウン表示：下から積まれた暗い幕（残りに比例して縮む）＋残りティック数
-      const cdRect = this.add.rectangle(x, y + h / 2, w, h, 0x05050c, 0.74).setOrigin(0.5, 1).setDepth(7).setVisible(false);
-      const cdTxt = this.add.text(x, y, "", { fontFamily: UI_FONT, fontSize: "15px", color: "#e8e8ef", fontStyle: "bold" }).setOrigin(0.5).setDepth(8).setVisible(false);
-      rect.on("pointerdown", () => this.castEmotionSkill(key));
-      this.skillBtns[key] = { rect, icon, name, cdRect, cdTxt, all: [rect, icon, name, cdRect, cdTxt] };
+      const x = this.W / 2 + (i - (keys.length - 1) / 2) * 84;
+      const glow = this.add.circle(x, y, r + 5, info.color, 0).setBlendMode(Phaser.BlendModes.ADD).setDepth(5); // ready時の淡い光
+      const ring = this.add.graphics().setDepth(6); // 金リング
+      this.drawSkillRing(ring, x, y, r, info.color);
+      // 当たり判定は円（透明の円をヒットに）
+      const hit = this.add.circle(x, y, r, 0xffffff, 0.001).setDepth(6).setInteractive({ useHandCursor: true });
+      const icon = makeIcon(this, x, y - 4, def.icon, 24, EMOJI_FONT).setDepth(7);
+      const name = this.add.text(x, y + r + 10, def.name, { fontFamily: UI_FONT, fontSize: "11px", color: colorToCss(info.color), fontStyle: "bold" }).setOrigin(0.5).setDepth(7);
+      const cdArc = this.add.graphics().setDepth(8).setVisible(false); // クールダウンの円弧（減っていく暗いパイ）
+      const cdTxt = this.add.text(x, y, "", { fontFamily: UI_FONT, fontSize: "16px", color: "#ffffff", stroke: "#0a0a12", strokeThickness: 3, fontStyle: "bold" }).setOrigin(0.5).setDepth(9).setVisible(false);
+      hit.on("pointerdown", () => { this.tweens.add({ targets: [ring, icon], scale: 0.9, duration: 70, yoyo: true }); this.castEmotionSkill(key); });
+      // ready時のゆっくりした明滅
+      this.tweens.add({ targets: glow, alpha: { from: 0.05, to: 0.22 }, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut", paused: false });
+      this.skillBtns[key] = { key, x, y, r, color: info.color, glow, ring, hit, icon, name, cdArc, cdTxt, all: [glow, ring, hit, icon, name, cdArc, cdTxt] };
     });
   }
 
@@ -1728,14 +1821,20 @@ export default class GameScene extends Phaser.Scene {
       const b = this.skillBtns[key];
       const cd = this.skillCd ? this.skillCd[key] || 0 : 0;
       const ready = cd <= 0;
-      b.rect.setAlpha(ready ? 1 : 0.55);
-      b.icon.setAlpha(ready ? 1 : 0.5);
-      b.name.setAlpha(ready ? 1 : 0.5);
-      const show = !ready && b.rect.visible;
-      b.cdRect.setVisible(show);
+      const onScreen = b.hit.visible;
+      b.icon.setAlpha(ready ? 1 : 0.4);
+      b.name.setAlpha(ready ? 1 : 0.55);
+      if (b.glow) b.glow.setVisible(ready && onScreen); // 撃てる時だけ光る
+      const show = !ready && onScreen;
+      b.cdArc.clear();
+      b.cdArc.setVisible(show);
       b.cdTxt.setVisible(show);
       if (show) {
-        b.cdRect.displayHeight = Math.max(2, 52 * Math.min(1, cd / total));
+        // 残りCDぶんの暗い円弧（上から時計回り・減っていく）
+        const frac = Math.min(1, cd / total);
+        b.cdArc.fillStyle(0x05050c, 0.62);
+        b.cdArc.slice(b.x, b.y, b.r - 2, Phaser.Math.DegToRad(-90), Phaser.Math.DegToRad(-90 + 360 * frac), false);
+        b.cdArc.fillPath();
         b.cdTxt.setText("" + cd);
       }
     }
