@@ -8,6 +8,7 @@ import Phaser from "phaser";
 import * as C from "../data/config.js";
 import { preloadIcons, makeIcon } from "../data/icons.js";
 import { ornateFrame } from "../ui/ornate.js";
+import { faceEnemy, faceHero } from "../logic/facing.js"; // スプライトの向きは全てここで一元管理
 import { createBattle, stepBattle, forceFinish, commandAttack, commandSkill, heroSkillReady } from "../logic/combat.js";
 import { createEmotionState, gainEmotions, checkEvolution, leadingEmotion, secondEmotion } from "../logic/evolution.js";
 import { makeCompanion, voiceStage, pickVoiceLine } from "../logic/companion.js";
@@ -17,38 +18,6 @@ import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterial
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const UI_FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
 
-// ---- スプライトの向き（設計書外・実測）----
-//  敵は常に右(enemyX>heroX)。味方は右を向くべき。だが元絵の向きはアセットごとにバラバラ。
-//  下記は「元絵が左を向いている」キー＝反転(flipX=true)して右(敵)を向かせる対象。
-//  ここに無いキーは元絵のまま(右向き/正面)＝反転しない。
-//  実測日 2026-07-12：全スプライト（atk/walk含む）を3倍拡大モンタージュで再判定（顔・腕・武器の向きで判断）。
-//  ※_atkフレームは左向きが多い＝反転しないと「後ろの子(主人公)に攻撃してるように見える」（ユーザー指摘）。
-const FACE_LEFT = new Set([
-  "hero_slime", "hero_slime_walk", "hero_slime_atk",
-  "hero_anger_1", "hero_anger_1_walk",
-  "hero_anger_2_atk", "hero_anger_3_atk",
-  "hero_courage_1", "hero_courage_1_walk", "hero_courage_1_atk",
-  "hero_courage_2", "hero_courage_2_walk", "hero_courage_2_atk",
-  "hero_courage_3_atk",
-  "hero_sadness_1_walk", "hero_sadness_1_atk", "hero_sadness_2_atk",
-  "hero_hope_1_atk", "hero_hope_3_atk",
-  "kid_boy_walk",
-  "char_anger", "char_sadness", "char_courage",
-  "char_sadness_atk", "char_hope_atk",
-]);
-// 敵アートのうち「元絵が右を向いている」キー＝敵は左(主人公)を向くべきなので反転する対象。
-//  （enemy_ruins_anger=右向き剣士 / boss_hope_atk=右へ突撃 / boss_sadness_atk=頭が右向き）
-const ENEMY_FACE_RIGHT = new Set(["enemy_ruins_anger", "boss_hope_atk", "boss_sadness_atk"]);
-// スプライトを「敵(右)向き」にする。テクスチャ差し替えのたびに呼ぶこと（flipXは保持されるので誤差替の防止）。
-function faceEnemy(sprite, key) {
-  if (!sprite || !sprite.setFlipX) return;
-  sprite.setFlipX(FACE_LEFT.has(key));
-}
-// 敵スプライトを「主人公(左)向き」にする。敵のテクスチャ差し替えのたびに呼ぶこと。
-function faceHero(sprite, key) {
-  if (!sprite || !sprite.setFlipX) return;
-  sprite.setFlipX(ENEMY_FACE_RIGHT.has(key));
-}
 
 // 大きな数を短く（例 12,345,678 → 1234万 / 1.2兆）。HPバー上の狭い表示向け。
 const NUM_UNITS = [
