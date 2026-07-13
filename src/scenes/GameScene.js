@@ -12,7 +12,7 @@ import { createBattle, stepBattle, forceFinish, commandAttack, commandSkill, her
 import { createEmotionState, gainEmotions, checkEvolution, leadingEmotion, secondEmotion } from "../logic/evolution.js";
 import { makeCompanion, voiceStage, pickVoiceLine } from "../logic/companion.js";
 import { sfx, onFirstGesture, setMuted, setMusicMood } from "../logic/audio.js";
-import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm, markBattleCoached, recordEnding, endingCollected, getPlayer, abyssActive, formSeen, mixUnlocked, tripleUnlocked, trueChapterUnlocked, markTrueChapter, getStarterEgg } from "../data/save.js";
+import { getSave, computeHeroStats, transmigrate, rollEquipmentDrop, addMaterials, fragMultipliers, effectiveEvoThreshold, recordBond, getActiveCompanions, commitRunCompanions, getPref, setPref, getArtifactBonuses, useItem, itemCount, empathyUnlocked, markEndingSeen, skillParams, bossReward, setSpiritName, recordForm, markBattleCoached, recordEnding, endingCollected, getPlayer, abyssActive, formSeen, mixUnlocked, tripleUnlocked, trueChapterUnlocked, markTrueChapter, getStarterEgg, markStory, storySeen } from "../data/save.js";
 
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const UI_FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
@@ -1534,10 +1534,41 @@ export default class GameScene extends Phaser.Scene {
         if (enemy.boss) {
           this.tweens.add({ targets: this.enemySprite, scale: scale * 1.08, duration: 700, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
           this.bossRevealPunch();
+          this.showBossLore(enemy); // 「これは、誰かが捨てた感情だ」＝背景の一行
         }
         this.startBattleTimer();
       },
     });
+  }
+
+  // ボス登場時の背景の一行（芥見流：敵＝誰かが捨てた巨大な感情）。ボス名の下にタイプ表示、数秒で自然に消える。
+  showBossLore(enemy) {
+    if (!enemy || !enemy.lore) return;
+    if (this._bossLore) { this._bossLore.destroy(true); this._bossLore = null; }
+    const y = 208;
+    const c = this.add.container(0, 0).setDepth(40).setAlpha(0);
+    const bg = this.add.rectangle(this.W / 2, y, this.W - 40, 64, 0x0a0a14, 0.6).setStrokeStyle(1, 0x8a6d2e, 0.6);
+    const txt = this.add.text(this.W / 2, y, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#ecdfc2", align: "center", lineSpacing: 6, wordWrap: { width: this.W - 64 } }).setOrigin(0.5);
+    c.add([bg, txt]);
+    this._bossLore = c;
+    this.tweens.add({ targets: c, alpha: 1, duration: 400, onComplete: () => this.typewrite(txt, enemy.lore, { speed: 44 }) });
+    this.time.delayedCall(5400, () => {
+      if (this._bossLore === c) { this.tweens.add({ targets: c, alpha: 0, duration: 700, onComplete: () => c.destroy(true) }); this._bossLore = null; }
+    });
+  }
+
+  // 空白の王の"声"（伏線）。画面中央の暗い帯にタイプ表示し、数秒で自然に消える（非ブロッキング）。
+  showOmen(text) {
+    if (this.mode === "dead" || this._leaving) return;
+    const cy = this.H / 2 - 30;
+    const c = this.add.container(0, 0).setDepth(120).setAlpha(0);
+    const band = this.add.rectangle(this.W / 2, cy, this.W, 118, 0x05050c, 0.72);
+    const line = this.add.rectangle(this.W / 2, cy - 58, this.W, 1, 0x7a5aa0, 0.7);
+    const line2 = this.add.rectangle(this.W / 2, cy + 58, this.W, 1, 0x7a5aa0, 0.7);
+    const txt = this.add.text(this.W / 2, cy, "", { fontFamily: UI_FONT, fontSize: "16px", color: "#cbb6e0", align: "center", lineSpacing: 8, wordWrap: { width: this.W - 60 }, fontStyle: "italic" }).setOrigin(0.5);
+    c.add([band, line, line2, txt]);
+    this.tweens.add({ targets: c, alpha: 1, duration: 500, onComplete: () => this.typewrite(txt, text, { speed: 52 }) });
+    this.time.delayedCall(6200, () => { if (c.scene) this.tweens.add({ targets: c, alpha: 0, duration: 900, onComplete: () => c.destroy(true) }); });
   }
 
   // 群れの決着後：控えが居れば次へ（HP持ち越し）、居なければ戦闘終了。
@@ -1642,7 +1673,7 @@ export default class GameScene extends Phaser.Scene {
       return { hp: Math.round(hp * lb.hpMult), maxHp: Math.round(hp * lb.hpMult), atk: Math.round(atk * lb.atkMult), spd, icon: lb.icon, label: lb.name, lean: emotion, boss: true, lastBoss: true, bossPx: Math.round(bossPx * 1.12), tint: 0xffffff };
     }
     this.bossCount += 1;
-    return { hp, maxHp: hp, atk, spd, icon: t.icon, label: t.name, lean: emotion, boss: true, bossPx, tint };
+    return { hp, maxHp: hp, atk, spd, icon: t.icon, label: t.name, lean: emotion, boss: true, bossPx, tint, lore: t.lore };
   }
 
   battleTick() {
@@ -2033,6 +2064,11 @@ export default class GameScene extends Phaser.Scene {
         if (totalNow === this.speedBossReq(2)) this.pushLog("⚡ ×2倍速が 解放された！");
         if (totalNow === this.speedBossReq(3)) this.pushLog("⚡ ×3倍速が 解放された！");
         this.refreshSpeedBtns();
+        // 空白の王の伏線（生涯ボス撃破が節目に達したら、未読のものを一度だけ）。ラスボス本人戦では出さない。
+        if (!this.currentEnemy.lastBoss && !trueChapterUnlocked()) {
+          const fs = (C.BOSS.foreshadow || []).find((f) => totalNow >= f.atKills && !storySeen(f.id));
+          if (fs && markStory(fs.id)) this.time.delayedCall(1100, () => this.showOmen(fs.text));
+        }
         // 撃破：大演出＋次のボスへ
         this.flashWhite(0.3);
         this.cameras.main.shake(260, 0.008);

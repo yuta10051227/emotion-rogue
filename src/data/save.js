@@ -64,6 +64,7 @@ function defaultSave() {
     materials: { anger: 0, sadness: 0, courage: 0, hope: 0 }, // 制作用
     items: {}, // 消耗アイテム {key: 個数}
     noticesRead: [],
+    storyFlags: {}, // 物語の一度きり演出の既読（空白の王の伏線など）
     // 導く心のツリー（設計書§8 ④）：転生でリセットされない上層
     enlightenment: 0, // 所持「悟り」
     gold: 0, // お金（永続）：仲間の個体強化に使う
@@ -110,6 +111,7 @@ function ensure(s) {
   // 旧 items（配列・未実装）→ {key:個数} に作り替え
   s.items = s.items && !Array.isArray(s.items) && typeof s.items === "object" ? s.items : {};
   s.noticesRead = s.noticesRead || [];
+  s.storyFlags = s.storyFlags && typeof s.storyFlags === "object" ? s.storyFlags : {};
   if (typeof s.stamp !== "number") s.stamp = 0;
   if (typeof s.enlightenment !== "number") s.enlightenment = 0;
   s.tree = { ...d.tree, ...(s.tree || {}) };
@@ -258,6 +260,18 @@ export function unclaimedCollectionCount() {
 // ---- 真章「本来の物語」（空白の王撃破で解放）＋始まりの卵 ----
 export function trueChapterUnlocked() {
   return !!getSave().trueChapter;
+}
+// 物語の一度きり演出：id がまだ未読なら記録して true（＝今回出す）を返す
+export function markStory(id) {
+  const s = getSave();
+  if (!s.storyFlags) s.storyFlags = {};
+  if (s.storyFlags[id]) return false;
+  s.storyFlags[id] = true;
+  persist();
+  return true;
+}
+export function storySeen(id) {
+  return !!(getSave().storyFlags || {})[id];
 }
 export function markTrueChapter() {
   const s = getSave();
@@ -529,6 +543,7 @@ export function mergeCloudSaves(base, other) {
 
   // お知らせ既読・あかし受け取り：和集合
   for (const n of o.noticesRead) if (!m.noticesRead.includes(n)) m.noticesRead.push(n);
+  m.storyFlags = { ...(o.storyFlags || {}), ...(m.storyFlags || {}) }; // 物語既読は和集合
   for (const id of o.achievementsClaimed) if (!m.achievementsClaimed.includes(id)) m.achievementsClaimed.push(id);
   // 熟練度・生涯カウント・深淵到達（すべて単調増加）
   for (const k of EMOTION_ORDER) m.lifetimeFrags[k] = maxNum(m.lifetimeFrags[k], o.lifetimeFrags[k]);
