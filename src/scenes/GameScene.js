@@ -361,13 +361,15 @@ export default class GameScene extends Phaser.Scene {
     this.paused = true;
     if (this.battleTimer) this.battleTimer.paused = true;
     this._coachSteps = [
-      { text: "これが 君の相棒。\n共に、前へ進む。", arrow: { x: this.heroX, y: this.heroY - 40 } },
-      { text: "前の敵は、相棒が自動で倒す。\n君は その戦いを 見守り、導く。", arrow: { x: this.enemyX, y: this.heroY - 30 } },
-      { text: "上の 🔥💧⚡✨ は 今 兆している感情。\n速攻=🔥 / 耐える=💧 / 先手=⚡ / 逆転=✨", arrow: { x: this.W / 2, y: 92 } },
-      { text: "感情が満ちると、相棒は「進化」する。\nどの姿になるかは、君が選ぶ。", arrow: { x: this.heroX, y: this.heroY - 62 } },
-      { text: "戦闘中の 4つのアイコンは『感情スキル』。\n溜まればタップで発動（おまかせ中は自動）。", arrow: { x: this.W / 2, y: this.H - 244 } },
-      { text: "下のボタンで ⚙強化・速度・↩撤退。\n引き際を見極めるのも、君の裁量。", arrow: { x: this.W / 2, y: this.H - 90 } },
-      { text: "それでは ──\n旅立とう。" },
+      { text: "昔、人は つらい気持ちを 捨てるようになった。\n捨てられた気持ちは、行き場をなくして 魔物になる。" },
+      { text: "君は、その魔物になった気持ちを 拾い集めて、\n元の やさしい姿に もどしてあげる旅人だ。" },
+      { text: "これが 君の相棒。\n君が 最初に拾った気持ちだよ。", arrow: { x: this.heroX, y: this.heroY - 40 } },
+      { text: "敵とは、相棒が 自動で戦ってくれる。\n君は その戦いを 見守って、手助けする。", arrow: { x: this.enemyX, y: this.heroY - 30 } },
+      { text: "上の 🔥💧⚡✨ は、今の戦いで 育っている気持ち。\n速攻=🔥 / 守り=💧 / 先手=⚡ / 逆転=✨", arrow: { x: this.W / 2, y: 92 } },
+      { text: "気持ちが たまると、相棒は「進化」する。\nどの姿に なるかは、君が選べる。", arrow: { x: this.heroX, y: this.heroY - 62 } },
+      { text: "戦闘中の 4つの丸は『必殺スキル』。\nたまったら タップで発動（おまかせ中は自動）。", arrow: { x: this.W / 2, y: this.H - 244 } },
+      { text: "下のボタンで ⚙強化・速さ・↩撤退。\n引き際を 決めるのも、君しだい。", arrow: { x: this.W / 2, y: this.H - 90 } },
+      { text: "それじゃあ ──\n旅に出よう。" },
     ];
     this.buildCoach();
   }
@@ -2602,25 +2604,25 @@ export default class GameScene extends Phaser.Scene {
 
   endingDef(key) {
     const D = {
-      anger: { icon: "🔥", color: C.EMOTIONS.anger.color, dexForm: "焔の精霊", close: "怒りは、愛のかたち。",
+      anger: { icon: "🔥", color: C.EMOTIONS.anger.color, dexForm: "焔の精霊", close: "怒りは、大切なものを守る力になった。",
         beats: [
           [{ text: "君が 拾い集めた 感情の中で、" },{ text: "いちばん熱かったのは ── 怒り。", color: "#ffbfae" }],
           [{ text: "それは 弱さではなかった。" }, { text: "大切なものを 守る、焔だった。", color: "#ffbfae" }],
           [{ text: "怒りは ── 大切なものを" }, { text: "守るための、力になった。", color: "#ffbfae" }],
         ] },
-      sadness: { icon: "💧", color: C.EMOTIONS.sadness.color, dexForm: "雫の精霊", close: "悲しみは、優しさの器。",
+      sadness: { icon: "💧", color: C.EMOTIONS.sadness.color, dexForm: "雫の精霊", close: "悲しみは、人の痛みが分かる優しさになった。",
         beats: [
           [{ text: "君が 拾い集めた 感情の中で、" },{ text: "いちばん深かったのは ── 悲しみ。", color: "#bfe0ff" }],
           [{ text: "涙は 弱さではなかった。" }, { text: "誰かの痛みを 知る、深さだった。", color: "#bfe0ff" }],
           [{ text: "涙は ── 誰かの痛みを" }, { text: "分かち合う、優しさになった。", color: "#bfe0ff" }],
         ] },
-      courage: { icon: "⚡", color: C.EMOTIONS.courage.color, dexForm: "雷の精霊", close: "勇気は、優しさの脚。",
+      courage: { icon: "⚡", color: C.EMOTIONS.courage.color, dexForm: "雷の精霊", close: "勇気は、こわくても前へ進む力になった。",
         beats: [
           [{ text: "君が 拾い集めた 感情の中で、" },{ text: "いちばん速かったのは ── 勇気。", color: "#ffe9a0" }],
           [{ text: "前へ出る力は 弱さではなかった。" }, { text: "怖さを 知って なお、進む光。", color: "#ffe9a0" }],
           [{ text: "怖さを 知って なお ──" }, { text: "前へ進む、力になった。", color: "#ffe9a0" }],
         ] },
-      hope: { icon: "✨", color: 0xfff0c0, dexForm: "灯の精霊", close: "希望は、消えない灯。",
+      hope: { icon: "✨", color: 0xfff0c0, dexForm: "灯の精霊", close: "希望は、どんな時も消えない灯になった。",
         beats: [
           [{ text: "君が 拾い集めた 感情の中で、" },{ text: "いちばん静かだったのは ── 希望。", color: "#fff4e6" }],
           [{ text: "それは 弱さではなかった。" }, { text: "どんな闇でも 消えなかった、灯。", color: "#fff4e6" }],
