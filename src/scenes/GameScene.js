@@ -386,7 +386,8 @@ export default class GameScene extends Phaser.Scene {
     }
     const boxY = this.H / 2 + 130;
     const box = this.add.rectangle(this.W / 2, boxY, this.W - 56, 158, 0x12121c, 0.98).setStrokeStyle(1, 0x4a4a66);
-    const txt = this.add.text(this.W / 2, boxY - 26, step.text, { fontFamily: UI_FONT, fontSize: "17px", color: "#e8e8ef", align: "center", lineSpacing: 9, wordWrap: { width: this.W - 96 } }).setOrigin(0.5);
+    const txt = this.add.text(this.W / 2, boxY - 26, "", { fontFamily: UI_FONT, fontSize: "17px", color: "#e8e8ef", align: "center", lineSpacing: 9, wordWrap: { width: this.W - 96 } }).setOrigin(0.5);
+    this.typewrite(txt, step.text, { speed: 26 }); // 1文字ずつ（案内も"語り"に）
     const idx = this.add.text(this.W / 2, boxY + 40, `${this._coachStep + 1} / ${this._coachSteps.length}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#8a8aa0" }).setOrigin(0.5);
     const last = this._coachStep >= this._coachSteps.length - 1;
     const next = this.add.text(this.W / 2 + 118, boxY + 40, last ? "はじめる ▶" : "次へ ▶", { fontFamily: UI_FONT, fontSize: "16px", color: "#bfffbf" }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
@@ -398,6 +399,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   advanceCoach() {
+    if (this.flushTypewriters()) return; // タイプ中のタップは早送りに消費（送らない）
     this._coachStep += 1;
     if (this._coachStep >= this._coachSteps.length) {
       this.finishCoach();
@@ -2507,6 +2509,48 @@ export default class GameScene extends Phaser.Scene {
     this.playEpilogue(summary);
   }
 
+  // ── タイプライター表示（物語テキストを1文字ずつ出す）──
+  //  tap で即時完了できるよう this._twActive で進行中を管理する。
+  typewrite(t, full, opts = {}) {
+    const speed = opts.speed ?? 30; // 1文字あたりms
+    t.setText("");
+    t.setAlpha(1);
+    const rec = { t, full, ev: null, done: false };
+    let i = 0;
+    rec.ev = this.time.addEvent({
+      delay: speed,
+      loop: true,
+      callback: () => {
+        if (!t.scene || !t.active) { rec.done = true; rec.ev.remove(); return; } // 破棄済みテキストへの書き込み防止
+        i++;
+        t.setText(full.slice(0, i));
+        if (i >= full.length) {
+          rec.done = true;
+          rec.ev.remove();
+          if (this._twActive) this._twActive = this._twActive.filter((r) => !r.done);
+          if (opts.onDone) opts.onDone();
+        }
+      },
+    });
+    (this._twActive = this._twActive || []).push(rec);
+    return rec;
+  }
+  // 進行中のタイプを全部即完了。1つでも完了させたら true（＝この入力は"早送り"で消費、送りには使わない）。
+  flushTypewriters() {
+    if (!this._twActive || !this._twActive.length) return false;
+    let flushed = false;
+    for (const rec of this._twActive) {
+      if (!rec.done) {
+        if (rec.ev) rec.ev.remove();
+        rec.t.setText(rec.full);
+        rec.done = true;
+        flushed = true;
+      }
+    }
+    this._twActive = [];
+    return flushed;
+  }
+
   // 主感情/均衡/絶望で分岐するエンディングの種類を決める。
   //  この旅の感情(this.emotions)で判定＝岐路カードや戦い方で結末を操縦できる（プレイヤーの主体性）。
   determineEndingKey() {
@@ -2588,9 +2632,9 @@ export default class GameScene extends Phaser.Scene {
     c.add(dyn);
     const my = this.H / 2 + 20;
     const T = (y, str, opts = {}) => {
-      const t = this.add.text(cx, y, str, { fontFamily: UI_FONT, fontSize: opts.size || "19px", color: opts.color || "#efeae2", align: "center", lineSpacing: 9, wordWrap: { width: this.W - 64 } }).setOrigin(0.5).setAlpha(0);
+      const t = this.add.text(cx, y, "", { fontFamily: UI_FONT, fontSize: opts.size || "19px", color: opts.color || "#efeae2", align: "center", lineSpacing: 9, wordWrap: { width: this.W - 64 } }).setOrigin(0.5);
       dyn.add(t);
-      this.tweens.add({ targets: t, alpha: 1, duration: 700 });
+      this.typewrite(t, str, { speed: 42 }); // 1文字ずつ（物語の"間"を作る）
       return t;
     };
     const beats = def.beats.map((lines) => () => lines.forEach((ln, i) => T(my - 22 + i * 42, ln.text, ln)));
@@ -2600,6 +2644,7 @@ export default class GameScene extends Phaser.Scene {
     });
     let idx = -1;
     const next = () => {
+      if (this.flushTypewriters()) return; // タイプ中のタップは"早送り"に消費（送らない）
       idx += 1;
       if (idx >= beats.length) {
         this.input.off("pointerdown", next);
@@ -2643,9 +2688,9 @@ export default class GameScene extends Phaser.Scene {
     const dyn = this.add.container(0, 0);
     c.add(dyn);
     const T = (y, str, opts = {}) => {
-      const t = this.add.text(cx, y, str, { fontFamily: UI_FONT, fontSize: opts.size || "20px", color: opts.color || "#efeae2", align: "center", lineSpacing: 9, wordWrap: { width: this.W - 64 } }).setOrigin(0.5).setAlpha(0);
+      const t = this.add.text(cx, y, "", { fontFamily: UI_FONT, fontSize: opts.size || "20px", color: opts.color || "#efeae2", align: "center", lineSpacing: 9, wordWrap: { width: this.W - 64 } }).setOrigin(0.5);
       dyn.add(t);
-      this.tweens.add({ targets: t, alpha: 1, duration: 700 });
+      this.typewrite(t, str, { speed: 42 }); // 1文字ずつ
       return t;
     };
 
@@ -2689,6 +2734,7 @@ export default class GameScene extends Phaser.Scene {
 
     let idx = -1;
     const next = () => {
+      if (this.flushTypewriters()) return; // タイプ中のタップは早送りに消費
       idx += 1;
       if (idx >= beats.length) {
         this.input.off("pointerdown", next);
