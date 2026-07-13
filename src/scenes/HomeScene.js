@@ -722,7 +722,7 @@ export default class HomeScene extends Phaser.Scene {
         });
         c.add(this.add.text(this.W / 2, regBot - 14, "選んだ系統で始めると、相棒は一段育った姿から旅立つ。", { fontFamily: UI_FONT, fontSize: "11px", color: "#3a5570", align: "center", wordWrap: { width: this.W - 60 } }).setOrigin(0.5));
       } else {
-        c.add(this.add.text(this.W / 2, regBot - 16, "留守番の仲間が、合う場所で素材を集めてくれる。街は転生で育つ。", { fontFamily: UI_FONT, fontSize: "11px", color: "#3a5570", align: "center", wordWrap: { width: this.W - 60 } }).setOrigin(0.5));
+        c.add(this.add.text(this.W / 2, regBot - 18, "わすれものから もどした 仲間が暮らす、ラクリマで たった一つの安全な場所。\n留守番の仲間は 素材を集めてくれる。街は 転生で育つ。", { fontFamily: UI_FONT, fontSize: "11px", color: "#3a5570", align: "center", lineSpacing: 3, wordWrap: { width: this.W - 60 } }).setOrigin(0.5));
       }
     });
   }

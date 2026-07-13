@@ -1516,11 +1516,12 @@ export default class GameScene extends Phaser.Scene {
   showBossLore(enemy) {
     if (!enemy || !enemy.lore) return;
     if (this._bossLore) { this._bossLore.destroy(true); this._bossLore = null; }
-    const y = 208;
+    const y = 210;
     const c = this.add.container(0, 0).setDepth(40).setAlpha(0);
-    const bg = this.add.rectangle(this.W / 2, y, this.W - 40, 64, 0x0a0a14, 0.6).setStrokeStyle(1, 0x8a6d2e, 0.6);
-    const txt = this.add.text(this.W / 2, y, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#ecdfc2", align: "center", lineSpacing: 6, wordWrap: { width: this.W - 64 } }).setOrigin(0.5);
-    c.add([bg, txt]);
+    const bg = this.add.rectangle(this.W / 2, y, this.W - 40, 72, 0x0a0a14, 0.6).setStrokeStyle(1, 0x8a6d2e, 0.6);
+    const tag = this.add.text(this.W / 2, y - 26, "── わすれもの ──", { fontFamily: UI_FONT, fontSize: "11px", color: "#b79a5a", fontStyle: "bold" }).setOrigin(0.5); // 敵＝誰かの捨てた気持ち
+    const txt = this.add.text(this.W / 2, y + 6, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#ecdfc2", align: "center", lineSpacing: 6, wordWrap: { width: this.W - 64 } }).setOrigin(0.5);
+    c.add([bg, tag, txt]);
     this._bossLore = c;
     this.tweens.add({ targets: c, alpha: 1, duration: 400, onComplete: () => this.typewrite(txt, enemy.lore, { speed: 44 }) });
     this.time.delayedCall(5400, () => {
