@@ -257,7 +257,7 @@ export default class HomeScene extends Phaser.Scene {
     });
   }
 
-  // ---- 初回オンボーディング（主人公えらび＋なまえ＋たまご孵化）明るい導入 ----
+  // ---- 初回オンボーディング（①物語の導入 → ②主人公えらび＋なまえ → ③旅立ち：気持ちが卵→相棒に）----
   runOnboarding() {
     const cx = this.W / 2;
     const overlay = this.add.rectangle(cx, this.H / 2, this.W, this.H, 0x18233c, 1).setDepth(100).setInteractive();
@@ -268,10 +268,54 @@ export default class HomeScene extends Phaser.Scene {
     let name = "";
     const defaultName = () => (gender === "boy" ? "ソラ" : "ヒカリ");
 
+    // このシーン用の簡易タイプライター（1文字ずつ・タップで早送り）。破棄済みガード付き。
+    const typeInto = (t, full, speed, onDone) => {
+      t.setText("");
+      let i = 0;
+      const rec = { done: false, ev: null };
+      rec.ev = this.time.addEvent({ delay: speed || 34, loop: true, callback: () => {
+        if (!t.active) { rec.done = true; rec.ev.remove(); return; }
+        i++; t.setText(full.slice(0, i));
+        if (i >= full.length) { rec.done = true; rec.ev.remove(); if (onDone) onDone(); }
+      } });
+      return rec;
+    };
+
+    // ── ① プロローグ：世界の説明（タップで送り／タイプ途中は早送り）──
+    const prologue = () =>
+      draw(() => {
+        const lines = [
+          "むかし この世界の人たちは、\nつらい気持ちを 捨てるように なった。",
+          "「悲しみも 怒りも、なければ 楽なのに」\n── そう言って。",
+          "けれど 捨てられた気持ちは 消えず、\n行き場をなくして “魔物” になってしまった。",
+          "そんな中、たった一人だけ。\n捨てられた気持ちの声が 聞こえる子がいた。",
+          "その子は、魔物になった気持ちを 拾い集めて、\n元の やさしい姿に もどす旅に出る。",
+          "── さあ、その子は、キミだ。",
+        ];
+        const title = this.add.text(cx, 120, "── ものがたり ──", { fontFamily: DISPLAY_FONT, fontSize: "18px", color: "#c9a86a" }).setOrigin(0.5);
+        const body = this.add.text(cx, this.H * 0.44, "", { fontFamily: UI_FONT, fontSize: "19px", color: "#eae4dc", align: "center", lineSpacing: 12, wordWrap: { width: this.W - 60 } }).setOrigin(0.5);
+        const hint = this.add.text(cx, this.H - 76, "タップで すすむ", { fontFamily: UI_FONT, fontSize: "12px", color: "#7a8aa0" }).setOrigin(0.5);
+        this.tweens.add({ targets: hint, alpha: 0.4, duration: 1100, yoyo: true, repeat: -1 });
+        const skip = this.add.text(this.W - 24, 30, "スキップ ▶", { fontFamily: UI_FONT, fontSize: "12px", color: "#8a94a8" }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true }).setDepth(102);
+        layer.add([title, body, hint, skip]);
+        let i = -1, rec = null, ended = false;
+        const toStep1 = () => { if (ended) return; ended = true; this.input.off("pointerdown", advance); step1(); };
+        const advance = () => {
+          if (ended) return;
+          if (rec && !rec.done) { rec.ev.remove(); body.setText(lines[i]); rec.done = true; return; } // 早送り
+          i++;
+          if (i >= lines.length) { toStep1(); return; }
+          rec = typeInto(body, lines[i], 34);
+        };
+        skip.on("pointerdown", () => toStep1());
+        this.input.on("pointerdown", advance);
+        advance();
+      });
+
     const step1 = () =>
       draw(() => {
-        layer.add(this.add.text(cx, 118, "ようこそ、感情の世界へ", { fontFamily: DISPLAY_FONT, fontSize: "24px", color: "#f0f0f0" }).setOrigin(0.5));
-        layer.add(this.add.text(cx, 156, "あなたは、どちら？", { fontFamily: UI_FONT, fontSize: "15px", color: "#9a9aac" }).setOrigin(0.5));
+        layer.add(this.add.text(cx, 118, "キミは、どんな子？", { fontFamily: DISPLAY_FONT, fontSize: "24px", color: "#f0f0f0" }).setOrigin(0.5));
+        layer.add(this.add.text(cx, 156, "旅する主人公を えらぼう", { fontFamily: UI_FONT, fontSize: "15px", color: "#9a9aac" }).setOrigin(0.5));
         // 選べるカード。背景(0x0a0a14)と同化しないよう、明確に明るい面＋太い発光縁で「押せる」と分かる形に。
         const CW = 158;
         const CH = 224;
@@ -325,12 +369,13 @@ export default class HomeScene extends Phaser.Scene {
 
     const step3 = () =>
       draw(() => {
-        layer.add(this.add.text(cx, 128, `${name}の旅が、はじまる`, { fontFamily: DISPLAY_FONT, fontSize: "21px", color: "#f0f0f0" }).setOrigin(0.5));
-        layer.add(this.add.text(cx, 166, "タマゴから、相棒が生まれる…", { fontFamily: UI_FONT, fontSize: "13px", color: "#9a9aac" }).setOrigin(0.5));
-        const egg = this.textures.exists("egg") ? this.add.image(cx, 300, "egg").setScale(1.25) : emoji("🥚", cx, 300, "84px");
+        layer.add(this.add.text(cx, 116, `${name}の 旅立ち`, { fontFamily: DISPLAY_FONT, fontSize: "22px", color: "#f0f0f0" }).setOrigin(0.5));
+        layer.add(this.add.text(cx, 160, "旅のはじめ、キミの心にも\n抱えきれない気持ちが あふれた。", { fontFamily: UI_FONT, fontSize: "14px", color: "#c2cadb", align: "center", lineSpacing: 7 }).setOrigin(0.5));
+        layer.add(this.add.text(cx, 208, "その気持ちが こぼれ落ちて ── ひとつの卵になる。", { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0.5));
+        const egg = this.textures.exists("egg") ? this.add.image(cx, 318, "egg").setScale(1.25) : emoji("🥚", cx, 318, "84px");
         layer.add(egg);
         const wob = this.tweens.add({ targets: egg, angle: -8, duration: 190, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-        const hatch = this.makeButton(cx, 470, 244, 60, "🥚 タマゴに触れる", () => {
+        const hatch = this.makeButton(cx, 470, 244, 60, "🥚 卵に触れる", () => {
           hatch.rect.disableInteractive();
           wob.stop();
           this.tweens.add({
@@ -347,11 +392,12 @@ export default class HomeScene extends Phaser.Scene {
               hatch.gfx.destroy();
               if (hatch.icon) hatch.icon.destroy(); // 🥚アイコン画像も片付ける
               const hasSlime = this.textures.exists("hero_slime");
-              const slime = hasSlime ? this.add.image(cx, 296, "hero_slime").setScale(0.1) : emoji("🟢", cx, 296, "12px");
+              const slime = hasSlime ? this.add.image(cx, 286, "hero_slime").setScale(0.1) : emoji("🟢", cx, 286, "12px");
               layer.add(slime);
               this.tweens.add({ targets: slime, scale: hasSlime ? 1.25 : 7, duration: 520, ease: "Back.easeOut" });
-              layer.add(this.add.text(cx, 402, "相棒が生まれた", { fontFamily: DISPLAY_FONT, fontSize: "21px", color: "#f0f0f0" }).setOrigin(0.5));
-              const go = this.makeButton(cx, 500, 244, 60, "▶ ともに旅へ", () => {
+              layer.add(this.add.text(cx, 388, "キミの気持ちから、相棒が生まれた。", { fontFamily: DISPLAY_FONT, fontSize: "19px", color: "#f0f0f0" }).setOrigin(0.5));
+              layer.add(this.add.text(cx, 424, "この子は これから、キミしだいで\nどんな気持ちにも 育っていく。", { fontFamily: UI_FONT, fontSize: "13px", color: "#b8c0d0", align: "center", lineSpacing: 6 }).setOrigin(0.5));
+              const go = this.makeButton(cx, 508, 244, 60, "▶ ともに旅へ", () => {
                 setPlayer({ gender, name });
                 markPlayerChosen();
                 this.tweens.add({ targets: [overlay, layer], alpha: 0, duration: 420, onComplete: () => { overlay.destroy(); layer.destroy(true); this.buildHome(); } });
@@ -364,7 +410,7 @@ export default class HomeScene extends Phaser.Scene {
         if (hatch.icon) layer.add(hatch.icon); // 🥚アイコンもレイヤーへ（片付け対象に）
       });
 
-    step1();
+    prologue(); // ①物語 → ②主人公えらび → ③旅立ち（相棒の誕生）
   }
 
   // ---- home ----
