@@ -330,8 +330,8 @@ export default class GameScene extends Phaser.Scene {
     this.paused = true;
     if (this.battleTimer) this.battleTimer.paused = true;
     this._coachSteps = [
-      { text: "昔、人は つらい気持ちを 捨てるようになった。\n捨てられた気持ちは、行き場をなくして 魔物になる。" },
-      { text: "君は、その魔物になった気持ちを 拾い集めて、\n元の やさしい姿に もどしてあげる旅人だ。" },
+      { text: "ここは ラクリマ。つらい気持ちを 捨てられる世界。\n捨てられた気持ちは 裏側の“わすれの国”で 魔物“わすれもの”になる。" },
+      { text: "君は、その わすれものを 拾い集めて、\n元の やさしい姿に もどしてあげる旅人だ。" },
       { text: "これが 君の相棒。\n君が 最初に拾った気持ちだよ。", arrow: { x: this.heroX, y: this.heroY - 40 } },
       { text: "敵とは、相棒が 自動で戦ってくれる。\n君は その戦いを 見守って、手助けする。", arrow: { x: this.enemyX, y: this.heroY - 30 } },
       { text: "上の 🔥💧⚡✨ は、今の戦いで 育っている気持ち。\n速攻=🔥 / 守り=💧 / 先手=⚡ / 逆転=✨", arrow: { x: this.W / 2, y: 92 } },
