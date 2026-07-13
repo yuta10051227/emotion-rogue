@@ -8,6 +8,7 @@ import Phaser from "phaser";
 import * as C from "../data/config.js";
 import { onFirstGesture, setMuted, sfx, setMusicMood } from "../logic/audio.js";
 import { getSave, getPref } from "../data/save.js";
+import { ornateFrame } from "../ui/ornate.js";
 
 const UI_FONT = '"Hiragino Sans","Helvetica Neue",Arial,sans-serif';
 const DISPLAY_FONT = '"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif';
@@ -62,6 +63,14 @@ export default class TitleScene extends Phaser.Scene {
       .text(this.W / 2, logoY + 46, "─  L A C R Y M A  ─", { fontFamily: UI_FONT, fontSize: "13px", color: "#3a5c82" })
       .setOrigin(0.5);
 
+    // ロゴの登場：ふわっと弾んで現れる＋光のスイープ（"始まる"高揚）
+    [logo, logoGlow, sub].forEach((t) => t.setAlpha(0));
+    this.tweens.add({ targets: logo, scale: { from: 0.72, to: 1 }, alpha: { from: 0, to: 1 }, duration: 640, ease: "Back.easeOut" });
+    this.tweens.add({ targets: logoGlow, scale: { from: 0.78, to: 1.08 }, alpha: { from: 0, to: 0.7 }, duration: 640, ease: "Back.easeOut" });
+    this.tweens.add({ targets: sub, alpha: { from: 0, to: 1 }, duration: 500, delay: 460 });
+    const shine = this.add.rectangle(this.W / 2 - 150, logoY, 34, 92, 0xffffff, 0.6).setAngle(16).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setDepth(3);
+    this.time.delayedCall(640, () => this.tweens.add({ targets: shine, x: this.W / 2 + 150, alpha: { from: 0.6, to: 0 }, duration: 620, ease: "Sine.easeOut", onComplete: () => shine.destroy() }));
+
     // 惹句（テーマの入口だけ見せる。核心「感情は弱さではない」はエンディングで回収）
     const t1 = this.add
       .text(this.W / 2, this.H * 0.50, "捨てられた感情を、拾いにいく。", { fontFamily: DISPLAY_FONT, fontSize: "17px", color: "#22496e" })
@@ -69,20 +78,41 @@ export default class TitleScene extends Phaser.Scene {
     const t2 = this.add
       .text(this.W / 2, this.H * 0.50 + 30, "涙は、やがて光になる。", { fontFamily: DISPLAY_FONT, fontSize: "13px", color: "#456486" })
       .setOrigin(0.5);
+    // 遊びの約束（＝ワクワクの核。集める・育てる・進化のフック）
+    const hook = this.add
+      .text(this.W / 2, this.H * 0.50 + 62, "気持ちの魔物を 集めて、育てて、進化させよう。", { fontFamily: UI_FONT, fontSize: "13px", color: "#1c5a8a", fontStyle: "bold" })
+      .setOrigin(0.5)
+      .setAlpha(0);
+    this.tweens.add({ targets: hook, alpha: 1, y: this.H * 0.50 + 58, duration: 600, delay: 780, ease: "Sine.easeOut" });
 
     const s = getSave();
     if (s.spiritName) {
       this.add.text(this.W / 2, this.H * 0.585, `〈精霊〉 ${s.spiritName}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#c9a86a" }).setOrigin(0.5);
     }
 
-    // 開始（静かな明滅。騒がしくしない）
+    // 開始：押したくなる 金枠のCTAボタン（緑=GO）。鼓動でふくらむ＝「さあ、行こう」。
     const has = s.soul.rebirths > 0 || s.soul.level > 1 || (s.bonds && s.bonds.met > 0) || s.endingSeen;
-    const startT = this.add
-      .text(this.W / 2, this.H * 0.72, has ? "つづきから" : "旅をはじめる", { fontFamily: DISPLAY_FONT, fontSize: "22px", color: "#14497a" })
-      .setOrigin(0.5);
-    const startRule = this.add.rectangle(this.W / 2, this.H * 0.72 + 22, 150, 1, 0x6a92c0, 0.9);
-    this.tweens.add({ targets: [startT, startRule], alpha: 0.45, duration: 1300, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-    this.add.text(this.W / 2, this.H * 0.72 + 40, "画面にふれてください", { fontFamily: UI_FONT, fontSize: "11px", color: "#5a7a9a" }).setOrigin(0.5);
+    const btnY = this.H * 0.72;
+    const bw = 230, bh = 62;
+    const btn = this.add.container(this.W / 2, btnY).setDepth(4);
+    const bgfx = this.add.graphics();
+    bgfx.fillStyle(0x1e7a40, 0.97); // 明るい緑=はじめる
+    bgfx.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, 12);
+    ornateFrame(bgfx, 0, 0, bw, bh, 12, { thick: 3, corners: true, cornerArm: 15 });
+    const startT = this.add.text(0, 0, has ? "▶ つづきから" : "▶ 旅をはじめる", { fontFamily: DISPLAY_FONT, fontSize: "23px", color: "#fff8e0", fontStyle: "bold" }).setOrigin(0.5);
+    btn.add([bgfx, startT]);
+    btn.setScale(0.4).setAlpha(0);
+    this.tweens.add({ targets: btn, scale: 1, alpha: 1, duration: 520, delay: 900, ease: "Back.easeOut", onComplete: () => {
+      this.tweens.add({ targets: btn, scaleX: 1.045, scaleY: 1.045, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }); // 鼓動
+    } });
+    // 好奇心フック：初見は「何があるんだろう」、続きは自分の記録で"更新したい"を煽る
+    let teaser = "どこまで行ける？ どんな姿に進化する？";
+    if (has) {
+      const best = Math.floor(s.soul.bestDistance || 0);
+      const met = (s.bonds && s.bonds.met) || 0;
+      teaser = `最高 ${best}m ・ 出会った気持ち ${met}体 ・ 魂Lv.${s.soul.level}`;
+    }
+    this.add.text(this.W / 2, btnY + 52, teaser, { fontFamily: UI_FONT, fontSize: "12px", color: "#3f6488" }).setOrigin(0.5).setDepth(4);
 
     // 四隅にほんのり陽の陰り（明るい空を保つため、ごく淡く上下だけ）
     const vig = this.add.graphics().setDepth(5);
