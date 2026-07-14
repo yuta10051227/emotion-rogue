@@ -797,7 +797,10 @@ export default class GameScene extends Phaser.Scene {
       const info = C.EMOTIONS[key];
       // 戦闘中に「その戦いで兆している感情」を光らせるグロー（アイコン背後・加算合成）
       const formGlow = this.add.circle(cx - 10, y, 19, info.color, 0).setBlendMode(Phaser.BlendModes.ADD);
-      const icon = makeIcon(this, cx - 10, y, info.icon, 26, EMOJI_FONT); // 感情アイコン（自作SVG）
+      // 感情アイコン：スキルと同じ陰影オーブ(skill_<感情>)があれば使い、統一感を出す（無ければ自作SVG絵文字）
+      let icon;
+      if (this.textures.exists("skill_" + key)) icon = this.add.image(cx - 10, y, "skill_" + key).setDisplaySize(30, 30);
+      else icon = makeIcon(this, cx - 10, y, info.icon, 26, EMOJI_FONT);
       // makeIcon(画像)は setDisplaySize でスケールを決める。強調時に setScale で上書きすると
       // 128pxテクスチャの絶対倍率になり巨大化する不具合があったため、基準スケールを保持しておく。
       const iconBase = icon.scaleX || 1;
