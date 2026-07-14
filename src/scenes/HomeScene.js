@@ -260,7 +260,21 @@ export default class HomeScene extends Phaser.Scene {
   // ---- 初回オンボーディング（①物語の導入 → ②主人公えらび＋なまえ → ③旅立ち：気持ちが卵→相棒に）----
   runOnboarding() {
     const cx = this.W / 2;
-    const overlay = this.add.rectangle(cx, this.H / 2, this.W, this.H, 0x18233c, 1).setDepth(100).setInteractive();
+    // 導入の背景：冷たい真っ黒をやめ、夜明けの暖色グラデ＋ほのかに昇る光で「希望」の空気に（暗さの緩和）。
+    const bgLayer = this.add.container(0, 0).setDepth(99);
+    const bgG = this.add.graphics();
+    bgG.fillGradientStyle(0x2a2348, 0x2a2348, 0x6a4256, 0x9a5f56, 1, 1, 1, 1); // 藍紫(上)→朝焼けの暖色(下)
+    bgG.fillRect(0, 0, this.W, this.H);
+    const dawn = this.add.graphics();
+    dawn.fillStyle(0xffd9a0, 0.14); dawn.fillCircle(cx, this.H * 0.86, this.W * 0.75); // 地平のあたたかな光
+    bgLayer.add([bgG, dawn]);
+    for (let i = 0; i < 16; i++) { // ゆっくり昇る暖色の光の粒
+      const m = this.add.circle(Math.random() * this.W, this.H + Math.random() * this.H, 1 + Math.random() * 2.4, 0xffe6b0, 0.5);
+      bgLayer.add(m);
+      this.tweens.add({ targets: m, y: -20, alpha: 0, duration: 9000 + Math.random() * 6000, delay: Math.random() * 4000, repeat: -1, ease: "Sine.easeIn" });
+    }
+    const overlay = this.add.rectangle(cx, this.H / 2, this.W, this.H, 0x000000, 0.001).setDepth(100).setInteractive();
+    this._onboardBg = bgLayer; // 片付け用
     const layer = this.add.container(0, 0).setDepth(101);
     const draw = (build) => { layer.removeAll(true); build(); };
     const emoji = (e, x, y, sz) => this.add.text(x, y, e, { fontFamily: EMOJI_FONT, fontSize: sz }).setOrigin(0.5);
@@ -401,7 +415,7 @@ export default class HomeScene extends Phaser.Scene {
               const go = this.makeButton(cx, 508, 244, 60, "▶ ともに旅へ", () => {
                 setPlayer({ gender, name });
                 markPlayerChosen();
-                this.tweens.add({ targets: [overlay, layer], alpha: 0, duration: 420, onComplete: () => { overlay.destroy(); layer.destroy(true); this.buildHome(); } });
+                this.tweens.add({ targets: [overlay, layer, bgLayer], alpha: 0, duration: 420, onComplete: () => { overlay.destroy(); layer.destroy(true); bgLayer.destroy(true); this.buildHome(); } });
               }, { color: 0x4caf50, stroke: 0x2e7d32, textColor: "#ffffff", fontSize: "20px" }); // 主要CTA=緑＋白文字
               layer.add([go.gfx, go.rect, go.txt, go.badge]); // gfxを最背面に
             },
