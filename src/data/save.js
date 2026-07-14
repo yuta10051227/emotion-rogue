@@ -65,8 +65,8 @@ function defaultSave() {
     items: {}, // 消耗アイテム {key: 個数}
     noticesRead: [],
     storyFlags: {}, // 物語の一度きり演出の既読（空白の王の伏線など）
-    // 導く心のツリー（設計書§8 ④）：転生でリセットされない上層
-    enlightenment: 0, // 所持「悟り」
+    // こころの木（設計書§8 ④）：転生でリセットされない上層
+    enlightenment: 0, // 所持「まなび」
     gold: 0, // お金（永続）：仲間の個体強化に使う
     // 累計獲得（使っても減らない）＝クラウド同期の進行度スコアを単調増加に保つ核心
     lifetime: { enlightenment: 0, gold: 0, kills: 0, bossKills: 0 },
@@ -500,7 +500,7 @@ export function mergeCloudSaves(base, other) {
   m.enlightenment = maxNum(m.enlightenment, o.enlightenment);
   m.gold = maxNum(m.gold, o.gold);
 
-  // 導く心のツリー：ノードごとに高い方のレベル
+  // こころの木：ノードごとに高い方のレベル
   for (const br of TREE_BRANCH_KEYS) {
     for (const id in o.tree[br]) m.tree[br][id] = maxNum(m.tree[br][id], o.tree[br][id]);
   }
@@ -732,7 +732,7 @@ export function dominantMemory() {
   return best;
 }
 
-// ---- 導く心のツリー（設計書§8 ④：ノードは繰り返しレベルアップできる）----
+// ---- こころの木（設計書§8 ④：ノードは繰り返しレベルアップできる）----
 // ノードの現在Lv／上限／次コスト
 export function nodeLevel(branchKey, nodeId) {
   const b = getSave().tree[branchKey] || {};
@@ -823,7 +823,7 @@ export function effectiveEvoThreshold() {
   return Math.max(TREE.evoThresholdFloor, EVOLUTION.threshold + getTreeEffects().evoThresholdDelta);
 }
 
-// ノードを「悟り」で1段レベルアップ（同枝の前ノードを1Lv以上が前提）。
+// ノードを「まなび」で1段レベルアップ（同枝の前ノードを1Lv以上が前提）。
 export function unlockNode(branchKey, nodeId) {
   const s = getSave();
   const br = TREE.branches.find((b) => b.key === branchKey);
@@ -837,14 +837,14 @@ export function unlockNode(branchKey, nodeId) {
   if (cur >= nodeMax(node)) return { ok: false, reason: "最大Lv" };
   if (idx > 0 && (levels[br.nodes[idx - 1].id] || 0) < 1) return { ok: false, reason: "前提が必要" };
   const cost = nodeCost(node, cur);
-  if (s.enlightenment < cost) return { ok: false, reason: "悟り不足" };
+  if (s.enlightenment < cost) return { ok: false, reason: "まなび不足" };
   s.enlightenment -= cost;
   levels[nodeId] = cur + 1;
   persist();
   return { ok: true, node, level: cur + 1 };
 }
 
-// いま「悟り」で上げられるノードが1つでもあるか（ホームのバッジ用・購入はしない dry-run）
+// いま「まなび」で上げられるノードが1つでもあるか（ホームのバッジ用・購入はしない dry-run）
 export function canUnlockAnyNode() {
   const s = getSave();
   for (const br of TREE.branches) {
@@ -911,7 +911,7 @@ export function computeHeroStats() {
   return { hp, maxHp: hp, atk, spd, def: Math.round(def), luk: Math.round(luk), resonanceKey: dominantMemory() };
 }
 
-// 転生処理：今生の生き方を魂に刻む（設計書§6）＋ 導く心が「悟り」を得る（§8）
+// 転生処理：今生の生き方を魂に刻む（設計書§6）＋ こころの木が「まなび」を得る（§8）
 export function transmigrate(run) {
   const s = getSave();
   // 上流バグ由来の NaN/Infinity が永続セーブへ混入すると通貨・魂が復旧不能に汚染されるため、必ず有限化する
@@ -937,7 +937,7 @@ export function transmigrate(run) {
   const newBest = dist > s.soul.bestDistance;
   if (newBest) s.soul.bestDistance = dist;
 
-  // 「悟り」獲得：到達距離 ＋ 進化達成 ＋ 最高更新（プレイヤーは旅から学ぶ）
+  // 「まなび」獲得：到達距離 ＋ 進化達成 ＋ 最高更新（プレイヤーは旅から学ぶ）
   const satoriGain =
     Math.floor(dist * TREE.satori.perMeter) +
     (run.evolved ? TREE.satori.evolveBonus : 0) +
@@ -1204,7 +1204,7 @@ export function recordBond(emotion) {
 }
 
 // ---- 仲間のロスター（魂の器）----
-// 手元に置ける仲間の数：無料10＋課金枠＋導く心ツリー、上限20。
+// 手元に置ける仲間の数：無料10＋課金枠＋こころの木ツリー、上限20。
 export function carryoverSlots() {
   const s = getSave();
   const paid = s.party.paidSlots || 0;

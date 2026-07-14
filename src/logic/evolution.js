@@ -11,7 +11,7 @@ export function createEmotionState() {
 
 // 宿った感情を加算。逓減ONなら、既に多い感情ほど価値が下がる。
 // opts.resonanceKey + opts.resonanceBonus で、転生の「記憶の共鳴」を反映（設計書§6）。
-// opts.fragMult[key] で、導く心のツリーの欠片獲得ボーナスを反映（設計書§8）。
+// opts.fragMult[key] で、こころの木の欠片獲得ボーナスを反映（設計書§8）。
 export function gainEmotions(state, emotions, opts = {}) {
   const gained = [];
   for (const key of emotions) {

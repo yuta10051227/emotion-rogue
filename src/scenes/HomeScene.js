@@ -17,6 +17,7 @@ import {
   craftItem,
   itemCount,
   markIntroSeen,
+  markStory,
   getPlayer,
   setPlayer,
   markPlayerChosen,
@@ -90,9 +91,9 @@ const NOTICES = {
     { id: "op1", title: "v0.2 ホーム＆転生 実装", body: "倒れても記憶は残り、魂が育つようになりました。ホームから何度でも旅立てます。" },
     { id: "op2", title: "装備ドロップ開始", body: "冒険中、まれに「感情の残響」を拾えます。ここで装備しましょう。" },
     { id: "op3", title: "v0.3 制作 実装", body: "集めた素材から装備『感情の残響』を作れるようになりました。奥へ進むほど強い装備が作れます。" },
-    { id: "op4", title: "v0.4 導く心のツリー 実装", body: "旅から「悟り」を得て、キミ自身（導く心）が育つようになりました。ツリーの強化は転生してもリセットされません。4つの感情を理解すると、中央に「共感」の枝が芽吹きます。" },
+    { id: "op4", title: "こころの木", body: "旅で「まなび」を得ると、キミの「こころの木」が育ちます（＝ずっと残る強化）。転生してもリセットされません。4つの感情を そだてきると、中央に「共感」の枝が芽ばえます。" },
     { id: "op5", title: "v0.5 仲間 実装", body: "倒した感情が ごく稀に浄化され、ついてくるようになりました。仲間は旅であなたを助け、少しずつ言葉を取り戻します。けれど転生では連れて行けません ── 仲間は光に還ります。出会った数だけが、残ります。" },
-    { id: "op6", title: "統合の境地", body: "導く心のツリーで「怒り・悲しみ・勇気・希望」の4枝をすべて開くと（共感の境地）、次の旅の終わりに ── 一度だけ、何かが訪れます。" },
+    { id: "op6", title: "統合の境地", body: "こころの木で「怒り・悲しみ・勇気・希望」の4枝をすべて開くと（共感の境地）、次の旅の終わりに ── 一度だけ、何かが訪れます。" },
   ],
   story: [
     { id: "st1", title: "ここは ラクリマ", body: "ここは ラクリマ。人が つらい気持ちを 捨てられる世界。「なければ 楽なのに」と、みんな 悲しみや怒りを 捨てはじめた。" },
@@ -492,7 +493,7 @@ export default class HomeScene extends Phaser.Scene {
     const bondStr = s.bonds.met > 0 ? `これまでに出会った仲間　${s.bonds.met}　（みんな、光に還った）` : "まだ、誰とも出会っていない";
     this.add.text(px, py + 34, bondStr, { fontFamily: UI_FONT, fontSize: "13px", color: "#9a5aa8" }).setOrigin(0.5);
 
-    // 導く心のツリー（左）と 仲間の編成（右）
+    // こころの木（左）と 仲間の編成（右）
     this.treeBtn = this.makeButton(this.W / 2 - 96, 374, 186, 46, "", () => this.openTreePanel(), {
       color: 0xe9f1fb,
       stroke: 0x5a9ad0,
@@ -507,7 +508,7 @@ export default class HomeScene extends Phaser.Scene {
       textColor: "#7a3ba8",
       fontSize: "16px",
     });
-    // 導く心=🌳／仲間=🤝 のアイコンをボタン左に固定配置し、文字は右へ左寄せに（ラベルは動的更新）
+    // こころの木=🌳／仲間=🤝 のアイコンをボタン左に固定配置し、文字は右へ左寄せに（ラベルは動的更新）
     this.treeBtn.txt.setOrigin(0, 0.5).setX(this.W / 2 - 96 - 186 / 2 + 34);
     this.treeBtn.icon = makeIcon(this, this.W / 2 - 96 - 186 / 2 + 16, 374, "🌳", 20, EMOJI_FONT);
     this.partyBtn.txt.setOrigin(0, 0.5).setX(this.W / 2 + 96 - 186 / 2 + 34);
@@ -591,6 +592,42 @@ export default class HomeScene extends Phaser.Scene {
     });
 
     this.drawAccountChip(); // ☁ ログイン／アカウント（別端末同期）
+
+    // 初回だけ：ホームの解説チュートリアル（何をする場所か・主要ボタンの意味）
+    if (getPlayer() && getPlayer().chosen && markStory("home_tutorial")) {
+      this.time.delayedCall(650, () => this.showHomeTutorial());
+    }
+  }
+
+  // ホームの解説（初回のみ）。タップで送る やさしい案内。
+  showHomeTutorial() {
+    if (this.panel || this._homeTut) return;
+    const steps = [
+      "ここは キミの きち「やすらぎの街」。\n旅で 育てた ものが、ここに あつまる。",
+      "「▶ 出発する」で 旅に出て、\nわすれものを 拾いにいこう。",
+      "「こころの木」は、まなびを つかう\nずっと残る 強化。転生しても 消えない。",
+      "「仲間」で 連れていく子を えらび、\n「やすらぎの街」で 素材を 集めてもらえる。",
+      "倒れても だいじょうぶ。魂は ここへ 還り、\nまた 強くなって 旅立てる。",
+    ];
+    const c = this.add.container(0, 0).setDepth(240);
+    const dim = this.add.rectangle(this.W / 2, this.H / 2, this.W, this.H, 0x0a1420, 0.62).setInteractive();
+    const boxY = this.H / 2;
+    const gfx = this.add.graphics();
+    gfx.fillStyle(0x14243a, 0.98); gfx.fillRoundedRect(this.W / 2 - 168, boxY - 78, 336, 156, 14);
+    this.drawOrnateFrame(gfx, this.W / 2, boxY, 336, 156, 14, { thick: 2, inset: 5, corners: true, cornerArm: 14 });
+    const txt = this.add.text(this.W / 2, boxY - 12, "", { fontFamily: UI_FONT, fontSize: "16px", color: "#eaf0f8", align: "center", lineSpacing: 9, wordWrap: { width: 300 } }).setOrigin(0.5);
+    const idx = this.add.text(this.W / 2, boxY + 44, "", { fontFamily: UI_FONT, fontSize: "12px", color: "#8aa0c0" }).setOrigin(0.5);
+    const hint = this.add.text(this.W / 2, boxY + 66, "タップで すすむ", { fontFamily: UI_FONT, fontSize: "11px", color: "#7a90b0" }).setOrigin(0.5);
+    c.add([dim, gfx, txt, idx, hint]);
+    this._homeTut = c;
+    let i = 0;
+    const show = () => { txt.setText(steps[i]); idx.setText(`${i + 1} / ${steps.length}`); };
+    show();
+    dim.on("pointerdown", () => {
+      i += 1;
+      if (i >= steps.length) { this._homeTut = null; this.tweens.add({ targets: c, alpha: 0, duration: 260, onComplete: () => c.destroy(true) }); return; }
+      show();
+    });
   }
 
   // 右上のアカウント表示。タップで ログイン／ログアウト。状態は非同期で反映。
@@ -811,8 +848,8 @@ export default class HomeScene extends Phaser.Scene {
 
   refreshTreeBtn() {
     // アイコンは別配置（🌳）。文字は絵文字を省いて左寄せ。
-    if (this.treeBtn) this.treeBtn.txt.setText(`導く心 悟り${getSave().enlightenment}`);
-    this.refreshTreeBadge(); // 悟りが動いたらバッジも更新
+    if (this.treeBtn) this.treeBtn.txt.setText(`こころの木 まなび${getSave().enlightenment}`);
+    this.refreshTreeBadge(); // まなびが動いたらバッジも更新
   }
 
   // ツリーに「いま上げられるノード」があれば赤ドット（ログウィズ流：やることはバッジで示す）
@@ -909,7 +946,7 @@ export default class HomeScene extends Phaser.Scene {
             }
           }
           const parts = [];
-          if (satori) parts.push(`🧠悟り+${satori}`);
+          if (satori) parts.push(`🧠まなび+${satori}`);
           if (gold) parts.push(`💰+${gold}`);
           this.toast(`あかし ${unclaimed}件 の報酬を受け取った　${parts.join(" ")}`);
           sfx.coin();
@@ -933,7 +970,7 @@ export default class HomeScene extends Phaser.Scene {
         const ic = this.add.text(36, y, "🕯", { fontFamily: EMOJI_FONT, fontSize: "22px" }).setOrigin(0.5);
         const nm = this.add.text(58, y - 12, g.label, { fontFamily: UI_FONT, fontSize: "14px", color: g.done ? "#b8860b" : "#22344a" }).setOrigin(0, 0.5);
         const rw = [];
-        if (g.reward && g.reward.satori) rw.push(`🧠悟り+${g.reward.satori}`);
+        if (g.reward && g.reward.satori) rw.push(`🧠まなび+${g.reward.satori}`);
         if (g.reward && g.reward.gold) rw.push(`💰+${g.reward.gold}`);
         const pr = this.add.text(58, y + 12, rw.join(" "), { fontFamily: UI_FONT, fontSize: "10px", color: g.done ? "#2e7d32" : "#74839a" }).setOrigin(0, 0.5);
         list.add([row, ic, nm, pr]);
@@ -962,7 +999,7 @@ export default class HomeScene extends Phaser.Scene {
         const nm = this.add.text(58, y - 16, d.name, { fontFamily: UI_FONT, fontSize: "14px", color: a.done ? "#b8860b" : "#22344a" }).setOrigin(0, 0.5);
         const ds = this.add.text(58, y + 1, d.desc, { fontFamily: UI_FONT, fontSize: "10px", color: "#74839a" }).setOrigin(0, 0.5);
         const rw = [];
-        if (d.reward && d.reward.satori) rw.push(`🧠悟り+${d.reward.satori}`);
+        if (d.reward && d.reward.satori) rw.push(`🧠まなび+${d.reward.satori}`);
         if (d.reward && d.reward.gold) rw.push(`💰+${d.reward.gold}`);
         const pr = this.add.text(58, y + 17, `${shown}/${d.gte}　${rw.join(" ")}`, { fontFamily: UI_FONT, fontSize: "10px", color: a.done ? "#2e7d32" : "#74839a" }).setOrigin(0, 0.5);
         list.add([row, ic, nm, ds, pr]);
@@ -1101,7 +1138,7 @@ export default class HomeScene extends Phaser.Scene {
     this.openPanel("本当に記録を消しますか？", (c) => {
       c.add(
         this.add
-          .text(this.W / 2, 220, "魂・仲間・図鑑・悟り・装備など\nすべての進行が完全に消え、元に戻せません。", {
+          .text(this.W / 2, 220, "魂・仲間・図鑑・まなび・装備など\nすべての進行が完全に消え、元に戻せません。", {
             fontFamily: UI_FONT,
             fontSize: "15px",
             color: "#b03030",
@@ -1448,13 +1485,13 @@ export default class HomeScene extends Phaser.Scene {
     });
   }
 
-  // ---- 導く心のツリー（設計書§8 ④：プレイヤー成長・実機能）----
+  // ---- こころの木（設計書§8 ④：プレイヤー成長・実機能）----
   openTreePanel(branchKey = "vessel") {
-    this.openPanel("導く心のツリー", (c) => {
+    this.openPanel("こころの木", (c) => {
       const s = getSave();
       const empUnlocked = empathyUnlocked();
 
-      c.add(this.add.text(this.W / 2, 116, `悟り ${s.enlightenment}`, { fontFamily: UI_FONT, fontSize: "18px", color: "#1f6aa8" }).setOrigin(0.5));
+      c.add(this.add.text(this.W / 2, 116, `まなび ${s.enlightenment}`, { fontFamily: UI_FONT, fontSize: "18px", color: "#1f6aa8" }).setOrigin(0.5));
 
       // 感情の熟練度（欠片の累計で育つ恒久ボーナス）を4列で
       c.add(this.add.text(this.W / 2, 140, "― 感情の熟練度（欠片の累計で育つ） ―", { fontFamily: UI_FONT, fontSize: "11px", color: "#74839a" }).setOrigin(0.5));
@@ -1530,13 +1567,13 @@ export default class HomeScene extends Phaser.Scene {
         } else if (!prevOk) {
           c.add(this.add.text(this.W - 40, y, "前提が必要", { fontFamily: UI_FONT, fontSize: "12px", color: "#74839a" }).setOrigin(1, 0.5));
         } else {
-          // 押せる=緑CTA（白文字）／悟り不足=灰＋赤字で「足りない」と一目で分かるように
+          // 押せる=緑CTA（白文字）／まなび不足=灰＋赤字で「足りない」と一目で分かるように
           const btn = this.add
             .rectangle(this.W - 72, y, 92, 38, purchasable ? 0x4caf50 : 0xeceff3)
             .setStrokeStyle(2, purchasable ? 0x2e7d32 : 0xccd4de)
             .setInteractive({ useHandCursor: purchasable });
           if (!purchasable) btn.setAlpha(0.85);
-          const btnT = this.add.text(this.W - 72, y - (purchasable ? 0 : 6), purchasable ? `悟り ${cost}` : `悟り ${cost}`, { fontFamily: UI_FONT, fontSize: "13px", color: purchasable ? "#ffffff" : "#9aa5b3", fontStyle: purchasable ? "bold" : "normal" }).setOrigin(0.5);
+          const btnT = this.add.text(this.W - 72, y - (purchasable ? 0 : 6), purchasable ? `まなび ${cost}` : `まなび ${cost}`, { fontFamily: UI_FONT, fontSize: "13px", color: purchasable ? "#ffffff" : "#9aa5b3", fontStyle: purchasable ? "bold" : "normal" }).setOrigin(0.5);
           if (!purchasable) c.add(this.add.text(this.W - 72, y + 10, `あと ${cost - s.enlightenment}`, { fontFamily: UI_FONT, fontSize: "10px", color: "#d0553f" }).setOrigin(0.5));
           if (purchasable) {
             btn.on("pointerdown", () => {
@@ -1886,7 +1923,7 @@ export default class HomeScene extends Phaser.Scene {
         list.add(this.add.rectangle(this.W / 2, y, this.W - 50, rowH, rw.claimed ? 0xe6ebf2 : rw.done ? 0xeef7e4 : 0xffffff).setStrokeStyle(1, rw.claimed ? 0xc2ccd8 : rw.done ? 0xb5c96a : 0xd6e2f0));
         list.add(this.add.text(38, y - 8, rw.label, { fontFamily: UI_FONT, fontSize: "13px", color: rw.done ? "#b8860b" : "#22344a" }).setOrigin(0, 0.5));
         const parts = [];
-        if (rw.reward.satori) parts.push(`🧠悟り+${rw.reward.satori}`);
+        if (rw.reward.satori) parts.push(`🧠まなび+${rw.reward.satori}`);
         if (rw.reward.gold) parts.push(`💰+${rw.reward.gold}`);
         list.add(this.add.text(38, y + 11, parts.join("　"), { fontFamily: UI_FONT, fontSize: "10px", color: "#74839a" }).setOrigin(0, 0.5));
         if (rw.claimed) {
@@ -2042,7 +2079,7 @@ export default class HomeScene extends Phaser.Scene {
     const s = getSave();
     if (s.equipment.equipped.length < effectiveEquipSlots() && s.equipment.owned.length > s.equipment.equipped.length)
       return "「🛡 装備変更」で 拾った残響を 装備できます";
-    if ((s.enlightenment || 0) >= 3) return "「導く心のツリー」で 悟りを 力に変えられます";
+    if ((s.enlightenment || 0) >= 3) return "「こころの木」で まなびを 力に変えられます";
     if ((s.gold || 0) >= 100) return "「仲間」の強化や「特別な仲間」に お金を使えます";
     if (s.party.bonded.some((b) => !b.active)) return "「仲間」から 同行メンバーを 見直せます";
     return "支度を整えて、また 旅立ちましょう";
@@ -2066,7 +2103,7 @@ export default class HomeScene extends Phaser.Scene {
     c.add(this.add.text(cx, y, `魂レベル +${sum.levelGain}　→　Lv.${sum.newLevel}`, { fontFamily: UI_FONT, fontSize: "18px", color: "#2e7d32" }).setOrigin(0.5));
     y += 30;
     if (sum.satoriGain > 0) {
-      c.add(this.add.text(cx, y, `導く心は 旅から学んだ　悟り +${sum.satoriGain}`, { fontFamily: UI_FONT, fontSize: "16px", color: "#1f6aa8" }).setOrigin(0.5));
+      c.add(this.add.text(cx, y, `旅で まなびを 得た　+${sum.satoriGain}`, { fontFamily: UI_FONT, fontSize: "16px", color: "#1f6aa8" }).setOrigin(0.5));
     }
     y += 28;
     if (sum.resonanceKey) {

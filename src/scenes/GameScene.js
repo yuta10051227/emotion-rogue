@@ -97,7 +97,7 @@ export default class GameScene extends Phaser.Scene {
       joinedAt: 0,
     }));
 
-    // 魂レベル＋装備＋導く心ツリーを反映した「今回の旅の素体」
+    // 魂レベル＋装備＋こころの木ツリーを反映した「今回の旅の素体」
     const stats = computeHeroStats();
     this.heroBase = { maxHp: stats.maxHp, atk: stats.atk, spd: stats.spd, def: stats.def, luk: stats.luk };
     this.resonanceKey = stats.resonanceKey; // 記憶の共鳴（多く抱いた感情）
@@ -2897,7 +2897,7 @@ export default class GameScene extends Phaser.Scene {
         y += 34;
       }
       if (summary.satoriGain > 0) {
-        T(dyn, y, `導く心は 旅から学んだ　悟り +${summary.satoriGain}`, { size: "16px", color: "#bfe0ff" });
+        T(dyn, y, `旅で まなびを 得た　+${summary.satoriGain}`, { size: "16px", color: "#bfe0ff" });
         y += 34;
       }
       if (summary.goldGain > 0) {

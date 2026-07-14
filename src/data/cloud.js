@@ -112,7 +112,7 @@ export function progressScore(s) {
   const party = s.party || {};
   const lifetime = s.lifetime || {};
   const arts = Array.isArray(s.artifacts) ? s.artifacts.length : 0;
-  // ツリー総レベル＝「悟り」の永続投資（転生でも減らない）。使った悟りを進行度として数える。
+  // ツリー総レベル＝「まなび」の永続投資（転生でも減らない）。使ったまなびを進行度として数える。
   let treeLv = 0;
   if (s.tree && typeof s.tree === "object") {
     for (const k in s.tree) {
