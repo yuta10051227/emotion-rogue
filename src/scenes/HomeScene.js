@@ -120,6 +120,7 @@ export default class HomeScene extends Phaser.Scene {
     }
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png");
+    if (!this.textures.exists("bg_home_main")) this.load.image("bg_home_main", "chars/bg_home_main.jpg"); // ★ホーム専用の新背景（あれば最優先。無ければ bg_home）
     if (!this.textures.exists("bg_home")) this.load.image("bg_home", "chars/bg_home.jpg"); // 生成アートの動く背景（軽量JPEG）
     if (!this.textures.exists("bg_home_fg")) this.load.image("bg_home_fg", "chars/bg_home_fg.png"); // 手前の草花（透過）
     if (!this.textures.exists("town_nest")) this.load.image("town_nest", "chars/town_nest.png"); // 卵の巣
@@ -180,8 +181,10 @@ export default class HomeScene extends Phaser.Scene {
     //  手前ほど大きく動かす＝視差。向きや周期がバラバラだと不自然に滑って見えるため揃える。
     const PAN = 22; // 奥の振れ幅（px）。手前はこの約2.4倍。
     const PERIOD = 20000; // 共通周期（位相ロック）
-    if (this.textures.exists("bg_home")) {
-      const bg = this.add.image(this.W / 2 - PAN, this.H / 2, "bg_home").setDepth(-20); // 左寄りから開始＝±PANで中心対称
+    // ホーム背景：専用の新背景 bg_home_main があれば最優先、無ければ従来の bg_home（街パネルは bg_home のまま）
+    const homeBgKey = this.textures.exists("bg_home_main") ? "bg_home_main" : (this.textures.exists("bg_home") ? "bg_home" : null);
+    if (homeBgKey) {
+      const bg = this.add.image(this.W / 2 - PAN, this.H / 2, homeBgKey).setDepth(-20); // 左寄りから開始＝±PANで中心対称
       const cover = Math.max(this.W / bg.width, this.H / bg.height) * 1.16; // 画面を覆い、パン用の余白を持たせる
       bg.setScale(cover);
       this.tweens.add({ targets: bg, x: this.W / 2 + PAN, duration: PERIOD, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
