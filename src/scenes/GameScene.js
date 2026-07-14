@@ -907,9 +907,9 @@ export default class GameScene extends Phaser.Scene {
       if (this.heroStats) this.heroStats.hp = this.heroStats.maxHp;
     }
     this.enemySprite = this.add.text(this.enemyX, this.enemyY, "", { fontFamily: EMOJI_FONT, fontSize: "56px" }).setOrigin(0.5).setDepth(2).setVisible(false);
-    // 敵ネームプレート（暗い下地＋金枠）。ログウィズ風に「名前が据わる」印象へ。原点中心に描き、x/yで移動。
+    // 敵ネームプレート（暗い下地＋金枠）。原点中心に描き、x/yで移動。幅は名前長で可変。
     this.enemyNamePlate = this.add.graphics().setDepth(2.4).setVisible(false);
-    { const nw = 132, nh = 22; this.enemyNamePlate.fillStyle(0x0e0e18, 0.74); this.enemyNamePlate.fillRoundedRect(-nw / 2, -nh / 2, nw, nh, 6); this.enemyNamePlate.lineStyle(1, 0xc9a23a, 0.7); this.enemyNamePlate.strokeRoundedRect(-nw / 2, -nh / 2, nw, nh, 6); this.enemyNamePlate.fillStyle(0xf4dc86, 0.28); this.enemyNamePlate.fillRect(-nw / 2 + 2, -nh / 2 + 1, nw - 4, 1); }
+    this.drawNamePlate(this.enemyNamePlate, 132);
     this.enemyNamePlate.setPosition(this.enemyX, this.enemyY - 50);
     this.enemyLabel = this.add.text(this.enemyX, this.enemyY - 50, "", { fontFamily: UI_FONT, fontSize: "13px", color: "#f0e6d0", stroke: "#0a0a12", strokeThickness: 3 }).setOrigin(0.5).setDepth(2.5).setVisible(false);
 
@@ -1466,9 +1466,12 @@ export default class GameScene extends Phaser.Scene {
     const scale = enemy.boss ? 1.5 : 1;
     this.enemySprite.setText(enemy.icon).setVisible(true).setScale(scale).setAlpha(1);
     this.enemySprite.x = this.W + 60;
-    this.enemyLabel.setText(enemy.boss ? `― ${enemy.label} ―` : enemy.label).setVisible(true).setAlpha(1).setColor(enemy.boss ? "#ffd24d" : "#f0e6d0");
+    // 名札：参考ゲーム風に「Lv.X 属性アイコン 名前」（雑魚のみ。ボスは上部の大型バー）
+    const plate = enemy.boss ? `― ${enemy.label} ―` : `Lv.${enemy.lv || 1}  ${enemy.emIcon || ""}${enemy.label}`;
+    this.enemyLabel.setText(plate).setVisible(true).setAlpha(1).setColor(enemy.boss ? "#ffd24d" : "#f0e6d0");
     this.enemyLabel.x = this.W + 60;
-    // ネームプレートは雑魚のみ（ボスは上部の大型バー）。ラベルと一緒に滑り込む。
+    // ネームプレートは雑魚のみ（ボスは上部の大型バー）。ラベルと一緒に滑り込む。幅は文字長で可変。
+    if (!enemy.boss) this.drawNamePlate(this.enemyNamePlate, Math.max(120, this.enemyLabel.width + 22));
     this.enemyNamePlate.setVisible(!enemy.boss).setPosition(this.W + 60, this.enemyY - 50);
 
     // 敵アート（ボス=大きく／雑魚=小さく色変異）。位置/フェードは enemySprite が駆動。
@@ -1527,6 +1530,18 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(5400, () => {
       if (this._bossLore === c) { this.tweens.add({ targets: c, alpha: 0, duration: 700, onComplete: () => c.destroy(true) }); this._bossLore = null; }
     });
+  }
+
+  // 敵ネームプレートを指定幅で描き直す（暗い下地＋金枠＋上辺の光）。原点中心。
+  drawNamePlate(g, nw) {
+    const nh = 22;
+    g.clear();
+    g.fillStyle(0x0e0e18, 0.74);
+    g.fillRoundedRect(-nw / 2, -nh / 2, nw, nh, 6);
+    g.lineStyle(1, 0xc9a23a, 0.7);
+    g.strokeRoundedRect(-nw / 2, -nh / 2, nw, nh, 6);
+    g.fillStyle(0xf4dc86, 0.28);
+    g.fillRect(-nw / 2 + 2, -nh / 2 + 1, nw - 4, 1);
   }
 
   // 空白の王の"声"（伏線）。画面中央の暗い帯にタイプ表示し、数秒で自然に消える（非ブロッキング）。
@@ -1608,7 +1623,9 @@ export default class GameScene extends Phaser.Scene {
     const tint = type.tint != null && Math.random() >= 0.4 ? type.tint : 0xffffff;
     const mobScale = 0.82 + Math.random() * 0.42;
     const label = (deep ? deep.prefix : "") + (type.name || type.label);
-    return { hp, maxHp: hp, atk, spd: Math.max(1, Math.round(rawSpd)), icon: type.icon, label, lean, tint, mobScale, biomeKey: roster ? roster.key : null };
+    const lv = Math.max(1, Math.floor(distance / 15) + 1); // 名札用のレベル（距離が深いほど高い）
+    const emIcon = (C.EMOTIONS[lean] || {}).icon || "";
+    return { hp, maxHp: hp, atk, spd: Math.max(1, Math.round(rawSpd)), icon: type.icon, label, lean, tint, mobScale, biomeKey: roster ? roster.key : null, lv, emIcon };
   }
 
   // 固定距離ボス：強敵。感情系統は順に巡る（戦い方の多様性を促す）。
@@ -1645,7 +1662,8 @@ export default class GameScene extends Phaser.Scene {
       return { hp: Math.round(hp * lb.hpMult), maxHp: Math.round(hp * lb.hpMult), atk: Math.round(atk * lb.atkMult), spd, icon: lb.icon, label: lb.name, lean: emotion, boss: true, lastBoss: true, bossPx: Math.round(bossPx * 1.12), tint: 0xffffff };
     }
     this.bossCount += 1;
-    return { hp, maxHp: hp, atk, spd, icon: t.icon, label: t.name, lean: emotion, boss: true, bossPx, tint, lore: t.lore };
+    const bLv = Math.max(1, Math.floor(distance / 15) + 1);
+    return { hp, maxHp: hp, atk, spd, icon: t.icon, label: t.name, lean: emotion, boss: true, bossPx, tint, lore: t.lore, lv: bLv, emIcon: (C.EMOTIONS[emotion] || {}).icon || "" };
   }
 
   battleTick() {
