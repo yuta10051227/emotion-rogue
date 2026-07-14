@@ -822,6 +822,7 @@ export default class GameScene extends Phaser.Scene {
     for (let i = 1; i <= 3; i++) if (!this.textures.exists("bg_far" + i)) this.load.image("bg_far" + i, "chars/bg_far" + i + ".png"); // バイオーム
     // 生成アートのバイオーム背景（有るものだけ。追加は下の配列にキーを足すだけ）
     for (const bk of ["mountain", "forest", "ruins", "void"]) if (!this.textures.exists("bg_biome_" + bk)) this.load.image("bg_biome_" + bk, "chars/bg_biome_" + bk + ".jpg"); // 未配置は404→山アートのティント流用にフォールバック
+    for (const k of C.EMOTION_ORDER) if (!this.textures.exists("skill_" + k)) this.load.image("skill_" + k, "chars/skill_" + k + ".png"); // 感情スキルの専用アート（無ければ絵文字）
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     for (const k of ["kid_boy", "kid_boy_walk", "kid_girl", "kid_girl_walk"]) if (!this.textures.exists(k)) this.load.image(k, "chars/" + k + ".png"); // 主人公(男/女)＝相棒に指示
     if (!this.textures.exists("hero_slime_atk")) this.load.image("hero_slime_atk", "chars/hero_slime_atk.png");
@@ -1851,7 +1852,15 @@ export default class GameScene extends Phaser.Scene {
       this.drawSkillRing(ring, x, y, r, info.color);
       // 当たり判定は円（透明の円をヒットに）
       const hit = this.add.circle(x, y, r, 0xffffff, 0.001).setDepth(6).setInteractive({ useHandCursor: true });
-      const icon = makeIcon(this, x, y - 4, def.icon, 24, EMOJI_FONT).setDepth(7);
+      // アイコン：専用アート skill_<感情>.png があれば使う（無ければ絵文字）。奥行きはアート側のライティングで。
+      const artKey = "skill_" + key;
+      let icon;
+      if (this.textures.exists(artKey)) {
+        icon = this.add.image(x, y - 2, artKey).setDepth(7);
+        icon.setScale((r * 1.7) / (icon.width || 128)); // 金リングの内側に収める
+      } else {
+        icon = makeIcon(this, x, y - 4, def.icon, 24, EMOJI_FONT).setDepth(7);
+      }
       const name = this.add.text(x, y + r + 10, def.name, { fontFamily: UI_FONT, fontSize: "11px", color: colorToCss(info.color), fontStyle: "bold" }).setOrigin(0.5).setDepth(7);
       const cdArc = this.add.graphics().setDepth(8).setVisible(false); // クールダウンの円弧（減っていく暗いパイ）
       const cdTxt = this.add.text(x, y, "", { fontFamily: UI_FONT, fontSize: "16px", color: "#ffffff", stroke: "#0a0a12", strokeThickness: 3, fontStyle: "bold" }).setOrigin(0.5).setDepth(9).setVisible(false);
