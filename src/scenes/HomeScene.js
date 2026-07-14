@@ -563,7 +563,7 @@ export default class HomeScene extends Phaser.Scene {
     this.departY = departY;
     this.departH = abyss ? 52 : 64;
     this.refreshDepartGlow();
-    if (!abyss) this.add.text(this.W / 2, 620, "倒れても記憶は残る。何度でも、旅立とう。", { fontFamily: UI_FONT, fontSize: "13px", color: "#6a6a80" }).setOrigin(0.5);
+    if (!abyss) this.add.text(this.W / 2, 620, "倒れても記憶は残る。何度でも、旅立とう。", { fontFamily: UI_FONT, fontSize: "13px", color: "#eef3fa", stroke: "#1a2636", strokeThickness: 3 }).setOrigin(0.5); // 写真背景でも読めるよう明色＋縁取り
 
     // 受け取れる実績があれば一度だけ知らせる
     if (unclaimedAchievementCount() > 0) this.time.delayedCall(600, () => this.toast("受け取れる あかし があります"));
@@ -572,16 +572,21 @@ export default class HomeScene extends Phaser.Scene {
 
     this.drawBaseStrip(); // やすらぎの街：留守番の仲間が働いている様子
 
+    // 下部フッター：写真背景の上で読めるよう、うっすら暗幕を敷いてから明色の文字を置く
+    const footScrim = this.add.graphics().setDepth(0);
+    footScrim.fillGradientStyle(0x0a1220, 0x0a1220, 0x0a1220, 0x0a1220, 0, 0, 0.55, 0.55);
+    footScrim.fillRect(0, this.H - 40, this.W, 40);
+
     // リセット（テスト用）※誤タップでの全消去を防ぐため確認を挟む
     this.add
-      .text(16, this.H - 14, "記録を消す", { fontFamily: UI_FONT, fontSize: "12px", color: "#55556a" })
+      .text(16, this.H - 14, "記録を消す", { fontFamily: UI_FONT, fontSize: "12px", color: "#c7cede" })
       .setOrigin(0, 1)
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.confirmReset());
 
     // 💾 セーブ（バックアップ／復元）
     this.add
-      .text(this.W / 2, this.H - 14, "💾 セーブ", { fontFamily: UI_FONT, fontSize: "12px", color: isSaveFailing() ? "#ff8a8a" : "#7a7a90" })
+      .text(this.W / 2, this.H - 14, "💾 セーブ", { fontFamily: UI_FONT, fontSize: "12px", color: isSaveFailing() ? "#ff8a8a" : "#d6dce8" })
       .setOrigin(0.5, 1)
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.openSavePanel());
@@ -592,7 +597,7 @@ export default class HomeScene extends Phaser.Scene {
 
     // 音 ON/OFF
     const muteT = this.add
-      .text(this.W - 16, this.H - 14, isMuted() ? "🔇 音 OFF" : "🔊 音 ON", { fontFamily: UI_FONT, fontSize: "12px", color: "#7a7a90" })
+      .text(this.W - 16, this.H - 14, isMuted() ? "🔇 音 OFF" : "🔊 音 ON", { fontFamily: UI_FONT, fontSize: "12px", color: "#d6dce8" })
       .setOrigin(1, 1)
       .setInteractive({ useHandCursor: true });
     muteT.on("pointerdown", () => {

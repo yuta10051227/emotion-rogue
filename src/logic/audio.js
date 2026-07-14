@@ -9,6 +9,10 @@ let master = null;
 let muted = false;
 let ambient = null; // 環境音ノード群
 let lastHit = 0; // 打撃音の最小間隔ゲート（高速時の機械的連打を間引く）
+// ---- ファイルBGM（本物の曲）：public/audio/bgm_<mood>.mp3 か bgm_main.mp3 を置けば自動でループ再生 ----
+let fileBgm = null; // 再生中 {key, el}
+const bgmTried = {}; // key -> "ok" | "missing"（無いファイルの再試行を減らす）
+let gestureDone = false; // 自動再生解禁（初回タップ後）
 
 function ensure() {
   if (ctx) return ctx;
@@ -26,12 +30,39 @@ export function onFirstGesture() {
   const c = ensure();
   if (!c) return;
   if (c.state === "suspended") c.resume();
+  gestureDone = true;
   startAmbient();
+  if (fileBgm && fileBgm.el && !muted) fileBgm.el.play().catch(() => {}); // 保留していたファイルBGMを再生
 }
 
 export function setMuted(m) {
   muted = !!m;
   if (master) master.gain.value = muted ? 0 : 0.32;
+  if (fileBgm && fileBgm.el) { if (muted) fileBgm.el.pause(); else if (gestureDone) fileBgm.el.play().catch(() => {}); }
+}
+
+function stopFileBgm() { if (fileBgm && fileBgm.el) { try { fileBgm.el.pause(); } catch (e) {} } fileBgm = null; }
+function stopProcedural() { if (music.timer) { clearTimeout(music.timer); music.timer = null; } }
+
+// mood → bgm_<mood>.mp3 → bgm_main.mp3 の順に探す。見つかれば手続き音楽を止めてループ再生。無ければ onMissing()。
+function startFileBgm(mood, onMissing) {
+  const keys = mood ? [mood, "main"] : ["main"];
+  const key = keys.find((k) => bgmTried[k] !== "missing");
+  if (!key) { stopFileBgm(); if (onMissing) onMissing(); return; }
+  if (fileBgm && fileBgm.key === key) { if (gestureDone && !muted) fileBgm.el.play().catch(() => {}); return; } // 同じ曲は継続（シーン跨ぎで途切れない）
+  const el = new Audio("audio/bgm_" + key + ".mp3");
+  el.loop = true; el.volume = muted ? 0 : 0.5; el.preload = "auto";
+  let settled = false;
+  el.addEventListener("canplaythrough", () => {
+    if (settled) return; settled = true; bgmTried[key] = "ok";
+    stopFileBgm(); stopProcedural(); fileBgm = { key, el };
+    if (gestureDone && !muted) el.play().catch(() => {});
+  }, { once: true });
+  el.addEventListener("error", () => {
+    if (settled) return; settled = true; bgmTried[key] = "missing";
+    startFileBgm(mood, onMissing); // 次の候補（main）へ、無ければ手続き音楽
+  }, { once: true });
+  el.load();
 }
 export function isMuted() {
   return muted;
@@ -169,12 +200,9 @@ function scheduleNextNote() {
 
 // シーンから呼ぶ：気分を切り替える（"off" で停止）。ミュートは master 側で一括制御。
 export function setMusicMood(mood) {
-  if (music.timer) {
-    clearTimeout(music.timer);
-    music.timer = null;
-  }
+  stopProcedural();
   music.mood = mood && mood !== "off" ? mood : null;
-  if (!music.mood) return;
+  if (!music.mood) { stopFileBgm(); return; }
   // ドローンの土台も気分に合わせて滑らかに移調（旅は少し低く・陰る）
   if (ambient && ctx) {
     const base = music.mood === "journey" ? 98 : 110; // G2 / A2
@@ -182,7 +210,8 @@ export function setMusicMood(mood) {
     ambient.oscA.frequency.exponentialRampToValueAtTime(base, t + 2.5);
     ambient.oscB.frequency.exponentialRampToValueAtTime(base * 1.5 + 0.4, t + 2.5);
   }
-  scheduleNextNote();
+  // まず本物の曲ファイルを試す。あればループ再生（手続き音楽は止まる）。無ければ従来の合成音。
+  startFileBgm(music.mood, () => scheduleNextNote());
 }
 
 // ---- 名前付きSE（このゲームの出来事に対応）----
