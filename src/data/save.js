@@ -68,6 +68,7 @@ function defaultSave() {
     // こころの木（設計書§8 ④）：転生でリセットされない上層
     enlightenment: 0, // 所持「まなび」
     gold: 0, // お金（永続）：仲間の個体強化に使う
+    diamonds: 30, // 💎ダイヤ（プレミア通貨）：ログインボーナス/ボス撃破で貯まる。特別な仲間の入手等に使う予定
     // 累計獲得（使っても減らない）＝クラウド同期の進行度スコアを単調増加に保つ核心
     lifetime: { enlightenment: 0, gold: 0, kills: 0, bossKills: 0 },
     // 感情の熟練度（ログウィズ③）：生涯で集めた欠片の累計。感情ごとの「理解」が深まる
@@ -87,6 +88,7 @@ function defaultSave() {
     // 旅の日記（DR③）：転生のたびに主感情で1行ずつ残る
     diary: [],
     lastSeen: 0, // 最後にホームを見た時刻（放置生産の経過計算用・Palworld由来）
+    lastLogin: "", // 最後にログインボーナスを受け取った日（YYYY-MM-DD）
     endingSeen: false, // 感情統合エンディングを見たか（§17-4：一度だけ）
     endings: {}, // 見たエンディングの種類（balance/anger/sadness/courage/hope/dark）＝図鑑・再訪動機
     spiritName: "", // 統合で生まれた「感情の精霊」にプレイヤーがつけた名
@@ -134,6 +136,7 @@ function ensure(s) {
   if (typeof s.party.paidSlots !== "number") s.party.paidSlots = 0; // 課金で拡張した器の枠
   s.party.eggs = Array.isArray(s.party.eggs) ? s.party.eggs : [];
   if (typeof s.gold !== "number") s.gold = 0;
+  if (typeof s.diamonds !== "number") s.diamonds = 30; // 既存プレイヤーにも初期ダイヤを付与
   // 累計獲得（クラウド同期の単調増加スコア用）。現残高を下限に「必ず」引き上げる。
   //  defaultSaveが lifetime={0,0} を先に入れるため型ガードでは埋まらない → Math.maxで冪等に下限シード。
   s.lifetime = s.lifetime && typeof s.lifetime === "object" ? s.lifetime : {};
@@ -311,6 +314,22 @@ export function tripleUnlocked(missingKey) {
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; // 端末ローカル日付で日替わり
+}
+// 毎日のログインボーナス：日付が変わっていれば 💎ダイヤ＋お金 を付与して返す（無ければ null）
+export function claimDailyLogin() {
+  const s = getSave();
+  const today = todayStr();
+  if (s.lastLogin === today) return null;
+  s.lastLogin = today;
+  const reward = { diamonds: 5, gold: 100 };
+  s.diamonds = (Number.isFinite(s.diamonds) ? s.diamonds : 0) + reward.diamonds;
+  s.gold += reward.gold;
+  s.lifetime.gold += reward.gold;
+  persist();
+  return reward;
+}
+export function getDiamonds() {
+  return getSave().diamonds || 0;
 }
 // その日の3件を用意（日付が変わっていたら引き直し）
 export function ensureDaily() {
@@ -499,6 +518,7 @@ export function mergeCloudSaves(base, other) {
   m.lifetime.gold = maxNum(m.lifetime.gold, o.lifetime.gold);
   m.enlightenment = maxNum(m.enlightenment, o.enlightenment);
   m.gold = maxNum(m.gold, o.gold);
+  m.diamonds = maxNum(m.diamonds, o.diamonds);
 
   // こころの木：ノードごとに高い方のレベル
   for (const br of TREE_BRANCH_KEYS) {
@@ -954,6 +974,10 @@ export function transmigrate(run) {
   s.gold += goldGain;
   s.lifetime.gold += goldGain; // 累計（使っても減らない進行度）
 
+  // 💎ダイヤ：ボスを倒すと貯まる（死亡でも保持＝到達の証）。ログインボーナスと並ぶ入手源。
+  const diamondGain = run.bossKills || 0;
+  if (diamondGain > 0) s.diamonds = (Number.isFinite(s.diamonds) ? s.diamonds : 0) + diamondGain;
+
   // 旅の日記（DR③）：主感情で1行残す
   const domRun = dominantOf(runEmotions) || "none";
   const lines = DIARY.lines[domRun] || DIARY.lines.none;
@@ -992,6 +1016,7 @@ export function transmigrate(run) {
     enlightenment: s.enlightenment,
     artifacts: earnedArtifacts,
     died: !!(run && run.died), // 倒れて帰ったか（撤退＝false）
+    diamondGain, // 💎ダイヤの獲得（ボス撃破ぶん）
     halved: keep < 1, // 死亡で持ち帰りが半減したか
     satoriLost: satoriRaw - satoriGain, // 死亡で失った まなび
     goldLost: goldRaw - goldGain, // 死亡で失った お金

@@ -37,6 +37,7 @@ import {
   nodeMax,
   nodeCost,
   collectIdleProduction,
+  claimDailyLogin,
   townLevel,
   isShopOwned,
   buyShopCompanion,
@@ -456,6 +457,9 @@ export default class HomeScene extends Phaser.Scene {
     if (Object.keys(idle.produced).length) {
       this.time.delayedCall(380, () => this.showWelcomeBack(idle));
     }
+    // 毎日のログインボーナス（💎ダイヤ＋お金）＝毎日訪れる理由
+    const login = claimDailyLogin();
+    if (login) this.time.delayedCall(700, () => this.toast(`🎁 ログインボーナス　💎${login.diamonds}　💰${login.gold}`));
 
     this.buildTopHud(s); // 上部HUD：プレイヤー情報(左)＋リソースcapsule(右)
     // タイトル：明朝。明るい空の上で読めるよう深い藍緑に（うしろに白のにじみで浮かせる）
@@ -706,7 +710,7 @@ export default class HomeScene extends Phaser.Scene {
       this.add.text(r - 12, cy, Number(val || 0).toLocaleString(), { fontFamily: UI_FONT, fontSize: "14px", color: "#ffffff", fontStyle: "bold" }).setOrigin(1, 0.5);
     };
     capsule(21, "💰", s.gold, 0xffd24d);
-    capsule(52, "🧠", s.enlightenment, 0x9ad0ff);
+    capsule(52, "💎", s.diamonds, 0x9ad0ff); // まなびは「こころの木」用。上部capsuleはゲームらしくダイヤ
   }
 
   refreshHomeStats() {
