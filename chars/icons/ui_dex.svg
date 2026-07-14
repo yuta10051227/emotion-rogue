@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="dexCover" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a8d6ff"/>
+      <stop offset="1" stop-color="#6ab4ff"/>
+    </linearGradient>
+    <linearGradient id="dexPage" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef3f8"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 14 Q8 12 10 12 L28 14 Q31 14.5 32 17 L32 52 Q31 49.5 28 49 L10 47 Q8 47 8 45 Z" fill="url(#dexCover)" stroke="#1976d2" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M56 14 Q56 12 54 12 L36 14 Q33 14.5 32 17 L32 52 Q33 49.5 36 49 L54 47 Q56 47 56 45 Z" fill="url(#dexCover)" stroke="#1976d2" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M13 19 Q13 17.5 15 17.7 L28 19.5 Q30 19.8 30 22 L30 47 Q30 45 28 44.7 L15 43 Q13 42.8 13 41 Z" fill="url(#dexPage)" stroke="#d0d8e0" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M51 19 Q51 17.5 49 17.7 L36 19.5 Q34 19.8 34 22 L34 47 Q34 45 36 44.7 L49 43 Q51 42.8 51 41 Z" fill="url(#dexPage)" stroke="#d0d8e0" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="30.5" y="15" width="3" height="38" rx="1.5" fill="#1976d2"/>
+</svg>

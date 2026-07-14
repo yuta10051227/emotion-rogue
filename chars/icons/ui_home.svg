@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="homeWall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fff6e6"/>
+    </linearGradient>
+    <linearGradient id="homeRoof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd0a0"/>
+      <stop offset="1" stop-color="#ffab5a"/>
+    </linearGradient>
+    <linearGradient id="homeWin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe9a8"/>
+      <stop offset="1" stop-color="#ffc24d"/>
+    </linearGradient>
+  </defs>
+  <path d="M14 30 L14 52 Q14 54 16 54 L48 54 Q50 54 50 52 L50 30 Z" fill="url(#homeWall)" stroke="#c8a06a" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M9 32 L32 12 L55 32 Q56 33 54.5 34.5 L52 36 Q51 37 50 36 L32 21 L14 36 Q13 37 12 36 L9.5 34.5 Q8 33 9 32 Z" fill="url(#homeRoof)" stroke="#e0762a" stroke-width="2.5" stroke-linejoin="round"/>
+  <rect x="27" y="38" width="10" height="16" rx="2" fill="url(#homeWin)" stroke="#e0762a" stroke-width="2.2" stroke-linejoin="round"/>
+</svg>

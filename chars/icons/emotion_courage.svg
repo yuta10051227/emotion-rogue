@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="boltBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff3a0"/>
+      <stop offset="0.5" stop-color="#ffe066"/>
+      <stop offset="1" stop-color="#ffd24d"/>
+    </linearGradient>
+  </defs>
+  <!-- thick zigzag lightning bolt with slightly rounded corners -->
+  <path d="M38 6
+           L20 34
+           Q19 36 21.5 36
+           L30 36
+           L26 58
+           Q25.5 60 27 58.5
+           L46 28
+           Q47 26 44.5 26
+           L36 26
+           L40 8
+           Q40.5 5.5 38 6 Z"
+        fill="url(#boltBody)" stroke="#f9a825" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- inner highlight -->
+  <path d="M36 12
+           L26 30
+           L33 30
+           L31 44
+           L41 27
+           L35 27 Z"
+        fill="#fff3a0" opacity="0.7" stroke="none"/>
+</svg>
