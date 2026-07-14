@@ -457,7 +457,7 @@ export default class HomeScene extends Phaser.Scene {
       this.time.delayedCall(380, () => this.showWelcomeBack(idle));
     }
 
-    this.add.text(this.W / 2, 52, "─ HOME ─", { fontFamily: DISPLAY_FONT, fontSize: "13px", color: "#4a6a86" }).setOrigin(0.5);
+    this.buildTopHud(s); // 上部HUD：プレイヤー情報(左)＋リソースcapsule(右)
     // タイトル：明朝。明るい空の上で読めるよう深い藍緑に（うしろに白のにじみで浮かせる）
     const titleStyle = { fontFamily: DISPLAY_FONT, fontSize: "28px", color: "#1c5a6e", letterSpacing: 6 };
     const titleGlow = this.add.text(this.W / 2, 80, "やすらぎの街", { ...titleStyle, color: "#ffffff" }).setOrigin(0.5).setAlpha(0.55).setScale(1.08);
@@ -652,7 +652,7 @@ export default class HomeScene extends Phaser.Scene {
   // 右上のアカウント表示。タップで ログイン／ログアウト。状態は非同期で反映。
   drawAccountChip() {
     const chip = this.add
-      .text(this.W - 14, 44, "☁ アカウント", { fontFamily: UI_FONT, fontSize: "12px", color: "#7a9ac0" })
+      .text(this.W - 14, 80, "☁ アカウント", { fontFamily: UI_FONT, fontSize: "11px", color: "#4a6a86" }) // リソースcapsuleの下へ
       .setOrigin(1, 0.5)
       .setInteractive({ useHandCursor: true });
     chip.on("pointerdown", () => {
@@ -669,6 +669,44 @@ export default class HomeScene extends Phaser.Scene {
       if (u) chip.setText("☁ " + (u.email ? u.email.split("@")[0] : "ログイン中")).setColor("#9fff9f");
       else chip.setText("☁ ログイン").setColor("#7a9ac0");
     });
+  }
+
+  // 魂レベル・転生から プレイヤーの称号を決める（"生きてる拠点"の演出）
+  playerTitle(level, rebirths) {
+    if (!rebirths) return "はじまりの旅人";
+    if (level >= 50) return "導きの旅人";
+    if (level >= 20) return "熟練の旅人";
+    if (level >= 8) return "旅人";
+    return "見習いの旅人";
+  }
+
+  // ---- 上部HUD：プレイヤーカード(左) ＋ リソースcapsule(右) ----
+  buildTopHud(s) {
+    const p = getPlayer() || { gender: "boy", name: "旅人" };
+    // ── プレイヤーカード（左上・クリーム地＋濃茶枠＋下影）──
+    const x = 10, y = 8, w = 198, h = 58;
+    const g = this.add.graphics();
+    g.fillStyle(0x2a1d14, 0.45); g.fillRoundedRect(x + 2, y + 5, w, h, 14); // 下影
+    g.fillStyle(0xfff3d2, 0.98); g.fillRoundedRect(x, y, w, h, 14);
+    g.lineStyle(3, 0x70462f, 1); g.strokeRoundedRect(x, y, w, h, 14);
+    g.fillStyle(0x70462f, 1); g.fillRoundedRect(x + 7, y + 7, 44, 44, 10); // アバター枠
+    const avKey = this.textures.exists("kid_" + p.gender) ? "kid_" + p.gender : (this.textures.exists("kid_boy") ? "kid_boy" : null);
+    if (avKey) this.add.image(x + 29, y + 30, avKey).setDisplaySize(42, 42);
+    else this.add.text(x + 29, y + 29, p.gender === "girl" ? "👧" : "👦", { fontFamily: EMOJI_FONT, fontSize: "26px" }).setOrigin(0.5);
+    this.add.text(x + 60, y + 17, p.name || "旅人", { fontFamily: UI_FONT, fontSize: "16px", color: "#3e291f", fontStyle: "bold" }).setOrigin(0, 0.5);
+    this.add.text(x + 60, y + 40, `Lv.${s.soul.level}  ${this.playerTitle(s.soul.level, s.soul.rebirths)}`, { fontFamily: UI_FONT, fontSize: "11px", color: "#8a5a2a" }).setOrigin(0, 0.5);
+    // ── リソースcapsule（右上・2段・濃色地＋数字白）──
+    const capsule = (cy, icon, val, col) => {
+      const cw = 120, ch = 26, r = this.W - 12;
+      const cg = this.add.graphics();
+      cg.fillStyle(0x2a1d14, 0.4); cg.fillRoundedRect(r - cw + 2, cy - ch / 2 + 3, cw, ch, 13);
+      cg.fillStyle(0x17292a, 0.94); cg.fillRoundedRect(r - cw, cy - ch / 2, cw, ch, 13);
+      cg.lineStyle(2, col, 0.95); cg.strokeRoundedRect(r - cw, cy - ch / 2, cw, ch, 13);
+      makeIcon(this, r - cw + 17, cy, icon, 16, EMOJI_FONT);
+      this.add.text(r - 12, cy, Number(val || 0).toLocaleString(), { fontFamily: UI_FONT, fontSize: "14px", color: "#ffffff", fontStyle: "bold" }).setOrigin(1, 0.5);
+    };
+    capsule(21, "💰", s.gold, 0xffd24d);
+    capsule(52, "🧠", s.enlightenment, 0x9ad0ff);
   }
 
   refreshHomeStats() {
