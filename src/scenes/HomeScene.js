@@ -322,7 +322,7 @@ export default class HomeScene extends Phaser.Scene {
         ];
         const title = this.add.text(cx, 120, "── ものがたり ──", { fontFamily: DISPLAY_FONT, fontSize: "18px", color: "#c9a86a" }).setOrigin(0.5);
         const body = this.add.text(cx, this.H * 0.44, "", { fontFamily: UI_FONT, fontSize: "19px", color: "#eae4dc", align: "center", lineSpacing: 12, wordWrap: { width: this.W - 60 } }).setOrigin(0.5);
-        const hint = this.add.text(cx, this.H - 76, "タップで すすむ", { fontFamily: UI_FONT, fontSize: "12px", color: "#7a8aa0" }).setOrigin(0.5);
+        const hint = this.add.text(cx, this.H - 76, "タップで すすむ", { fontFamily: UI_FONT, fontSize: "12px", color: "#eaf0f8", stroke: "#1a2030", strokeThickness: 3 }).setOrigin(0.5);
         this.tweens.add({ targets: hint, alpha: 0.4, duration: 1100, yoyo: true, repeat: -1 });
         const skip = this.add.text(this.W - 24, 30, "スキップ ▶", { fontFamily: UI_FONT, fontSize: "12px", color: "#8a94a8" }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true }).setDepth(102);
         layer.add([title, body, hint, skip]);
