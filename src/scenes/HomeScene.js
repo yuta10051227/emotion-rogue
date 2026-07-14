@@ -121,6 +121,7 @@ export default class HomeScene extends Phaser.Scene {
     if (!this.textures.exists("hero_slime")) this.load.image("hero_slime", "chars/hero_slime.png");
     if (!this.textures.exists("bg_far")) this.load.image("bg_far", "chars/bg_far.png");
     if (!this.textures.exists("bg_home_main")) this.load.image("bg_home_main", "chars/bg_home_main.jpg"); // ★ホーム専用の新背景（あれば最優先。無ければ bg_home）
+    if (!this.textures.exists("bg_prologue")) this.load.image("bg_prologue", "chars/bg_prologue.jpg"); // ★オープニング(物語導入)の背景（あれば夜明けグラデの代わりに敷く）
     if (!this.textures.exists("bg_home")) this.load.image("bg_home", "chars/bg_home.jpg"); // 生成アートの動く背景（軽量JPEG）
     if (!this.textures.exists("bg_home_fg")) this.load.image("bg_home_fg", "chars/bg_home_fg.png"); // 手前の草花（透過）
     if (!this.textures.exists("town_nest")) this.load.image("town_nest", "chars/town_nest.png"); // 卵の巣
@@ -264,18 +265,26 @@ export default class HomeScene extends Phaser.Scene {
   // ---- 初回オンボーディング（①物語の導入 → ②主人公えらび＋なまえ → ③旅立ち：気持ちが卵→相棒に）----
   runOnboarding() {
     const cx = this.W / 2;
-    // 導入の背景：冷たい真っ黒をやめ、夜明けの暖色グラデ＋ほのかに昇る光で「希望」の空気に（暗さの緩和）。
+    // 導入の背景：専用アート bg_prologue があればそれを敷く。無ければ 夜明けの暖色グラデ＋昇る光（暗さの緩和）。
     const bgLayer = this.add.container(0, 0).setDepth(99);
-    const bgG = this.add.graphics();
-    bgG.fillGradientStyle(0x2a2348, 0x2a2348, 0x6a4256, 0x9a5f56, 1, 1, 1, 1); // 藍紫(上)→朝焼けの暖色(下)
-    bgG.fillRect(0, 0, this.W, this.H);
-    const dawn = this.add.graphics();
-    dawn.fillStyle(0xffd9a0, 0.14); dawn.fillCircle(cx, this.H * 0.86, this.W * 0.75); // 地平のあたたかな光
-    bgLayer.add([bgG, dawn]);
-    for (let i = 0; i < 16; i++) { // ゆっくり昇る暖色の光の粒
-      const m = this.add.circle(Math.random() * this.W, this.H + Math.random() * this.H, 1 + Math.random() * 2.4, 0xffe6b0, 0.5);
-      bgLayer.add(m);
-      this.tweens.add({ targets: m, y: -20, alpha: 0, duration: 9000 + Math.random() * 6000, delay: Math.random() * 4000, repeat: -1, ease: "Sine.easeIn" });
+    if (this.textures.exists("bg_prologue")) {
+      const img = this.add.image(cx, this.H / 2, "bg_prologue");
+      img.setScale(Math.max(this.W / img.width, this.H / img.height) * 1.04);
+      const scrim = this.add.graphics(); // 文字が読めるよう ごく淡い暗幕
+      scrim.fillStyle(0x0a0a16, 0.22); scrim.fillRect(0, 0, this.W, this.H);
+      bgLayer.add([img, scrim]);
+    } else {
+      const bgG = this.add.graphics();
+      bgG.fillGradientStyle(0x2a2348, 0x2a2348, 0x6a4256, 0x9a5f56, 1, 1, 1, 1); // 藍紫(上)→朝焼けの暖色(下)
+      bgG.fillRect(0, 0, this.W, this.H);
+      const dawn = this.add.graphics();
+      dawn.fillStyle(0xffd9a0, 0.14); dawn.fillCircle(cx, this.H * 0.86, this.W * 0.75); // 地平のあたたかな光
+      bgLayer.add([bgG, dawn]);
+      for (let i = 0; i < 16; i++) { // ゆっくり昇る暖色の光の粒
+        const m = this.add.circle(Math.random() * this.W, this.H + Math.random() * this.H, 1 + Math.random() * 2.4, 0xffe6b0, 0.5);
+        bgLayer.add(m);
+        this.tweens.add({ targets: m, y: -20, alpha: 0, duration: 9000 + Math.random() * 6000, delay: Math.random() * 4000, repeat: -1, ease: "Sine.easeIn" });
+      }
     }
     const overlay = this.add.rectangle(cx, this.H / 2, this.W, this.H, 0x000000, 0.001).setDepth(100).setInteractive();
     this._onboardBg = bgLayer; // 片付け用
