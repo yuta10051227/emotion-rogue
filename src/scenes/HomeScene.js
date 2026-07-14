@@ -449,8 +449,8 @@ export default class HomeScene extends Phaser.Scene {
     this.add.text(this.W / 2, 52, "─ HOME ─", { fontFamily: DISPLAY_FONT, fontSize: "13px", color: "#4a6a86" }).setOrigin(0.5);
     // タイトル：明朝。明るい空の上で読めるよう深い藍緑に（うしろに白のにじみで浮かせる）
     const titleStyle = { fontFamily: DISPLAY_FONT, fontSize: "28px", color: "#1c5a6e", letterSpacing: 6 };
-    const titleGlow = this.add.text(this.W / 2, 80, "やすらぎの灯", { ...titleStyle, color: "#ffffff" }).setOrigin(0.5).setAlpha(0.55).setScale(1.08);
-    this.add.text(this.W / 2, 80, "やすらぎの灯", titleStyle).setOrigin(0.5);
+    const titleGlow = this.add.text(this.W / 2, 80, "やすらぎの街", { ...titleStyle, color: "#ffffff" }).setOrigin(0.5).setAlpha(0.55).setScale(1.08);
+    this.add.text(this.W / 2, 80, "やすらぎの街", titleStyle).setOrigin(0.5);
     this.tweens.add({ targets: titleGlow, alpha: 0.3, duration: 2200, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
     if (s.spiritName) {
       this.add.text(this.W / 2, 102, `〈感情の精霊〉 ${s.spiritName}`, { fontFamily: UI_FONT, fontSize: "12px", color: "#b0742a" }).setOrigin(0.5);
