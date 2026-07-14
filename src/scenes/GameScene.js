@@ -2516,8 +2516,40 @@ export default class GameScene extends Phaser.Scene {
 
   // ============================ 転生：ホームへ戻る ============================
   retreatToHome() {
-    if (this.upPanel || this._choice || this._coach || this._leaving) return; // パネル/カード/チュートリアル中はホットキー撤退も禁止（宙ぶらり防止）
-    // 進化・エピローグ・死亡演出中以外は、戦闘中でも撤退できる（引き際の裁量）
+    if (this.upPanel || this._choice || this._coach || this._leaving || this._retreatConfirm) return; // パネル/カード/チュートリアル中は禁止
+    if (this.mode !== "walk" && this.mode !== "battle") return;
+    this.confirmRetreat(); // 掛け金（持ち帰り額）を見せてから撤退（引き際を意味あるものに）
+  }
+
+  // 現在の持ち帰り見込み（撤退時に全部もらえる額。倒れると半分）。
+  retreatCarryPreview() {
+    const dist = Math.floor(this.distance);
+    const satori = Math.floor(dist * C.TREE.satori.perMeter) + (this.evolved ? C.TREE.satori.evolveBonus : 0);
+    const gold = Math.floor(dist / 4) + (this.kills || 0) * 2;
+    return { satori, gold };
+  }
+
+  confirmRetreat() {
+    const cx = this.W / 2, cy = this.H / 2 - 20;
+    const pv = this.retreatCarryPreview();
+    const c = this.add.container(0, 0).setDepth(260);
+    const dim = this.add.rectangle(cx, this.H / 2, this.W, this.H, 0x0a1018, 0.6).setInteractive();
+    const gfx = this.add.graphics();
+    gfx.fillStyle(0x14243a, 0.98); gfx.fillRoundedRect(cx - 168, cy - 108, 336, 216, 14);
+    ornateFrame(gfx, cx, cy, 336, 216, 14, { thick: 2, inset: 5, corners: true, cornerArm: 14 });
+    const title = this.add.text(cx, cy - 78, "ここで 引き返す？", { fontFamily: UI_FONT, fontSize: "20px", color: "#f0e6d0", fontStyle: "bold" }).setOrigin(0.5);
+    const carry = this.add.text(cx, cy - 32, `いま撤退すると 全部 持ち帰れる\n🧠 まなび ${pv.satori}　💰 お金 ${pv.gold}`, { fontFamily: UI_FONT, fontSize: "15px", color: "#eaf0f8", align: "center", lineSpacing: 8 }).setOrigin(0.5);
+    const warn = this.add.text(cx, cy + 20, "※ 倒れると 半分に なってしまう", { fontFamily: UI_FONT, fontSize: "12px", color: "#ff9d9d" }).setOrigin(0.5);
+    c.add([dim, gfx, title, carry, warn]);
+    const close = () => { if (this._retreatConfirm === c) this._retreatConfirm = null; c.destroy(true); };
+    const yes = this.makeBarButton(cx - 80, cy + 70, 148, 46, "↗ 持ち帰る", () => { close(); this.doRetreat(); }, { color: 0x1e7a40, stroke: 0x2e7d32, textColor: "#ffffff" });
+    const no = this.makeBarButton(cx + 84, cy + 70, 116, 46, "つづける", () => close(), { color: 0x2a3446, stroke: 0x5a6a86, textColor: "#c8d4e4" });
+    for (const b of [yes, no]) { c.add(b.gfx); c.add(b.rect); c.add(b.txt); }
+    dim.on("pointerdown", close);
+    this._retreatConfirm = c;
+  }
+
+  doRetreat() {
     if (this.mode !== "walk" && this.mode !== "battle") return;
     if (this.battleTimer) this.battleTimer.remove();
     this.dismissCare();
@@ -2528,8 +2560,8 @@ export default class GameScene extends Phaser.Scene {
     if (this._leaving) return;
     this._leaving = true;
     this.clearQueueSilhouettes();
-    const run = { distance: this.distance, emotions: { ...this.emotions }, evolved: this.evolved, kills: this.kills, abyss: !!this.abyss, bossKills: this.bossKillCount || 0 };
-    const summary = transmigrate(run);
+    const run = { distance: this.distance, emotions: { ...this.emotions }, evolved: this.evolved, kills: this.kills, abyss: !!this.abyss, bossKills: this.bossKillCount || 0, died: !!died };
+    const summary = transmigrate(run); // 案1：死亡なら まなび/お金/記憶 が半減（撤退は全部持ち帰る）
     summary.emotions = run.emotions;
     summary.died = died;
     // 仲間の去就を確定（魂の絆で繋がる／光に還る）。設計書§17
@@ -2911,6 +2943,11 @@ export default class GameScene extends Phaser.Scene {
       }
       if (summary.goldGain > 0) {
         T(dyn, y, `🪙 お金 +${summary.goldGain}`, { size: "15px", color: "#ffe08a" });
+        y += 30;
+      }
+      // 倒れて帰った時：半分 失ったことを見せる（撤退の意味づけ・案1）
+      if (summary.halved && (summary.satoriLost > 0 || summary.goldLost > 0)) {
+        T(dyn, y, `倒れたので 半分 失った…（まなび -${summary.satoriLost} / お金 -${summary.goldLost}）`, { size: "13px", color: "#ff9d9d" });
         y += 30;
       }
       if (summary.artifacts && summary.artifacts.length) {

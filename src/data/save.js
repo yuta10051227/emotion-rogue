@@ -917,11 +917,13 @@ export function transmigrate(run) {
   // 上流バグ由来の NaN/Infinity が永続セーブへ混入すると通貨・魂が復旧不能に汚染されるため、必ず有限化する
   const runEmotions = (run && run.emotions) || {};
   const safeDist = Number.isFinite(run && run.distance) ? Math.max(0, run.distance) : 0;
+  // 撤退の意味づけ（案1）：倒れると持ち帰りが半減。撤退なら全部持ち帰る。
+  const keep = run && run.died ? (Number.isFinite(SOUL.deathKeepRatio) ? SOUL.deathKeepRatio : 0.5) : 1;
   for (const k of EMOTION_ORDER) {
     const v = runEmotions[k];
-    const safe = Number.isFinite(v) ? v : 0;
-    s.soul.memory[k] = (Number.isFinite(s.soul.memory[k]) ? s.soul.memory[k] : 0) + safe;
-    s.lifetimeFrags[k] = (Number.isFinite(s.lifetimeFrags[k]) ? s.lifetimeFrags[k] : 0) + safe; // 熟練度の源泉
+    const gained = Math.floor((Number.isFinite(v) ? v : 0) * keep); // 死亡時は感情の記憶も半減
+    s.soul.memory[k] = (Number.isFinite(s.soul.memory[k]) ? s.soul.memory[k] : 0) + gained;
+    s.lifetimeFrags[k] = (Number.isFinite(s.lifetimeFrags[k]) ? s.lifetimeFrags[k] : 0) + gained; // 熟練度の源泉
   }
   // 生涯討伐数（あかし用）＋深淵の最高到達
   s.lifetime.kills += Number.isFinite(run && run.kills) ? run.kills : 0;
@@ -937,16 +939,18 @@ export function transmigrate(run) {
   const newBest = dist > s.soul.bestDistance;
   if (newBest) s.soul.bestDistance = dist;
 
-  // 「まなび」獲得：到達距離 ＋ 進化達成 ＋ 最高更新（プレイヤーは旅から学ぶ）
-  const satoriGain =
+  // 「まなび」獲得：到達距離 ＋ 進化達成 ＋ 最高更新（プレイヤーは旅から学ぶ）。死亡時は半減。
+  const satoriRaw =
     Math.floor(dist * TREE.satori.perMeter) +
     (run.evolved ? TREE.satori.evolveBonus : 0) +
     (newBest ? TREE.satori.bestBonus : 0);
+  const satoriGain = Math.floor(satoriRaw * keep);
   s.enlightenment += satoriGain;
   s.lifetime.enlightenment += satoriGain; // 累計（使っても減らない進行度）
 
-  // お金（永続）：旅の到達と撃破から。仲間の個体強化に使う。
-  const goldGain = Math.floor(dist / 4) + (run.kills || 0) * 2;
+  // お金（永続）：旅の到達と撃破から。仲間の個体強化に使う。死亡時は半減。
+  const goldRaw = Math.floor(dist / 4) + (run.kills || 0) * 2;
+  const goldGain = Math.floor(goldRaw * keep);
   s.gold += goldGain;
   s.lifetime.gold += goldGain; // 累計（使っても減らない進行度）
 
@@ -987,6 +991,10 @@ export function transmigrate(run) {
     goldGain,
     enlightenment: s.enlightenment,
     artifacts: earnedArtifacts,
+    died: !!(run && run.died), // 倒れて帰ったか（撤退＝false）
+    halved: keep < 1, // 死亡で持ち帰りが半減したか
+    satoriLost: satoriRaw - satoriGain, // 死亡で失った まなび
+    goldLost: goldRaw - goldGain, // 死亡で失った お金
   };
 }
 
