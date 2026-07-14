@@ -364,65 +364,68 @@ export default class HomeScene extends Phaser.Scene {
         layer.add([boy[0], girl[0], boyImg, boyT, girlImg, girlT, boy[1], girl[1]]);
       });
 
+    // ② たまごに名前をつける（名前で 生まれる子が決まる）
     const step2 = () =>
       draw(() => {
         if (!name) name = defaultName();
-        const img = this.textures.exists("kid_" + gender) ? this.add.image(cx, 220, "kid_" + gender).setScale(1.15) : emoji(gender === "boy" ? "👦" : "👧", cx, 220, "80px");
-        layer.add(img);
-        layer.add(this.add.text(cx, 322, "名前を教えて", { fontFamily: UI_FONT, fontSize: "16px", color: "#9a9aac" }).setOrigin(0.5));
-        const nameT = this.add.text(cx, 362, name, { fontFamily: DISPLAY_FONT, fontSize: "30px", color: "#f0f0f0" }).setOrigin(0.5);
+        const egg = this.textures.exists("egg") ? this.add.image(cx, 216, "egg").setScale(1.3) : emoji("🥚", cx, 216, "88px");
+        layer.add(egg);
+        this.tweens.add({ targets: egg, angle: -6, duration: 230, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+        layer.add(this.add.text(cx, 300, "旅のはじめ、キミの気持ちが あふれて\nひとつの卵に なった。", { fontFamily: UI_FONT, fontSize: "13px", color: "#c2cadb", align: "center", lineSpacing: 6 }).setOrigin(0.5));
+        layer.add(this.add.text(cx, 350, "この卵に 名前を つけよう", { fontFamily: UI_FONT, fontSize: "16px", color: "#ffe6b0" }).setOrigin(0.5));
+        layer.add(this.add.text(cx, 374, "（名前で、生まれる子が 決まる）", { fontFamily: UI_FONT, fontSize: "11px", color: "#9a9aac" }).setOrigin(0.5));
+        const nameT = this.add.text(cx, 410, name, { fontFamily: DISPLAY_FONT, fontSize: "30px", color: "#f0f0f0" }).setOrigin(0.5);
         layer.add(nameT);
-        const rename = this.makeButton(cx, 434, 236, 48, "名前を変える", () => {
-          const inp = typeof window !== "undefined" && window.prompt ? window.prompt("名前を入力（8文字まで）", name) : "";
+        const rename = this.makeButton(cx, 466, 236, 48, "名前を つける", () => {
+          const inp = typeof window !== "undefined" && window.prompt ? window.prompt("卵の名前を入力（8文字まで）", name) : "";
           const v = (inp || "").trim().slice(0, 8);
           if (v) { name = v; nameT.setText(name); }
-        }, { color: 0xeef4fc, stroke: 0x5a7aa0, textColor: "#1f6aa8", fontSize: "15px" }); // 明るいオンボ背景で読めるよう濃色文字
-        const ok = this.makeButton(cx, 500, 236, 56, "この名前で始める", () => { sfx.tap(); step3(); }, { color: 0x4caf50, stroke: 0x2e7d32, textColor: "#ffffff", fontSize: "19px" }); // 主要CTA=緑＋白文字
-        // gfx(塗り)を先頭＝最背面に。txtを後＝前面に（順序を誤ると塗りが文字を覆い隠す）
+        }, { color: 0xeef4fc, stroke: 0x5a7aa0, textColor: "#1f6aa8", fontSize: "15px" });
+        const ok = this.makeButton(cx, 526, 236, 56, "この名前で かえす", () => { sfx.tap(); step3(); }, { color: 0x4caf50, stroke: 0x2e7d32, textColor: "#ffffff", fontSize: "19px" });
         layer.add([rename.gfx, rename.rect, rename.txt, rename.badge, ok.gfx, ok.rect, ok.txt, ok.badge]);
       });
 
+    // ③ ふ化：名前で決まった3種のどれかが生まれる（同じ名前なら必ず同じ子）
     const step3 = () =>
       draw(() => {
-        layer.add(this.add.text(cx, 116, `${name}の 旅立ち`, { fontFamily: DISPLAY_FONT, fontSize: "22px", color: "#f0f0f0" }).setOrigin(0.5));
-        layer.add(this.add.text(cx, 160, "旅のはじめ、キミの心にも\n抱えきれない気持ちが あふれた。", { fontFamily: UI_FONT, fontSize: "14px", color: "#c2cadb", align: "center", lineSpacing: 7 }).setOrigin(0.5));
-        layer.add(this.add.text(cx, 208, "その気持ちが こぼれ落ちて ── ひとつの卵になる。", { fontFamily: UI_FONT, fontSize: "12px", color: "#9a9aac" }).setOrigin(0.5));
-        const egg = this.textures.exists("egg") ? this.add.image(cx, 318, "egg").setScale(1.25) : emoji("🥚", cx, 318, "84px");
+        const kind = C.starterFromName(name); // 名前→種（裏ルール）
+        const kindCss = colorToCss(kind.tint);
+        layer.add(this.add.text(cx, 118, `${name}の たまごが かえる…`, { fontFamily: DISPLAY_FONT, fontSize: "20px", color: "#f0f0f0" }).setOrigin(0.5));
+        const egg = this.textures.exists("egg") ? this.add.image(cx, 300, "egg").setScale(1.3) : emoji("🥚", cx, 300, "88px");
         layer.add(egg);
-        const wob = this.tweens.add({ targets: egg, angle: -8, duration: 190, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+        const wob = this.tweens.add({ targets: egg, angle: -8, duration: 180, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
         const hatch = this.makeButton(cx, 470, 244, 60, "🥚 卵に触れる", () => {
           hatch.rect.disableInteractive();
           wob.stop();
           this.tweens.add({
-            targets: egg,
-            scale: 0.08,
-            alpha: 0,
-            duration: 320,
+            targets: egg, scale: 0.08, alpha: 0, duration: 320,
             onComplete: () => {
               egg.destroy();
-              // 前のボタンを片付けてから次を出す（重なり防止）
-              hatch.rect.destroy();
-              hatch.txt.destroy();
-              hatch.badge.destroy();
-              hatch.gfx.destroy();
-              if (hatch.icon) hatch.icon.destroy(); // 🥚アイコン画像も片付ける
-              const hasSlime = this.textures.exists("hero_slime");
-              const slime = hasSlime ? this.add.image(cx, 286, "hero_slime").setScale(0.1) : emoji("🟢", cx, 286, "12px");
-              layer.add(slime);
-              this.tweens.add({ targets: slime, scale: hasSlime ? 1.25 : 7, duration: 520, ease: "Back.easeOut" });
-              layer.add(this.add.text(cx, 388, "キミの気持ちから、相棒が生まれた。", { fontFamily: DISPLAY_FONT, fontSize: "19px", color: "#f0f0f0" }).setOrigin(0.5));
-              layer.add(this.add.text(cx, 424, "この子は これから、キミしだいで\nどんな気持ちにも 育っていく。", { fontFamily: UI_FONT, fontSize: "13px", color: "#b8c0d0", align: "center", lineSpacing: 6 }).setOrigin(0.5));
-              const go = this.makeButton(cx, 508, 244, 60, "▶ ともに旅へ", () => {
-                setPlayer({ gender, name });
+              hatch.rect.destroy(); hatch.txt.destroy(); hatch.badge.destroy(); hatch.gfx.destroy();
+              if (hatch.icon) hatch.icon.destroy();
+              // 生まれた子：専用アート(hero_egg_<id>)があれば使い、無ければ 緑スライム＋色ちがい(仮)
+              const artKey = this.textures.exists("hero_egg_" + kind.id) ? "hero_egg_" + kind.id : (this.textures.exists("hero_slime") ? "hero_slime" : null);
+              const halo = this.add.circle(cx, 286, 58, kind.tint, 0.28).setBlendMode(Phaser.BlendModes.ADD);
+              layer.add(halo);
+              this.tweens.add({ targets: halo, alpha: 0.5, scale: 1.08, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+              const born = artKey ? this.add.image(cx, 286, artKey).setScale(0.1) : emoji("🟢", cx, 286, "12px");
+              if (artKey === "hero_slime") born.setTint(kind.tint); // 専用アートが無い間は色ちがいで区別
+              layer.add(born);
+              this.tweens.add({ targets: born, scale: artKey ? 1.25 : 7, duration: 520, ease: "Back.easeOut" });
+              layer.add(this.add.text(cx, 384, `${name} が 生まれた！`, { fontFamily: DISPLAY_FONT, fontSize: "22px", color: "#ffffff" }).setOrigin(0.5));
+              layer.add(this.add.text(cx, 418, `〈 ${kind.label} 〉`, { fontFamily: DISPLAY_FONT, fontSize: "17px", color: kindCss }).setOrigin(0.5));
+              layer.add(this.add.text(cx, 444, `${kind.hint}／ キミしだいで どんな気持ちにも 育つ`, { fontFamily: UI_FONT, fontSize: "12px", color: "#c2cadb" }).setOrigin(0.5));
+              const go = this.makeButton(cx, 512, 244, 60, "▶ ともに旅へ", () => {
+                setPlayer({ gender, name, starter: kind.id });
                 markPlayerChosen();
                 this.tweens.add({ targets: [overlay, layer, bgLayer], alpha: 0, duration: 420, onComplete: () => { overlay.destroy(); layer.destroy(true); bgLayer.destroy(true); this.buildHome(); } });
-              }, { color: 0x4caf50, stroke: 0x2e7d32, textColor: "#ffffff", fontSize: "20px" }); // 主要CTA=緑＋白文字
-              layer.add([go.gfx, go.rect, go.txt, go.badge]); // gfxを最背面に
+              }, { color: 0x4caf50, stroke: 0x2e7d32, textColor: "#ffffff", fontSize: "20px" });
+              layer.add([go.gfx, go.rect, go.txt, go.badge]);
             },
           });
-        }, { color: 0xffc94d, stroke: 0xd4a017, textColor: "#5a3d00", fontSize: "19px" }); // 主要CTA=金＋濃茶文字
-        layer.add([hatch.gfx, hatch.rect, hatch.txt, hatch.badge]); // gfxを最背面に
-        if (hatch.icon) layer.add(hatch.icon); // 🥚アイコンもレイヤーへ（片付け対象に）
+        }, { color: 0xffc94d, stroke: 0xd4a017, textColor: "#5a3d00", fontSize: "19px" });
+        layer.add([hatch.gfx, hatch.rect, hatch.txt, hatch.badge]);
+        if (hatch.icon) layer.add(hatch.icon);
       });
 
     prologue(); // ①物語 → ②主人公えらび → ③旅立ち（相棒の誕生）

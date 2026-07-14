@@ -884,6 +884,10 @@ export default class GameScene extends Phaser.Scene {
       this.heroFit = this.heroFitFor(0);
       this.heroSprite.setScale(this.heroFit);
       this.heroFormKey = "hero_slime";
+      // 始まりの子：名前で決まった種の色を、基本形(スライム)に乗せる（専用アートが無い間の色ちがい）。進化で解除。
+      const pk = (getPlayer() || {}).starter;
+      this.starterTint = pk ? C.starterKindById(pk).tint : 0xffffff;
+      if (this.starterTint !== 0xffffff) this.heroSprite.setTint(this.starterTint); // walk/idle切替を跨いで保持される
     } else {
       this.heroSprite = this.add.text(this.heroX, this.heroY, "🟢", { fontFamily: EMOJI_FONT, fontSize: "64px" }).setOrigin(0.5).setDepth(2);
       this.heroIsImage = false;
@@ -895,6 +899,7 @@ export default class GameScene extends Phaser.Scene {
     if (starter && this.heroIsImage && this.textures.exists("hero_" + starter + "_1")) {
       const tkey = "hero_" + starter + "_1";
       this.heroSprite.setTexture(tkey);
+      this.heroSprite.clearTint(); // 進化形態は始まりの子の色を外す
       faceEnemy(this.heroSprite, tkey);
       this.heroFormKey = tkey;
       this.evolvedKey = starter;
@@ -2409,6 +2414,7 @@ export default class GameScene extends Phaser.Scene {
               const tkey = "hero_" + form.key + "_" + (form.kind === "stage" ? form.stage : 1);
               if (this.textures.exists(tkey)) {
                 this.heroSprite.setTexture(tkey);
+                this.heroSprite.clearTint(); // 進化形態は始まりの子の色を外す（本来の姿の色に）
                 faceEnemy(this.heroSprite, tkey); // 進化後も向きを再判定
                 this.heroFormKey = tkey;
               }

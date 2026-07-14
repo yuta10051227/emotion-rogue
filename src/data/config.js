@@ -70,6 +70,26 @@ export const DIMINISH = {
 };
 
 // ---- 進化（試作は初進化のみ：指示書§5）----
+// ---- 始まりの卵：名前から生まれる3種（名前の裏ルールで決まる。同じ名前なら必ず同じ子）----
+//  今は色ちがいの仮アート。専用アート(hero_egg_<id>)を置けば自動採用。全種とも感情で4系統に進化する。
+export const STARTERS = {
+  kinds: [
+    { id: "kurenai", label: "紅の子", tint: 0xff8a6a, lean: "anger", hint: "怒り・勇気に なりやすい" },
+    { id: "ao", label: "蒼の子", tint: 0x86bff0, lean: "sadness", hint: "悲しみに なりやすい" },
+    { id: "kin", label: "金の子", tint: 0xffdf8a, lean: "hope", hint: "希望に なりやすい" },
+  ],
+};
+// 名前 → 生まれる子（決定的）。文字コードの重み付き和で種を選ぶ＝同じ名前なら必ず同じ結果。
+export function starterFromName(name) {
+  const s = String(name || "");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h + s.charCodeAt(i) * (i + 1)) >>> 0;
+  return STARTERS.kinds[(s ? h : 0) % STARTERS.kinds.length];
+}
+export function starterKindById(id) {
+  return STARTERS.kinds.find((k) => k.id === id) || STARTERS.kinds[0];
+}
+
 export const EVOLUTION = {
   threshold: 4, // いずれかの感情累計がこの値で初進化。
   // 欠片は4感情に分散するため主感情の伸びは遅い。12（旧値）だと初回の旅
