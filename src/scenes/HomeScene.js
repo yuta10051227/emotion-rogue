@@ -203,13 +203,14 @@ export default class HomeScene extends Phaser.Scene {
     // 音：設定反映＋初回操作で解錠
     setMuted(getPref("muted"));
     this.input.once("pointerdown", onFirstGesture);
-    setMusicMood("home"); // 夜のピアノ（安らぎ）
 
     const s = getSave();
     if (!s.player || !s.player.chosen) {
+      setMusicMood("title"); // 導入(物語)の間は、オープニング曲(bgm_title)を そのまま流し続ける
       this.runOnboarding();
       return;
     }
+    setMusicMood("home"); // 安らぎの街のホーム＝別の曲/合成音（bgm_homeを置けば差し替え）
     this.buildHome();
     if (this.fromRun) this.time.delayedCall(150, () => this.showReturnSummary(this.fromRun));
   }
@@ -447,6 +448,7 @@ export default class HomeScene extends Phaser.Scene {
   // ---- home ----
   buildHome() {
     const s = getSave();
+    setMusicMood("home"); // 安らぎの街に入ったら オープニング曲→ホームの曲(未指定なら合成音)に切替
 
     // 留守番仲間の放置生産を回収（戻ってくるたび、働いてくれていた）
     //  ログウィズ流：明細つき「おかえり」ダイアログで受け取る（帰ってきた実感を作る）
